@@ -19,6 +19,10 @@ app.secret_key = 'hoysportsdata_secret_key_2025'  # For session management
 
 # Password protection configuration
 SITE_PASSWORD = 'scots25'
+ADMIN_PASSWORD = 'Jackets21!'
+
+# Maintenance mode state (stored in memory for simplicity)
+maintenance_mode = False
 
 # Create uploads directory if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -40,24 +44,109 @@ def login():
     """Login page for password protection"""
     if request.method == 'POST':
         password = request.form.get('password')
-        if password == SITE_PASSWORD:
+        
+        # Check for admin password
+        if password == ADMIN_PASSWORD:
             session['authenticated'] = True
+            session['is_admin'] = True
+            return redirect(url_for('admin_dashboard'))
+        
+        # Check for regular user password
+        elif password == SITE_PASSWORD:
+            # Check if maintenance mode is active
+            if maintenance_mode:
+                return render_template('login.html', 
+                    error='Our team is currently working on fixing bugs and/or adding features to make the app better for you! If you need immediate access contact your representative for Hoy Sports Data.',
+                    maintenance_mode=True)
+            session['authenticated'] = True
+            session['is_admin'] = False
             return redirect(url_for('index'))
+        
         else:
             return render_template('login.html', error='Invalid password. Please try again.')
-    return render_template('login.html')
+    
+    # Show maintenance message if maintenance mode is active
+    return render_template('login.html', maintenance_mode=maintenance_mode if maintenance_mode else None)
+
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    """Admin dashboard with maintenance mode controls"""
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        return redirect(url_for('index'))
+    
+    return render_template('admin.html', maintenance_mode=maintenance_mode)
+
+@app.route('/toggle_maintenance', methods=['POST'])
+@login_required
+def toggle_maintenance():
+    """Toggle maintenance mode on/off"""
+    global maintenance_mode
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    maintenance_mode = not maintenance_mode
+    status = 'enabled' if maintenance_mode else 'disabled'
+    
+    return jsonify({
+        'success': True,
+        'maintenance_mode': maintenance_mode,
+        'message': f'Maintenance mode {status}'
+    })
 
 @app.route('/logout')
 def logout():
     """Logout and clear session"""
     session.pop('authenticated', None)
+    session.pop('is_admin', None)
     return redirect(url_for('login'))
 
 @app.route('/')
 @login_required
 def index():
-    """Main page with file upload and analysis interface"""
+    """Analytics selection dashboard"""
+    return render_template('analytics_menu.html')
+
+@app.route('/analytics/offensive-hoy')
+@login_required
+def offensive_hoy_analysis():
+    """Offensive Self Scout Analysis (Hoy's Template) - Current functionality"""
     return render_template('index.html')
+
+@app.route('/analytics/defensive-hoy')
+@login_required
+def defensive_hoy_analysis():
+    """Defensive Self Scout Analysis (Hoy's Template) - Coming Soon"""
+    return render_template('coming_soon.html', 
+                         title='Defensive Self Scout Analysis (Hoy\'s Template)',
+                         description='Defensive performance analysis using Hoy\'s specialized template.')
+
+@app.route('/analytics/offensive-hudl')
+@login_required
+def offensive_hudl_analysis():
+    """Offensive Self Scout Analysis (Hudl Excel Export) - Coming Soon"""
+    return render_template('coming_soon.html',
+                         title='Offensive Self Scout Analysis (Hudl Excel Export)',
+                         description='Offensive analysis optimized for Hudl Excel export format.')
+
+@app.route('/analytics/defensive-hudl')
+@login_required
+def defensive_hudl_analysis():
+    """Defensive Self Scout Analysis (Hudl Excel Export) - Coming Soon"""
+    return render_template('coming_soon.html',
+                         title='Defensive Self Scout Analysis (Hudl Excel Export)',
+                         description='Defensive analysis designed for Hudl Excel export data.')
+
+@app.route('/analytics/player-grades')
+@login_required
+def player_grades_analysis():
+    """Player Grade Analysis (Hoy's Template) - Coming Soon"""
+    return render_template('coming_soon.html',
+                         title='Player Grade Analysis (Hoy\'s Template)',
+                         description='Individual player performance grading and analysis.')
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -163,15 +252,148 @@ def compare_stats():
     except Exception as e:
         return jsonify({'error': f'Error comparing stats: {str(e)}'}), 500
 
+@app.route('/preview', methods=['POST'])
+@login_required
+def preview_data():
+    """Get preview of uploaded data for display in table"""
+    data = request.get_json()
+    filename = data.get('filename')
+    selected_sheets = data.get('sheets', [])
+    
+    if not filename or not selected_sheets:
+        return jsonify({'error': 'Missing required parameters'}), 400
+    
+    try:
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        combined_df = load_and_process_data(filepath, selected_sheets)
+        
+        # Get all data for preview (like Streamlit)
+        preview_df = combined_df.copy()
+        
+        # Handle NaN values that can't be serialized to JSON
+        preview_df = preview_df.fillna('')  # Replace NaN with empty string
+        
+        # Convert to format suitable for HTML table
+        preview_data = {
+            'columns': preview_df.columns.tolist(),
+            'rows': preview_df.values.tolist()
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': preview_data,
+            'total_rows': len(combined_df)
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Error loading preview data: {str(e)}'}), 500
+
+@app.route('/get_plays', methods=['POST'])
+@login_required
+def get_plays():
+    """Get list of all plays for selection in play comparison"""
+    try:
+        data = request.get_json()
+        filename = data.get('filename')
+        selected_sheets = data.get('sheets', [])
+        
+        if not filename or not selected_sheets:
+            return jsonify({'error': 'Missing filename or sheets'}), 400
+            
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        combined_df = load_and_process_data(filepath, selected_sheets)
+        
+        # Create play identifiers (assuming there's a play number or we'll use row index)
+        plays = []
+        for idx, row in combined_df.iterrows():
+            # Try to find a play identifier column, otherwise use row index
+            play_id = None
+            for col in ['Play', 'PlayNumber', 'Play_Number', 'play', 'play_number']:
+                if col in combined_df.columns and pd.notna(row[col]):
+                    play_id = str(row[col])
+                    break
+            
+            if not play_id:
+                play_id = f"Play {idx + 1}"
+            
+            # Create a description for the play
+            description_parts = []
+            for col in ['Down', 'Distance', 'Formation', 'PlayType', 'Result']:
+                if col in combined_df.columns and pd.notna(row[col]):
+                    description_parts.append(f"{col}: {row[col]}")
+            
+            description = " | ".join(description_parts) if description_parts else "No description"
+            
+            plays.append({
+                'id': idx,  # Use DataFrame index as unique identifier
+                'display': f"{play_id} - {description[:100]}{'...' if len(description) > 100 else ''}",
+                'play_id': play_id
+            })
+        
+        return jsonify({
+            'success': True,
+            'plays': plays
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Error loading plays: {str(e)}'}), 500
+
+@app.route('/compare_plays', methods=['POST'])
+@login_required
+def compare_plays():
+    """Compare selected plays and return their data"""
+    try:
+        data = request.get_json()
+        filename = data.get('filename')
+        selected_sheets = data.get('sheets', [])
+        play_indices = data.get('play_indices', [])
+        
+        if not filename or not selected_sheets or not play_indices:
+            return jsonify({'error': 'Missing filename, sheets, or play indices'}), 400
+            
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        combined_df = load_and_process_data(filepath, selected_sheets)
+        
+        # Get the selected plays
+        selected_plays = combined_df.iloc[play_indices].copy()
+        
+        # Handle NaN values
+        selected_plays = selected_plays.fillna('')
+        
+        # Prepare data for comparison table
+        comparison_data = {
+            'columns': selected_plays.columns.tolist(),
+            'plays': []
+        }
+        
+        for idx, (_, row) in enumerate(selected_plays.iterrows()):
+            play_data = {
+                'play_number': idx + 1,
+                'data': row.tolist()
+            }
+            comparison_data['plays'].append(play_data)
+        
+        return jsonify({
+            'success': True,
+            'comparison_data': comparison_data
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Error comparing plays: {str(e)}'}), 500
+
 def load_and_process_data(filepath, selected_sheets):
     """Load and process data from Excel file - converted from Streamlit logic"""
     xls = pd.ExcelFile(filepath)
+    
+    # Store original sheet order for later use
+    sheet_order = {sheet: i for i, sheet in enumerate(selected_sheets)}
     
     # Load and combine sheets
     dfs = []
     for sheet in selected_sheets:
         df = pd.read_excel(filepath, sheet_name=sheet)
         df['SheetName'] = sheet
+        df['SheetOrder'] = sheet_order[sheet]  # Add ordering column
         dfs.append(df)
     
     combined_df = pd.concat(dfs, ignore_index=True)
@@ -331,12 +553,14 @@ def generate_comparison_chart(combined_df, compare_column):
                        if pd.api.types.is_numeric_dtype(combined_df[col]) and 
                        'scramble' in col.lower()]
     
-    # Create summary dataframe
+    # Create summary dataframe with preserved sheet order
     if "calls" in combined_df.columns:
         combined_df["calls"] = pd.to_numeric(combined_df["calls"], errors='coerce').fillna(0)
-        summary_df = combined_df.groupby("sheetname")["calls"].sum().reset_index(name='TotalCalls')
+        summary_df = combined_df.groupby(["sheetname", "sheetorder"])["calls"].sum().reset_index(name='TotalCalls')
+        summary_df = summary_df.sort_values('sheetorder').reset_index(drop=True)
     else:
-        summary_df = combined_df.groupby("sheetname").size().reset_index(name='TotalCalls')
+        summary_df = combined_df.groupby(["sheetname", "sheetorder"]).size().reset_index(name='TotalCalls')
+        summary_df = summary_df.sort_values('sheetorder').reset_index(drop=True)
     
     chart_col = None
     
@@ -346,15 +570,16 @@ def generate_comparison_chart(combined_df, compare_column):
             yards_col = yards_columns[0]
             combined_df[yards_col] = pd.to_numeric(combined_df[yards_col], errors='coerce').fillna(0)
             
-            grouped = combined_df.groupby("sheetname").agg({
+            grouped = combined_df.groupby(["sheetname", "sheetorder"]).agg({
                 yards_col: 'sum',
                 'calls': 'sum'
             }).reset_index()
             
             grouped["Avg Yards (Calculated)"] = grouped[yards_col] / grouped['calls']
-            grouped = grouped[['sheetname', "Avg Yards (Calculated)"]]
+            grouped = grouped[['sheetname', 'sheetorder', "Avg Yards (Calculated)"]]
+            grouped = grouped.sort_values('sheetorder').reset_index(drop=True)
             
-            summary_df = summary_df.merge(grouped, on="sheetname")
+            summary_df = summary_df.merge(grouped, on=["sheetname", "sheetorder"])
             chart_col = "Avg Yards (Calculated)"
     
     elif compare_column == "Scramble %":
@@ -362,15 +587,16 @@ def generate_comparison_chart(combined_df, compare_column):
             scrambles_col = scrambles_columns[0]
             combined_df[scrambles_col] = pd.to_numeric(combined_df[scrambles_col], errors='coerce').fillna(0)
             
-            grouped = combined_df.groupby("sheetname").agg({
+            grouped = combined_df.groupby(["sheetname", "sheetorder"]).agg({
                 scrambles_col: 'sum',
                 'calls': 'sum'
             }).reset_index()
             
             grouped["Scramble %"] = (grouped[scrambles_col] / grouped['calls']) * 100
-            grouped = grouped[['sheetname', "Scramble %"]]
+            grouped = grouped[['sheetname', 'sheetorder', "Scramble %"]]
+            grouped = grouped.sort_values('sheetorder').reset_index(drop=True)
             
-            summary_df = summary_df.merge(grouped, on="sheetname")
+            summary_df = summary_df.merge(grouped, on=["sheetname", "sheetorder"])
             chart_col = "Scramble %"
     
     # Handle percentage mappings
@@ -390,68 +616,80 @@ def generate_comparison_chart(combined_df, compare_column):
                 combined_df[raw_col] = pd.to_numeric(combined_df[raw_col], errors='coerce').fillna(0)
                 
                 if compare_column == "Efficiency %" and "calls" in combined_df.columns:
-                    grouped = combined_df.groupby("sheetname").agg({
+                    grouped = combined_df.groupby(["sheetname", "sheetorder"]).agg({
                         raw_col: 'sum',
                         'calls': 'sum'
                     }).reset_index()
                     grouped[compare_column] = (grouped[raw_col] / grouped['calls']) * 100
-                    grouped = grouped[['sheetname', compare_column]]
+                    grouped = grouped[['sheetname', 'sheetorder', compare_column]]
+                    grouped = grouped.sort_values('sheetorder').reset_index(drop=True)
                 
                 elif compare_column == "Negative %" and "calls" in combined_df.columns:
-                    grouped = combined_df.groupby("sheetname").agg({
+                    grouped = combined_df.groupby(["sheetname", "sheetorder"]).agg({
                         raw_col: 'sum',
                         'calls': 'sum'
                     }).reset_index()
                     grouped[compare_column] = (grouped[raw_col] / grouped['calls']) * 100
-                    grouped = grouped[['sheetname', compare_column]]
+                    grouped = grouped[['sheetname', 'sheetorder', compare_column]]
+                    grouped = grouped.sort_values('sheetorder').reset_index(drop=True)
                 
                 elif compare_column == "Explosive %":
-                    grouped = combined_df.groupby("sheetname")[raw_col].mean().reset_index(name=compare_column)
+                    grouped = combined_df.groupby(["sheetname", "sheetorder"])[raw_col].mean().reset_index(name=compare_column)
+                    grouped = grouped.sort_values('sheetorder').reset_index(drop=True)
                 
                 else:
-                    grouped = combined_df.groupby("sheetname")[raw_col].mean().reset_index(name=compare_column)
+                    grouped = combined_df.groupby(["sheetname", "sheetorder"])[raw_col].mean().reset_index(name=compare_column)
+                    grouped = grouped.sort_values('sheetorder').reset_index(drop=True)
                     max_val = grouped[compare_column].max()
                     if max_val <= 1.0:
                         grouped[compare_column] = grouped[compare_column] * 100
                 
-                summary_df = summary_df.merge(grouped, on="sheetname")
+                summary_df = summary_df.merge(grouped, on=["sheetname", "sheetorder"])
                 chart_col = compare_column
         
         # Handle regular numeric columns
         elif compare_column in combined_df.columns and pd.api.types.is_numeric_dtype(combined_df[compare_column]):
-            value_stats = combined_df.groupby("sheetname")[compare_column].sum().reset_index(name=compare_column)
-            summary_df = summary_df.merge(value_stats, on="sheetname")
+            value_stats = combined_df.groupby(["sheetname", "sheetorder"])[compare_column].sum().reset_index(name=compare_column)
+            value_stats = value_stats.sort_values('sheetorder').reset_index(drop=True)
+            summary_df = summary_df.merge(value_stats, on=["sheetname", "sheetorder"])
             chart_col = compare_column
     
     if chart_col and chart_col in summary_df.columns:
         # Convert to dictionary for inline data
         chart_data = summary_df.to_dict('records')
         
+        # Create ordered list of sheet names for proper x-axis ordering
+        sheet_order_list = summary_df.sort_values('sheetorder')['sheetname'].tolist()
+        
         chart = alt.Chart(alt.InlineData(values=chart_data)).mark_bar().encode(
-            x=alt.X('sheetname:N', title='Sheet'),
+            x=alt.X('sheetname:N', title='Sheet', sort=sheet_order_list),
             y=alt.Y(f'{chart_col}:Q', title=chart_col),
             color=alt.Color('sheetname:N', legend=None),
             tooltip=[alt.Tooltip('sheetname:N'), alt.Tooltip(f'{chart_col}:Q')]
         ).properties(
             title=f"Comparison: {chart_col}",
-            width=500,
-            height=350
+            width=320,
+            height=280
         )
         
         return chart.to_json()
     
-    # Fallback chart
-    chart_data_df = combined_df.groupby("sheetname").size().reset_index(name='count')
+    # Fallback chart with preserved sheet order
+    chart_data_df = combined_df.groupby(["sheetname", "sheetorder"]).size().reset_index(name='count')
+    chart_data_df = chart_data_df.sort_values('sheetorder').reset_index(drop=True)
     chart_data = chart_data_df.to_dict('records')
     
+    # Create ordered list of sheet names for proper x-axis ordering
+    sheet_order_list = chart_data_df.sort_values('sheetorder')['sheetname'].tolist()
+    
     chart = alt.Chart(alt.InlineData(values=chart_data)).mark_bar().encode(
-        x=alt.X('sheetname:N', title='Sheet'),
+        x=alt.X('sheetname:N', title='Sheet', sort=sheet_order_list),
         y=alt.Y('count:Q', title='Count'),
         tooltip=[alt.Tooltip('sheetname:N'), alt.Tooltip('count:Q')]
     ).properties(
         title=f"Data Count by Sheet",
-        width=400,
-        height=300
+        width=320,
+        height=280
     )
     
     return chart.to_json()

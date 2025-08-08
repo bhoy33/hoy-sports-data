@@ -145,18 +145,68 @@
                     <i class="fas fa-balance-scale me-2"></i>
                     Compare Statistics Across Sheets
                 </h4>
+                <p class="mb-0 mt-2 text-muted">Select up to 3 statistics to compare simultaneously</p>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <label for="statSelect" class="form-label">Select Statistic to Compare:</label>
-                        <select class="form-select" id="statSelect" onchange="compareStats()">
-                            <option value="">Choose a statistic...</option>
-                        </select>
+                <!-- Chart Selection Controls -->
+                <div class="row mb-4">
+                    <!-- Chart 1 Controls -->
+                    <div class="col-lg-4 mb-3">
+                        <label for="statSelect1" class="form-label">Chart 1 - Select Statistic:</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" id="statSelect1" onchange="compareStats(1)">
+                                <option value="">Choose a statistic...</option>
+                            </select>
+                            <button class="btn btn-outline-secondary" onclick="clearChart(1)" id="clearBtn1" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart 2 Controls -->
+                    <div class="col-lg-4 mb-3">
+                        <label for="statSelect2" class="form-label">Chart 2 - Select Statistic:</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" id="statSelect2" onchange="compareStats(2)">
+                                <option value="">Choose a statistic...</option>
+                            </select>
+                            <button class="btn btn-outline-secondary" onclick="clearChart(2)" id="clearBtn2" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart 3 Controls -->
+                    <div class="col-lg-4 mb-3">
+                        <label for="statSelect3" class="form-label">Chart 3 - Select Statistic:</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" id="statSelect3" onchange="compareStats(3)">
+                                <option value="">Choose a statistic...</option>
+                            </select>
+                            <button class="btn btn-outline-secondary" onclick="clearChart(3)" id="clearBtn3" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="chart-container mt-4" id="comparisonChartContainer" style="display: none;">
-                    <div id="comparisonChart"></div>
+                
+                <!-- Charts Row - Side by Side -->
+                <div class="row">
+                    <div class="col-lg-4 mb-3">
+                        <div class="chart-container" id="comparisonChartContainer1" style="display: none;">
+                            <div id="comparisonChart1"></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mb-3">
+                        <div class="chart-container" id="comparisonChartContainer2" style="display: none;">
+                            <div id="comparisonChart2"></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mb-3">
+                        <div class="chart-container" id="comparisonChartContainer3" style="display: none;">
+                            <div id="comparisonChart3"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -170,10 +220,67 @@
                 </h4>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped" id="dataPreview">
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-striped table-hover" id="dataPreview">
                         <!-- Table will be populated by JavaScript -->
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Play Comparison Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-search"></i> Play Comparison
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="playCountSelect" class="form-label">Number of plays to compare:</label>
+                        <select class="form-select" id="playCountSelect" onchange="setupPlayComparison()">
+                            <option value="">Select number of plays...</option>
+                            <option value="1">1 play</option>
+                            <option value="2">2 plays</option>
+                            <option value="3">3 plays</option>
+                            <option value="4">4 plays</option>
+                            <option value="5">5 plays</option>
+                            <option value="6">6 plays</option>
+                            <option value="7">7 plays</option>
+                            <option value="8">8 plays</option>
+                            <option value="9">9 plays</option>
+                            <option value="10">10 plays</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="d-flex align-items-end h-100">
+                            <button class="btn btn-primary" onclick="compareSelectedPlays()" id="comparePlaysBtn" disabled>
+                                <i class="fas fa-chart-bar"></i> Compare Selected Plays
+                            </button>
+                            <button class="btn btn-outline-secondary ms-2" onclick="clearPlayComparison()" id="clearPlayComparisonBtn" disabled>
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Play Selection Dropdowns -->
+                <div id="playSelectionContainer" class="mb-4" style="display: none;">
+                    <h5>Select plays to compare:</h5>
+                    <div id="playDropdowns" class="row">
+                        <!-- Play selection dropdowns will be generated here -->
+                    </div>
+                </div>
+                
+                <!-- Play Comparison Results -->
+                <div id="playComparisonResults" style="display: none;">
+                    <h5>Play Comparison Results:</h5>
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-striped table-hover" id="playComparisonTable">
+                            <!-- Comparison results will be populated here -->
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -337,6 +444,9 @@ function displayResults(data) {
     availableColumns = data.available_columns;
     populateStatSelect();
     
+    // Load data preview
+    loadDataPreview();
+    
     // Show results section
     document.getElementById('resultsSection').style.display = 'block';
     document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
@@ -367,21 +477,25 @@ function displaySummaryStats(stats) {
 }
 
 function populateStatSelect() {
-    const select = document.getElementById('statSelect');
-    select.innerHTML = '<option value="">Choose a statistic...</option>';
-    
-    availableColumns.forEach(([value, display]) => {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = display;
-        select.appendChild(option);
-    });
+    // Populate all three stat selection dropdowns
+    for (let i = 1; i <= 3; i++) {
+        const select = document.getElementById(`statSelect${i}`);
+        select.innerHTML = '<option value="">Choose a statistic...</option>';
+        
+        availableColumns.forEach(([value, display]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = display;
+            select.appendChild(option);
+        });
+    }
 }
 
-function compareStats() {
-    const selectedStat = document.getElementById('statSelect').value;
+function compareStats(chartNumber) {
+    const selectedStat = document.getElementById(`statSelect${chartNumber}`).value;
     if (!selectedStat) {
-        document.getElementById('comparisonChartContainer').style.display = 'none';
+        document.getElementById(`comparisonChartContainer${chartNumber}`).style.display = 'none';
+        document.getElementById(`clearBtn${chartNumber}`).style.display = 'none';
         return;
     }
 
@@ -401,11 +515,12 @@ function compareStats() {
         if (data.success && data.chart) {
             try {
                 const chartSpec = typeof data.chart === 'string' ? JSON.parse(data.chart) : data.chart;
-                vegaEmbed('#comparisonChart', chartSpec).catch(console.error);
-                document.getElementById('comparisonChartContainer').style.display = 'block';
+                vegaEmbed(`#comparisonChart${chartNumber}`, chartSpec).catch(console.error);
+                document.getElementById(`comparisonChartContainer${chartNumber}`).style.display = 'block';
+                document.getElementById(`clearBtn${chartNumber}`).style.display = 'inline-block';
             } catch (error) {
-                console.error('Error rendering comparison chart:', error);
-                document.getElementById('comparisonChart').innerHTML = '<p class="text-muted">Chart could not be displayed</p>';
+                console.error(`Error rendering comparison chart ${chartNumber}:`, error);
+                document.getElementById(`comparisonChart${chartNumber}`).innerHTML = '<p class="text-muted">Chart could not be displayed</p>';
             }
         } else {
             showAlert(data.error || 'Comparison failed', 'danger');
@@ -414,6 +529,13 @@ function compareStats() {
     .catch(error => {
         showAlert('Comparison failed: ' + error.message, 'danger');
     });
+}
+
+function clearChart(chartNumber) {
+    document.getElementById(`statSelect${chartNumber}`).value = '';
+    document.getElementById(`comparisonChartContainer${chartNumber}`).style.display = 'none';
+    document.getElementById(`clearBtn${chartNumber}`).style.display = 'none';
+    document.getElementById(`comparisonChart${chartNumber}`).innerHTML = '';
 }
 
 function showLoading(show) {
@@ -442,6 +564,253 @@ function showAlert(message, type) {
 
 function clearAlerts() {
     document.getElementById('alertContainer').innerHTML = '';
+}
+
+function loadDataPreview() {
+    if (!currentFilename || selectedSheets.length === 0) {
+        document.getElementById('dataPreview').innerHTML = '<tr><td colspan="100%" class="text-muted text-center">No data to preview. Please upload a file and select sheets first.</td></tr>';
+        return;
+    }
+
+    fetch('/preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: currentFilename,
+            sheets: selectedSheets
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.data) {
+            populateDataPreviewTable(data.data, data.total_rows);
+        } else {
+            document.getElementById('dataPreview').innerHTML = '<tr><td colspan="100%" class="text-danger text-center">Error loading data preview: ' + (data.error || 'Unknown error') + '</td></tr>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading data preview:', error);
+        document.getElementById('dataPreview').innerHTML = '<tr><td colspan="100%" class="text-danger text-center">Error loading data preview: ' + error.message + '</td></tr>';
+    });
+}
+
+function populateDataPreviewTable(data, totalRows) {
+    const table = document.getElementById('dataPreview');
+    let html = '';
+    
+    // Add header row
+    if (data.columns && data.columns.length > 0) {
+        html += '<thead class="table-dark"><tr>';
+        data.columns.forEach(column => {
+            html += `<th>${column}</th>`;
+        });
+        html += '</tr></thead>';
+    }
+    
+    // Add data rows
+    html += '<tbody>';
+    if (data.rows && data.rows.length > 0) {
+        data.rows.forEach(row => {
+            html += '<tr>';
+            row.forEach(cell => {
+                // Handle null/undefined values
+                const cellValue = cell === null || cell === undefined ? '' : cell;
+                html += `<td>${cellValue}</td>`;
+            });
+            html += '</tr>';
+        });
+        
+        // Add info row about total data
+        html += `<tr><td colspan="${data.columns.length}" class="text-muted text-center fst-italic">Showing all ${totalRows} rows - scroll to view more</td></tr>`;
+    } else {
+        html += '<tr><td colspan="100%" class="text-muted text-center">No data available</td></tr>';
+    }
+    html += '</tbody>';
+    
+    table.innerHTML = html;
+}
+
+// Play Comparison Functions
+let availablePlays = [];
+let selectedPlayCount = 0;
+
+function setupPlayComparison() {
+    const playCountSelect = document.getElementById('playCountSelect');
+    const playCount = parseInt(playCountSelect.value);
+    
+    if (!playCount) {
+        document.getElementById('playSelectionContainer').style.display = 'none';
+        document.getElementById('playComparisonResults').style.display = 'none';
+        document.getElementById('comparePlaysBtn').disabled = true;
+        document.getElementById('clearPlayComparisonBtn').disabled = true;
+        return;
+    }
+    
+    selectedPlayCount = playCount;
+    
+    // Load available plays first
+    loadAvailablePlays().then(() => {
+        generatePlayDropdowns(playCount);
+        document.getElementById('playSelectionContainer').style.display = 'block';
+        document.getElementById('clearPlayComparisonBtn').disabled = false;
+    });
+}
+
+function loadAvailablePlays() {
+    if (!currentFilename || selectedSheets.length === 0) {
+        showAlert('Please upload a file and select sheets first', 'warning');
+        return Promise.reject('No data available');
+    }
+    
+    return fetch('/get_plays', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: currentFilename,
+            sheets: selectedSheets
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            availablePlays = data.plays;
+        } else {
+            showAlert('Error loading plays: ' + (data.error || 'Unknown error'), 'danger');
+            throw new Error(data.error || 'Unknown error');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading plays:', error);
+        showAlert('Error loading plays: ' + error.message, 'danger');
+        throw error;
+    });
+}
+
+function generatePlayDropdowns(playCount) {
+    const container = document.getElementById('playDropdowns');
+    container.innerHTML = '';
+    
+    for (let i = 1; i <= playCount; i++) {
+        const colClass = playCount <= 4 ? 'col-md-3' : playCount <= 6 ? 'col-md-2' : 'col-md-1';
+        
+        const dropdownHtml = `
+            <div class="${colClass} mb-3">
+                <label for="playSelect${i}" class="form-label">Play ${i}:</label>
+                <select class="form-select play-select" id="playSelect${i}" onchange="checkPlaySelections()">
+                    <option value="">Select play...</option>
+                    ${availablePlays.map(play => 
+                        `<option value="${play.id}">${play.display}</option>`
+                    ).join('')}
+                </select>
+            </div>
+        `;
+        
+        container.innerHTML += dropdownHtml;
+    }
+}
+
+function checkPlaySelections() {
+    const playSelects = document.querySelectorAll('.play-select');
+    let selectedCount = 0;
+    
+    playSelects.forEach(select => {
+        if (select.value) selectedCount++;
+    });
+    
+    // Enable compare button if at least 1 play is selected
+    document.getElementById('comparePlaysBtn').disabled = selectedCount < 1;
+}
+
+function compareSelectedPlays() {
+    const playSelects = document.querySelectorAll('.play-select');
+    const selectedPlayIndices = [];
+    
+    playSelects.forEach(select => {
+        if (select.value) {
+            selectedPlayIndices.push(parseInt(select.value));
+        }
+    });
+    
+    if (selectedPlayIndices.length < 1) {
+        showAlert('Please select at least 1 play to view', 'warning');
+        return;
+    }
+    
+    showLoading(true);
+    
+    fetch('/compare_plays', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: currentFilename,
+            sheets: selectedSheets,
+            play_indices: selectedPlayIndices
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        if (data.success) {
+            displayPlayComparison(data.comparison_data);
+            showAlert('Play comparison complete!', 'success');
+        } else {
+            showAlert('Error comparing plays: ' + (data.error || 'Unknown error'), 'danger');
+        }
+    })
+    .catch(error => {
+        showLoading(false);
+        console.error('Error comparing plays:', error);
+        showAlert('Error comparing plays: ' + error.message, 'danger');
+    });
+}
+
+function displayPlayComparison(comparisonData) {
+    const table = document.getElementById('playComparisonTable');
+    let html = '';
+    
+    // Create header row with column names
+    html += '<thead class="table-dark"><tr>';
+    comparisonData.columns.forEach(column => {
+        html += `<th>${column}</th>`;
+    });
+    html += '</tr></thead>';
+    
+    // Create data rows - each play gets its own row
+    html += '<tbody>';
+    comparisonData.plays.forEach((play, playIndex) => {
+        html += '<tr>';
+        play.data.forEach((cellValue, colIndex) => {
+            const displayValue = cellValue === null || cellValue === undefined ? '' : cellValue;
+            html += `<td>${displayValue}</td>`;
+        });
+        html += '</tr>';
+    });
+    
+    // Add info row about selected plays
+    const playCount = comparisonData.plays.length;
+    const playText = playCount === 1 ? 'play' : 'plays';
+    html += `<tr><td colspan="${comparisonData.columns.length}" class="text-muted text-center fst-italic">Showing ${playCount} selected ${playText}</td></tr>`;
+    html += '</tbody>';
+    
+    table.innerHTML = html;
+    document.getElementById('playComparisonResults').style.display = 'block';
+    document.getElementById('playComparisonResults').scrollIntoView({ behavior: 'smooth' });
+}
+
+function clearPlayComparison() {
+    document.getElementById('playCountSelect').value = '';
+    document.getElementById('playSelectionContainer').style.display = 'none';
+    document.getElementById('playComparisonResults').style.display = 'none';
+    document.getElementById('comparePlaysBtn').disabled = true;
+    document.getElementById('clearPlayComparisonBtn').disabled = true;
+    availablePlays = [];
+    selectedPlayCount = 0;
 }
 </script>
 {% endblock %}

@@ -112,6 +112,14 @@
             <p>Professional Football Analytics</p>
         </div>
         
+        {% if maintenance_mode and not error %}
+        <div class="alert alert-warning" role="alert">
+            <i class="fas fa-tools me-2"></i>
+            <strong>Maintenance Mode Active</strong><br>
+            Our team is currently working on fixing bugs and/or adding features to make the app better for you! If you need immediate access contact your representative for Hoy Sports Data.
+        </div>
+        {% endif %}
+        
         {% if error %}
         <div class="alert alert-danger" role="alert">
             <i class="fas fa-exclamation-triangle me-2"></i>

@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Coming Soon{% endblock %}
+
+{% block extra_css %}
+<style>
+    .coming-soon-container {
+        max-width: 800px;
+        margin: 50px auto;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .coming-soon-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .coming-soon-header h1 {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+    
+    .coming-soon-icon {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.9;
+    }
+    
+    .coming-soon-card {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .feature-description {
+        font-size: 1.2rem;
+        color: #666;
+        margin-bottom: 30px;
+        line-height: 1.6;
+    }
+    
+    .development-status {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border: 2px solid #f39c12;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .development-status h3 {
+        color: #856404;
+        margin-bottom: 15px;
+    }
+    
+    .development-status p {
+        color: #856404;
+        margin-bottom: 0;
+        font-weight: 500;
+    }
+    
+    .action-buttons {
+        margin-top: 30px;
+    }
+    
+    .btn-back {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-decoration: none;
+        display: inline-block;
+        margin: 0 10px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-back:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-available {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: white;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-decoration: none;
+        display: inline-block;
+        margin: 0 10px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-available:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .features-preview {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 25px;
+        margin-bottom: 30px;
+        text-align: left;
+    }
+    
+    .features-preview h4 {
+        color: #333;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    
+    .features-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .features-list li {
+        padding: 8px 0;
+        color: #666;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .features-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .features-list i {
+        color: #667eea;
+        margin-right: 10px;
+        width: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="coming-soon-container">
+    <div class="coming-soon-header">
+        <i class="fas fa-clock coming-soon-icon"></i>
+        <h1>{{ title }}</h1>
+        <p>This feature is currently in development</p>
+    </div>
+    
+    <div class="coming-soon-card">
+        <div class="development-status">
+            <h3><i class="fas fa-tools me-2"></i>Development Status</h3>
+            <p>We're actively working on this analytics module. It will be available in a future update!</p>
+        </div>
+        
+        <div class="feature-description">
+            {{ description }}
+        </div>
+        
+        <div class="features-preview">
+            <h4><i class="fas fa-star me-2"></i>Planned Features</h4>
+            <ul class="features-list">
+                <li><i class="fas fa-upload"></i>Excel file upload and processing</li>
+                <li><i class="fas fa-chart-bar"></i>Interactive data visualizations</li>
+                <li><i class="fas fa-table"></i>Comprehensive data analysis tables</li>
+                <li><i class="fas fa-search"></i>Advanced filtering and search capabilities</li>
+                <li><i class="fas fa-download"></i>Export results and reports</li>
+                <li><i class="fas fa-mobile-alt"></i>Mobile-responsive design</li>
+            </ul>
+        </div>
+        
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Stay Updated:</strong> This feature is being developed based on user feedback and requirements. 
+            Contact your Hoy Sports Data representative for more information about availability timelines.
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{{ url_for('index') }}" class="btn-back">
+                <i class="fas fa-arrow-left me-2"></i>Back to Analytics Menu
+            </a>
+            <a href="{{ url_for('offensive_hoy_analysis') }}" class="btn-available">
+                <i class="fas fa-play me-2"></i>Try Available Analytics
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add some interactive elements
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate the icon
+    const icon = document.querySelector('.coming-soon-icon');
+    if (icon) {
+        setInterval(() => {
+            icon.style.transform = 'scale(1.1)';
+            setTimeout(() => {
+                icon.style.transform = 'scale(1)';
+            }, 300);
+        }, 3000);
+    }
+    
+    // Add click tracking for analytics
+    const buttons = document.querySelectorAll('.btn-back, .btn-available');
+    buttons.forEach(button => {
+        button.addEventListener('click', function() {
+            console.log('User navigated from coming soon page:', this.textContent.trim());
+        });
+    });
+});
+</script>
+{% endblock %}
