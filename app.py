@@ -127,18 +127,20 @@ def defensive_hoy_analysis():
 @app.route('/analytics/offensive-hudl')
 @login_required
 def offensive_hudl_analysis():
-    """Offensive Self Scout Analysis (Hudl Excel Export) - Coming Soon"""
-    return render_template('coming_soon.html',
+    """Offensive Self Scout Analysis (Hudl Excel Export) - Dynamic Column Recognition"""
+    return render_template('hudl_analysis.html',
+                         analysis_type='offensive',
                          title='Offensive Self Scout Analysis (Hudl Excel Export)',
-                         description='Offensive analysis optimized for Hudl Excel export format.')
+                         description='Upload your Hudl Excel export and we\'ll automatically detect and analyze your offensive stats.')
 
 @app.route('/analytics/defensive-hudl')
 @login_required
 def defensive_hudl_analysis():
-    """Defensive Self Scout Analysis (Hudl Excel Export) - Coming Soon"""
-    return render_template('coming_soon.html',
+    """Defensive Self Scout Analysis (Hudl Excel Export) - Dynamic Column Recognition"""
+    return render_template('hudl_analysis.html',
+                         analysis_type='defensive',
                          title='Defensive Self Scout Analysis (Hudl Excel Export)',
-                         description='Defensive analysis designed for Hudl Excel export data.')
+                         description='Upload your Hudl Excel export and we\'ll automatically detect and analyze your defensive stats.')
 
 @app.route('/analytics/player-grades')
 @login_required
@@ -344,40 +346,54 @@ def compare_plays():
     """Compare selected plays and return their data"""
     try:
         data = request.get_json()
-        filename = data.get('filename')
-        selected_sheets = data.get('sheets', [])
-        play_indices = data.get('play_indices', [])
+        selected_plays = data.get('selected_plays', [])
         
-        if not filename or not selected_sheets or not play_indices:
-            return jsonify({'error': 'Missing filename, sheets, or play indices'}), 400
-            
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        combined_df = load_and_process_data(filepath, selected_sheets)
+        if not selected_plays:
+            return jsonify({'error': 'No plays selected'}), 400
         
-        # Get the selected plays
-        selected_plays = combined_df.iloc[play_indices].copy()
+        # Get the uploaded file path from session
+        filepath = session.get('uploaded_file_path')
+        if not filepath:
+            return jsonify({'error': 'No file uploaded'}), 400
         
-        # Handle NaN values
-        selected_plays = selected_plays.fillna('')
+        # Load the Excel file
+        xls = pd.ExcelFile(filepath)
         
-        # Prepare data for comparison table
-        comparison_data = {
-            'columns': selected_plays.columns.tolist(),
-            'plays': []
-        }
+        # Find plays across all sheets
+        plays_data = []
+        for sheet_name in xls.sheet_names:
+            try:
+                df = pd.read_excel(filepath, sheet_name=sheet_name)
+                df.columns = df.columns.str.strip().str.lower()
+                
+                # Add sheet info
+                df['sheet_name'] = sheet_name
+                df['sheet_order'] = list(xls.sheet_names).index(sheet_name)
+                
+                # Filter for selected plays
+                if 'play' in df.columns:
+                    matching_plays = df[df['play'].isin(selected_plays)]
+                    if not matching_plays.empty:
+                        plays_data.append(matching_plays)
+                        
+            except Exception as e:
+                continue
         
-        for idx, (_, row) in enumerate(selected_plays.iterrows()):
-            play_data = {
-                'play_number': idx + 1,
-                'data': row.tolist()
-            }
-            comparison_data['plays'].append(play_data)
+        if not plays_data:
+            return jsonify({'error': 'No matching plays found'}), 404
+        
+        # Combine all matching plays
+        combined_plays = pd.concat(plays_data, ignore_index=True)
+        
+        # Convert to JSON-serializable format
+        result_data = combined_plays.to_dict('records')
         
         return jsonify({
             'success': True,
-            'comparison_data': comparison_data
+            'plays_data': result_data,
+            'total_plays': len(result_data)
         })
-    
+        
     except Exception as e:
         return jsonify({'error': f'Error comparing plays: {str(e)}'}), 500
 
@@ -693,6 +709,511 @@ def generate_comparison_chart(combined_df, compare_column):
     )
     
     return chart.to_json()
+
+# Hudl Excel Dynamic Column Recognition Functions
+def categorize_columns(columns, analysis_type='offensive'):
+    """Dynamically categorize columns based on their names and analysis type"""
+    categories = {
+        'identifiers': [],
+        'basic_stats': [],
+        'percentages': [],
+        'totals': [],
+        'averages': [],
+        'situational': [],
+        'advanced': [],
+        'unknown': []
+    }
+    
+    # Define patterns for different categories
+    identifier_patterns = ['play', 'down', 'distance', 'hash', 'field_position', 'formation', 'personnel', 'concept']
+    
+    if analysis_type == 'offensive':
+        basic_patterns = ['yards', 'gain', 'rush', 'pass', 'completion', 'attempt', 'carry', 'target']
+        percentage_patterns = ['completion_%', 'efficiency_%', 'success_%', 'explosive_%', 'negative_%', 'pressure_%']
+        total_patterns = ['total_', 'sum_', 'count_', 'calls']
+        average_patterns = ['avg_', 'average_', 'mean_']
+        situational_patterns = ['red_zone', 'third_down', 'goal_line', 'short_yardage', 'two_minute']
+        advanced_patterns = ['epa', 'success_rate', 'explosiveness', 'pff_', 'grade']
+    else:  # defensive
+        basic_patterns = ['tackle', 'assist', 'miss', 'sack', 'pressure', 'hurry', 'hit', 'interception', 'deflection']
+        percentage_patterns = ['tackle_%', 'pressure_%', 'coverage_%', 'miss_%', 'success_%']
+        total_patterns = ['total_', 'sum_', 'count_', 'calls']
+        average_patterns = ['avg_', 'average_', 'mean_']
+        situational_patterns = ['red_zone', 'third_down', 'goal_line', 'short_yardage', 'two_minute']
+        advanced_patterns = ['epa', 'success_rate', 'pff_', 'grade', 'coverage_grade']
+    
+    # Categorize each column
+    for col in columns:
+        col_lower = col.lower().strip()
+        categorized = False
+        
+        # Check identifier patterns
+        if any(pattern in col_lower for pattern in identifier_patterns):
+            categories['identifiers'].append(col)
+            categorized = True
+        
+        # Check percentage patterns
+        elif any(pattern in col_lower for pattern in percentage_patterns) or col_lower.endswith('%'):
+            categories['percentages'].append(col)
+            categorized = True
+        
+        # Check total patterns
+        elif any(pattern in col_lower for pattern in total_patterns):
+            categories['totals'].append(col)
+            categorized = True
+        
+        # Check average patterns
+        elif any(pattern in col_lower for pattern in average_patterns):
+            categories['averages'].append(col)
+            categorized = True
+        
+        # Check situational patterns
+        elif any(pattern in col_lower for pattern in situational_patterns):
+            categories['situational'].append(col)
+            categorized = True
+        
+        # Check advanced patterns
+        elif any(pattern in col_lower for pattern in advanced_patterns):
+            categories['advanced'].append(col)
+            categorized = True
+        
+        # Check basic patterns
+        elif any(pattern in col_lower for pattern in basic_patterns):
+            categories['basic_stats'].append(col)
+            categorized = True
+        
+        # If not categorized, add to unknown
+        if not categorized:
+            categories['unknown'].append(col)
+    
+    return categories
+
+def suggest_calculations(categorized_columns, analysis_type='offensive'):
+    """Suggest possible calculations based on available columns"""
+    suggestions = []
+    
+    totals = categorized_columns.get('totals', [])
+    percentages = categorized_columns.get('percentages', [])
+    basic_stats = categorized_columns.get('basic_stats', [])
+    
+    # Find calls/attempts column for percentage calculations
+    calls_col = None
+    for col in totals + basic_stats:
+        if any(word in col.lower() for word in ['calls', 'attempts', 'plays']):
+            calls_col = col
+            break
+    
+    if analysis_type == 'offensive':
+        # Suggest offensive calculations
+        if calls_col:
+            for stat_col in basic_stats:
+                if 'yards' in stat_col.lower() or 'gain' in stat_col.lower():
+                    suggestions.append({
+                        'name': f'Average {stat_col.title()}',
+                        'description': f'Calculate average {stat_col.lower()} per play',
+                        'formula': f'{stat_col} / {calls_col}',
+                        'type': 'average'
+                    })
+            
+            # Success rate calculations
+            for stat_col in basic_stats:
+                if any(word in stat_col.lower() for word in ['completion', 'success', 'explosive']):
+                    suggestions.append({
+                        'name': f'{stat_col.title()} Rate',
+                        'description': f'Calculate {stat_col.lower()} percentage',
+                        'formula': f'({stat_col} / {calls_col}) * 100',
+                        'type': 'percentage'
+                    })
+    
+    else:  # defensive
+        # Suggest defensive calculations
+        if calls_col:
+            for stat_col in basic_stats:
+                if any(word in stat_col.lower() for word in ['tackle', 'sack', 'pressure', 'interception']):
+                    suggestions.append({
+                        'name': f'{stat_col.title()} Rate',
+                        'description': f'Calculate {stat_col.lower()} per play',
+                        'formula': f'({stat_col} / {calls_col}) * 100',
+                        'type': 'percentage'
+                    })
+    
+    return suggestions
+
+@app.route('/hudl_upload', methods=['POST'])
+@login_required
+def hudl_upload():
+    """Handle Hudl Excel file upload and analyze columns"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        analysis_type = request.form.get('analysis_type', 'offensive')
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith(('.xlsx', '.xls')):
+            return jsonify({'error': 'Please upload an Excel file (.xlsx or .xls)'}), 400
+        
+        # Save the uploaded file
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        # Store file path in session
+        session['hudl_file_path'] = filepath
+        session['hudl_analysis_type'] = analysis_type
+        
+        # Read Excel file and get sheet names
+        xls = pd.ExcelFile(filepath)
+        sheet_names = xls.sheet_names
+        
+        # Analyze first sheet to get column structure
+        first_sheet = pd.read_excel(filepath, sheet_name=sheet_names[0])
+        columns = first_sheet.columns.tolist()
+        
+        # Categorize columns
+        categorized = categorize_columns(columns, analysis_type)
+        
+        # Suggest calculations
+        suggestions = suggest_calculations(categorized, analysis_type)
+        
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'sheet_names': sheet_names,
+            'columns': columns,
+            'categorized_columns': categorized,
+            'suggested_calculations': suggestions,
+            'analysis_type': analysis_type
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+
+@app.route('/hudl_analyze', methods=['POST'])
+@login_required
+def hudl_analyze():
+    """Analyze Hudl data with selected sheets and calculations"""
+    try:
+        data = request.get_json()
+        selected_sheets = data.get('selected_sheets', [])
+        selected_calculations = data.get('selected_calculations', [])
+        
+        filepath = session.get('hudl_file_path')
+        analysis_type = session.get('hudl_analysis_type', 'offensive')
+        
+        if not filepath:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        if not selected_sheets:
+            return jsonify({'error': 'Please select at least one sheet'}), 400
+        
+        # Load and process selected sheets
+        combined_data = []
+        for sheet_name in selected_sheets:
+            try:
+                df = pd.read_excel(filepath, sheet_name=sheet_name)
+                df.columns = df.columns.str.strip()
+                df['sheet_name'] = sheet_name
+                df['sheet_order'] = selected_sheets.index(sheet_name)
+                combined_data.append(df)
+            except Exception as e:
+                continue
+        
+        if not combined_data:
+            return jsonify({'error': 'No valid data found in selected sheets'}), 400
+        
+        combined_df = pd.concat(combined_data, ignore_index=True)
+        
+        # Clean the DataFrame to handle NaN values early
+        combined_df = combined_df.fillna('')
+        
+        # Apply selected calculations
+        calculated_stats = {}
+        for calc in selected_calculations:
+            try:
+                calc_name = calc['name']
+                calc_formula = calc['formula']
+                
+                # Parse and execute calculation
+                if '/' in calc_formula and '*' in calc_formula:
+                    # Handle percentage calculations like (stat / calls) * 100
+                    parts = calc_formula.replace('(', '').replace(')', '').split('*')
+                    if len(parts) == 2:
+                        division_part = parts[0].strip()
+                        multiplier = float(parts[1].strip())
+                        
+                        if '/' in division_part:
+                            numerator, denominator = division_part.split('/')
+                            numerator = numerator.strip()
+                            denominator = denominator.strip()
+                            
+                            if numerator in combined_df.columns and denominator in combined_df.columns:
+                                combined_df[numerator] = pd.to_numeric(combined_df[numerator], errors='coerce').fillna(0)
+                                combined_df[denominator] = pd.to_numeric(combined_df[denominator], errors='coerce').fillna(0)
+                                
+                                # Calculate by sheet
+                                sheet_stats = combined_df.groupby('sheet_name').agg({
+                                    numerator: 'sum',
+                                    denominator: 'sum'
+                                }).reset_index()
+                                
+                                sheet_stats[calc_name] = (sheet_stats[numerator] / sheet_stats[denominator]) * multiplier
+                                calculated_stats[calc_name] = sheet_stats[['sheet_name', calc_name]].to_dict('records')
+                
+                elif '/' in calc_formula:
+                    # Handle simple division like stat / calls
+                    numerator, denominator = calc_formula.split('/')
+                    numerator = numerator.strip()
+                    denominator = denominator.strip()
+                    
+                    if numerator in combined_df.columns and denominator in combined_df.columns:
+                        combined_df[numerator] = pd.to_numeric(combined_df[numerator], errors='coerce').fillna(0)
+                        combined_df[denominator] = pd.to_numeric(combined_df[denominator], errors='coerce').fillna(0)
+                        
+                        sheet_stats = combined_df.groupby('sheet_name').agg({
+                            numerator: 'sum',
+                            denominator: 'sum'
+                        }).reset_index()
+                        
+                        sheet_stats[calc_name] = sheet_stats[numerator] / sheet_stats[denominator]
+                        calculated_stats[calc_name] = sheet_stats[['sheet_name', calc_name]].to_dict('records')
+                        
+            except Exception as e:
+                continue
+        
+        # Generate summary statistics
+        summary_stats = {
+            'total_plays': len(combined_df),
+            'sheets_analyzed': len(selected_sheets),
+            'columns_available': len(combined_df.columns)
+        }
+        
+        # Generate basic visualizations
+        charts = {}
+        
+        # Sheet distribution chart
+        sheet_counts = combined_df['sheet_name'].value_counts().reset_index()
+        sheet_counts.columns = ['sheet_name', 'count']
+        
+        sheet_chart = alt.Chart(alt.InlineData(values=sheet_counts.to_dict('records'))).mark_bar().encode(
+            x=alt.X('sheet_name:N', title='Sheet'),
+            y=alt.Y('count:Q', title='Number of Plays'),
+            color=alt.Color('sheet_name:N', legend=None),
+            tooltip=['sheet_name:N', 'count:Q']
+        ).properties(
+            title='Plays by Sheet',
+            width=400,
+            height=300
+        )
+        
+        charts['sheet_distribution'] = sheet_chart.to_json()
+        
+        # Handle NaN values for JSON serialization
+        data_preview = combined_df.head(10).fillna('').to_dict('records')
+        
+        # Clean calculated_stats to handle NaN values
+        cleaned_calculated_stats = {}
+        for stat_name, stat_data in calculated_stats.items():
+            cleaned_data = []
+            for record in stat_data:
+                cleaned_record = {}
+                for key, value in record.items():
+                    if pd.isna(value):
+                        cleaned_record[key] = None
+                    elif isinstance(value, float) and (value == float('inf') or value == float('-inf')):
+                        cleaned_record[key] = None
+                    else:
+                        cleaned_record[key] = value
+                cleaned_data.append(cleaned_record)
+            cleaned_calculated_stats[stat_name] = cleaned_data
+        
+        # Generate play filtering options
+        filter_options = generate_filter_options(combined_df)
+        
+        return jsonify({
+            'success': True,
+            'summary_stats': summary_stats,
+            'calculated_stats': cleaned_calculated_stats,
+            'charts': charts,
+            'data_preview': data_preview,
+            'filter_options': filter_options
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error analyzing data: {str(e)}'}), 500
+
+def generate_filter_options(df):
+    """Generate filtering options based on available columns"""
+    filter_options = {}
+    
+    # Common filter column patterns
+    filter_patterns = {
+        'play_type': ['play type', 'play_type', 'playtype'],
+        'formation': ['off form', 'formation', 'off_form', 'offensive_formation'],
+        'play_call': ['off play', 'play_call', 'off_play', 'offensive_play'],
+        'concept': ['concept', 'play_concept'],
+        'down': ['dn', 'down'],
+        'distance': ['dist', 'distance', 'yards_to_go'],
+        'hash': ['hash', 'field_hash'],
+        'result': ['result', 'play_result'],
+        'efficiency': ['eff', 'efficiency', 'successful'],
+        'yard_line': ['yard ln', 'yard_line', 'field_position'],
+        'strength': ['off str', 'strength', 'off_strength'],
+        'backfield': ['backfield', 'personnel']
+    }
+    
+    # Find matching columns in the dataframe
+    for filter_type, patterns in filter_patterns.items():
+        for col in df.columns:
+            col_lower = str(col).lower().strip()
+            if any(pattern in col_lower for pattern in patterns):
+                # Get unique values for this filter
+                unique_values = df[col].dropna().unique().tolist()
+                if len(unique_values) > 0 and len(unique_values) <= 50:  # Reasonable filter size
+                    filter_options[filter_type] = {
+                        'column': col,
+                        'display_name': filter_type.replace('_', ' ').title(),
+                        'values': sorted([str(v) for v in unique_values if str(v) != 'nan'])
+                    }
+                break
+    
+    return filter_options
+
+@app.route('/hudl_filter_plays', methods=['POST'])
+@login_required
+def hudl_filter_plays():
+    """Filter plays based on selected criteria and return analysis"""
+    try:
+        data = request.get_json()
+        filters = data.get('filters', {})
+        group_by = data.get('group_by', None)
+        selected_sheets = data.get('selected_sheets', [])
+        
+        filepath = session.get('hudl_file_path')
+        if not filepath:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        if not selected_sheets:
+            return jsonify({'error': 'No sheets selected'}), 400
+        
+        # Load and process selected sheets
+        combined_data = []
+        for sheet_name in selected_sheets:
+            try:
+                df = pd.read_excel(filepath, sheet_name=sheet_name)
+                df.columns = df.columns.str.strip()
+                df['sheet_name'] = sheet_name
+                df['sheet_order'] = selected_sheets.index(sheet_name)
+                combined_data.append(df)
+            except Exception as e:
+                continue
+        
+        if not combined_data:
+            return jsonify({'error': 'No valid data found'}), 400
+        
+        combined_df = pd.concat(combined_data, ignore_index=True)
+        combined_df = combined_df.fillna('')
+        
+        # Apply filters
+        filtered_df = combined_df.copy()
+        applied_filters = []
+        
+        # Simple filter mapping based on Sewanee data structure
+        filter_column_map = {
+            'play_type': 'PLAY TYPE',
+            'formation': 'OFF FORM', 
+            'play_call': 'OFF PLAY',
+            'concept': 'CONCEPT',
+            'down': 'DN',
+            'distance': 'DIST',
+            'hash': 'HASH',
+            'result': 'RESULT',
+            'efficiency': 'EFF'
+        }
+        
+        for filter_type, filter_value in filters.items():
+            if filter_value and filter_value != 'all':
+                col_name = filter_column_map.get(filter_type)
+                if col_name and col_name in combined_df.columns:
+                    filtered_df = filtered_df[filtered_df[col_name].astype(str) == str(filter_value)]
+                    applied_filters.append(f"{col_name}: {filter_value}")
+        
+        # Generate summary for filtered data
+        filtered_summary = {
+            'total_plays': len(filtered_df),
+            'applied_filters': applied_filters,
+            'percentage_of_total': round((len(filtered_df) / len(combined_df)) * 100, 1) if len(combined_df) > 0 else 0
+        }
+        
+        # Generate efficiency breakdown if efficiency column exists
+        efficiency_breakdown = {}
+        if 'EFF' in filtered_df.columns:
+            eff_counts = filtered_df['EFF'].value_counts().to_dict()
+            total_with_eff = sum(eff_counts.values())
+            if total_with_eff > 0:
+                efficiency_breakdown = {
+                    'efficient_plays': eff_counts.get('Y', 0),
+                    'inefficient_plays': eff_counts.get('N', 0),
+                    'efficiency_rate': round((eff_counts.get('Y', 0) / total_with_eff) * 100, 1)
+                }
+        
+        # Generate grouped analysis if group_by is specified
+        grouped_analysis = {}
+        if group_by and group_by in combined_df.columns and len(filtered_df) > 0:
+            try:
+                group_stats = filtered_df.groupby(group_by).size().reset_index(name='play_count')
+                group_stats = group_stats.fillna('')
+                grouped_analysis = {
+                    'group_by': group_by,
+                    'data': group_stats.to_dict('records')
+                }
+            except Exception as e:
+                grouped_analysis = {}
+        
+        # Simple charts
+        charts = {}
+        if 'PLAY TYPE' in filtered_df.columns and len(filtered_df) > 0:
+            try:
+                play_type_counts = filtered_df['PLAY TYPE'].value_counts().reset_index()
+                play_type_counts.columns = ['play_type', 'count']
+                play_type_counts = play_type_counts.fillna('')
+                
+                if len(play_type_counts) > 0:
+                    chart_data = play_type_counts.to_dict('records')
+                    play_type_chart = alt.Chart(alt.InlineData(values=chart_data)).mark_bar().encode(
+                        x=alt.X('play_type:N', title='Play Type'),
+                        y=alt.Y('count:Q', title='Count'),
+                        color=alt.Color('play_type:N', legend=None),
+                        tooltip=['play_type:N', 'count:Q']
+                    ).properties(
+                        title='Filtered Play Type Distribution',
+                        width=400,
+                        height=300
+                    )
+                    charts['play_type_distribution'] = play_type_chart.to_json()
+            except Exception as e:
+                pass
+        
+        # Clean data preview
+        data_preview = filtered_df.head(20).fillna('').to_dict('records')
+        
+        return jsonify({
+            'success': True,
+            'filtered_summary': filtered_summary,
+            'grouped_analysis': grouped_analysis,
+            'efficiency_breakdown': efficiency_breakdown,
+            'charts': charts,
+            'filtered_data_preview': data_preview
+        })
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error in hudl_filter_plays: {error_details}")
+        return jsonify({'error': f'Error filtering plays: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5004))

@@ -174,39 +174,37 @@
             </div>
         </div>
         
-        <!-- Offensive Self Scout Analysis (Hudl Excel Export) - Coming Soon -->
+        <!-- Offensive Self Scout Analysis (Hudl Excel Export) - Available -->
         <div class="col-lg-6 col-xl-4 mb-4">
-            <div class="analytics-card coming-soon">
+            <div class="analytics-card available" onclick="selectAnalytics('offensive_hudl')">
                 <div class="text-center">
                     <i class="fas fa-file-excel analytics-icon"></i>
                     <h3 class="analytics-title">Offensive Self Scout Analysis</h3>
                     <p class="text-muted mb-2">(Hudl Excel Export)</p>
                     <p class="analytics-description">
-                        Offensive analysis optimized for Hudl Excel export format. 
-                        Direct integration with Hudl data exports for seamless 
-                        analysis workflow.
+                        Offensive analysis with dynamic column recognition for any Hudl Excel export. 
+                        Upload your file and we'll automatically detect and categorize your stats.
                     </p>
-                    <div class="analytics-status status-coming-soon">
-                        <i class="fas fa-clock me-1"></i>Coming Soon
+                    <div class="analytics-status status-available">
+                        <i class="fas fa-check-circle me-1"></i>Available Now
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Defensive Self Scout Analysis (Hudl Excel Export) - Coming Soon -->
+        <!-- Defensive Self Scout Analysis (Hudl Excel Export) - Available -->
         <div class="col-lg-6 col-xl-4 mb-4">
-            <div class="analytics-card coming-soon">
+            <div class="analytics-card available" onclick="selectAnalytics('defensive_hudl')">
                 <div class="text-center">
                     <i class="fas fa-file-export analytics-icon"></i>
                     <h3 class="analytics-title">Defensive Self Scout Analysis</h3>
                     <p class="text-muted mb-2">(Hudl Excel Export)</p>
                     <p class="analytics-description">
-                        Defensive analysis designed for Hudl Excel export data. 
-                        Streamlined defensive metrics and performance tracking 
-                        from Hudl platform exports.
+                        Defensive analysis with smart column detection for Hudl Excel exports. 
+                        Automatically categorizes defensive stats and suggests relevant calculations.
                     </p>
-                    <div class="analytics-status status-coming-soon">
-                        <i class="fas fa-clock me-1"></i>Coming Soon
+                    <div class="analytics-status status-available">
+                        <i class="fas fa-check-circle me-1"></i>Available Now
                     </div>
                 </div>
             </div>
@@ -265,6 +263,12 @@ function selectAnalytics(type) {
     if (type === 'offensive_hoy') {
         // Redirect to the current analytics page (renamed)
         window.location.href = "{{ url_for('offensive_hoy_analysis') }}";
+    } else if (type === 'offensive_hudl') {
+        // Redirect to offensive Hudl Excel analysis
+        window.location.href = "{{ url_for('offensive_hudl_analysis') }}";
+    } else if (type === 'defensive_hudl') {
+        // Redirect to defensive Hudl Excel analysis
+        window.location.href = "{{ url_for('defensive_hudl_analysis') }}";
     } else {
         // Show coming soon message for other options
         alert('This analytics option is coming soon! We\'re working hard to bring you more analysis tools.');

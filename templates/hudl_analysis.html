@@ -1,0 +1,827 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hudl-container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+    
+    .upload-section {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .analysis-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    
+    .analysis-header h1 {
+        font-size: 2.2rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .analysis-header p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+    
+    .file-upload-area {
+        border: 3px dashed #ddd;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .file-upload-area:hover {
+        border-color: #667eea;
+        background-color: #f8f9ff;
+    }
+    
+    .file-upload-area.dragover {
+        border-color: #667eea;
+        background-color: #f0f4ff;
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: #667eea;
+        margin-bottom: 20px;
+    }
+    
+    .btn-upload {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-upload:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .analysis-section {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+        display: none;
+    }
+    
+    .column-category {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .column-category h4 {
+        color: #495057;
+        margin-bottom: 15px;
+        font-weight: bold;
+    }
+    
+    .column-tag {
+        display: inline-block;
+        background: #e9ecef;
+        color: #495057;
+        padding: 5px 12px;
+        border-radius: 20px;
+        margin: 3px;
+        font-size: 0.9rem;
+    }
+    
+    .calculation-card {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .calculation-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 3px 10px rgba(102, 126, 234, 0.2);
+    }
+    
+    .calculation-card.selected {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+    
+    .calculation-name {
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 5px;
+    }
+    
+    .calculation-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+    }
+    
+    .calculation-formula {
+        background: #f1f3f4;
+        padding: 8px 12px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #495057;
+    }
+    
+    .results-section {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+        display: none;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .chart-container {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .loading {
+        text-align: center;
+        padding: 40px;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .success-message {
+        background: #d4edda;
+        color: #155724;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #c3e6cb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hudl-container">
+    <!-- Header -->
+    <div class="analysis-header">
+        <h1>{{ title }}</h1>
+        <p>{{ description }}</p>
+    </div>
+    
+    <!-- Upload Section -->
+    <div class="upload-section">
+        <h3>Step 1: Upload Your Hudl Excel Export</h3>
+        <p class="text-muted mb-4">Upload your Hudl Excel export file and we'll automatically detect and categorize your columns.</p>
+        
+        <div class="file-upload-area" id="uploadArea">
+            <div class="upload-icon">📊</div>
+            <h4>Drag and drop your Excel file here</h4>
+            <p class="text-muted">or click to browse files</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+            <button type="button" class="btn-upload" onclick="document.getElementById('fileInput').click();">
+                Choose File
+            </button>
+        </div>
+        
+        <div id="uploadStatus" class="mt-3"></div>
+    </div>
+    
+    <!-- Analysis Configuration Section -->
+    <div class="analysis-section" id="configSection">
+        <h3>Step 2: Review Detected Columns</h3>
+        <p class="text-muted mb-4">We've automatically categorized your columns. Review the categories below:</p>
+        
+        <div id="columnCategories"></div>
+        
+        <h3 class="mt-4">Step 3: Select Sheets to Analyze</h3>
+        <div id="sheetSelection" class="mb-4"></div>
+        
+        <h3>Step 4: Choose Calculations</h3>
+        <p class="text-muted mb-3">Based on your columns, we suggest these calculations:</p>
+        <div id="calculationSuggestions"></div>
+        
+        <div class="text-center mt-4">
+            <button type="button" class="btn-upload" id="analyzeBtn">
+                Analyze Data
+            </button>
+        </div>
+    </div>
+    
+    <!-- Results Section -->
+    <div class="results-section" id="resultsSection">
+        <h3>Analysis Results</h3>
+        
+        <div class="row" id="summaryStats"></div>
+        
+        <div id="calculatedStats"></div>
+        
+        <div id="charts"></div>
+        
+        <!-- Play Filtering Section -->
+        <div class="mt-4" id="playFilterSection" style="display: none;">
+            <h4>🎯 Filter Plays by Criteria</h4>
+            <p class="text-muted mb-3">Filter your plays to analyze specific situations, formations, or play types.</p>
+            
+            <div class="row" id="filterControls"></div>
+            
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <label for="groupBySelect" class="form-label">Group Results By:</label>
+                    <select class="form-select" id="groupBySelect">
+                        <option value="">No Grouping</option>
+                    </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button type="button" class="btn-upload" id="filterBtn">
+                        Apply Filters
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" id="clearFiltersBtn">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filtered Results Section -->
+        <div class="mt-4" id="filteredResultsSection" style="display: none;">
+            <h4>📊 Filtered Analysis Results</h4>
+            
+            <div class="row" id="filteredSummary"></div>
+            
+            <div id="efficiencyBreakdown"></div>
+            
+            <div id="groupedAnalysis"></div>
+            
+            <div id="filteredCharts"></div>
+            
+            <div class="mt-4">
+                <h5>Filtered Data Preview</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm" id="filteredDataPreview">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <h4>Complete Data Preview</h4>
+            <div class="table-responsive">
+                <table class="table table-striped" id="dataPreview">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Section -->
+    <div class="loading" id="loadingSection" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing your data...</p>
+    </div>
+</div>
+
+<script>
+let uploadedData = null;
+let selectedCalculations = [];
+
+// File upload handling
+document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+document.getElementById('uploadArea').addEventListener('click', () => {
+    document.getElementById('fileInput').click();
+});
+
+// Drag and drop
+document.getElementById('uploadArea').addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.add('dragover');
+});
+
+document.getElementById('uploadArea').addEventListener('dragleave', (e) => {
+    e.currentTarget.classList.remove('dragover');
+});
+
+document.getElementById('uploadArea').addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        document.getElementById('fileInput').files = files;
+        handleFileUpload();
+    }
+});
+
+function handleFileUpload() {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('analysis_type', '{{ analysis_type }}');
+    
+    showStatus('Uploading and analyzing file...', 'info');
+    
+    fetch('/hudl_upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            uploadedData = data;
+            showStatus('File uploaded successfully!', 'success');
+            displayColumnCategories(data.categorized_columns);
+            displaySheetSelection(data.sheet_names);
+            displayCalculationSuggestions(data.suggested_calculations);
+            document.getElementById('configSection').style.display = 'block';
+        } else {
+            showStatus(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showStatus('Error uploading file: ' + error.message, 'error');
+    });
+}
+
+function showStatus(message, type) {
+    const statusDiv = document.getElementById('uploadStatus');
+    const className = type === 'error' ? 'error-message' : 
+                     type === 'success' ? 'success-message' : 'info-message';
+    statusDiv.innerHTML = `<div class="${className}">${message}</div>`;
+}
+
+function displayColumnCategories(categories) {
+    const container = document.getElementById('columnCategories');
+    container.innerHTML = '';
+    
+    for (const [category, columns] of Object.entries(categories)) {
+        if (columns.length > 0) {
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'column-category';
+            
+            const title = category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            categoryDiv.innerHTML = `
+                <h4>${title} (${columns.length})</h4>
+                ${columns.map(col => `<span class="column-tag">${col}</span>`).join('')}
+            `;
+            
+            container.appendChild(categoryDiv);
+        }
+    }
+}
+
+function displaySheetSelection(sheetNames) {
+    const container = document.getElementById('sheetSelection');
+    container.innerHTML = sheetNames.map((sheet, index) => `
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="sheet${index}" value="${sheet}" ${index < 2 ? 'checked' : ''}>
+            <label class="form-check-label" for="sheet${index}">${sheet}</label>
+        </div>
+    `).join('');
+}
+
+function displayCalculationSuggestions(suggestions) {
+    const container = document.getElementById('calculationSuggestions');
+    container.innerHTML = suggestions.map((calc, index) => `
+        <div class="calculation-card" onclick="toggleCalculation(${index})">
+            <div class="calculation-name">${calc.name}</div>
+            <div class="calculation-description">${calc.description}</div>
+            <div class="calculation-formula">${calc.formula}</div>
+        </div>
+    `).join('');
+}
+
+function toggleCalculation(index) {
+    const card = document.querySelectorAll('.calculation-card')[index];
+    const calc = uploadedData.suggested_calculations[index];
+    
+    if (card.classList.contains('selected')) {
+        card.classList.remove('selected');
+        selectedCalculations = selectedCalculations.filter(c => c.name !== calc.name);
+    } else {
+        card.classList.add('selected');
+        selectedCalculations.push(calc);
+    }
+}
+
+document.getElementById('analyzeBtn').addEventListener('click', analyzeData);
+
+function analyzeData() {
+    const selectedSheets = Array.from(document.querySelectorAll('#sheetSelection input:checked'))
+        .map(cb => cb.value);
+    
+    if (selectedSheets.length === 0) {
+        showStatus('Please select at least one sheet to analyze.', 'error');
+        return;
+    }
+    
+    document.getElementById('loadingSection').style.display = 'block';
+    
+    fetch('/hudl_analyze', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            selected_sheets: selectedSheets,
+            selected_calculations: selectedCalculations
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingSection').style.display = 'none';
+        
+        if (data.success) {
+            displayResults(data);
+            document.getElementById('resultsSection').style.display = 'block';
+        } else {
+            showStatus(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        document.getElementById('loadingSection').style.display = 'none';
+        showStatus('Error analyzing data: ' + error.message, 'error');
+    });
+}
+
+function displayResults(data) {
+    // Display summary stats
+    const summaryContainer = document.getElementById('summaryStats');
+    summaryContainer.innerHTML = `
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-number">${data.summary_stats.total_plays}</div>
+                <div class="stat-label">Total Plays</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-number">${data.summary_stats.sheets_analyzed}</div>
+                <div class="stat-label">Sheets Analyzed</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-number">${data.summary_stats.columns_available}</div>
+                <div class="stat-label">Columns Available</div>
+            </div>
+        </div>
+    `;
+    
+    // Display calculated stats
+    const calculatedContainer = document.getElementById('calculatedStats');
+    let calculatedHtml = '<h4>Calculated Statistics</h4>';
+    
+    for (const [statName, statData] of Object.entries(data.calculated_stats)) {
+        calculatedHtml += `
+            <div class="column-category">
+                <h5>${statName}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Sheet</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${statData.map(row => `
+                                <tr>
+                                    <td>${row.sheet_name}</td>
+                                    <td>${typeof row[statName] === 'number' ? row[statName].toFixed(2) : row[statName]}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    calculatedContainer.innerHTML = calculatedHtml;
+    
+    // Display charts
+    const chartsContainer = document.getElementById('charts');
+    chartsContainer.innerHTML = '<h4>Visualizations</h4>';
+    
+    for (const [chartName, chartSpec] of Object.entries(data.charts)) {
+        const chartDiv = document.createElement('div');
+        chartDiv.className = 'chart-container';
+        chartDiv.innerHTML = `<h5>${chartName.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</h5>`;
+        chartsContainer.appendChild(chartDiv);
+        
+        // Render Altair chart
+        vegaEmbed(chartDiv, JSON.parse(chartSpec));
+    }
+    
+    // Setup play filtering if filter options are available
+    if (data.filter_options) {
+        setupPlayFiltering(data.filter_options);
+        document.getElementById('playFilterSection').style.display = 'block';
+        // Attach event handlers after elements are created
+        setTimeout(attachFilterHandlers, 100);
+    }
+    
+    // Display data preview
+    if (data.data_preview && data.data_preview.length > 0) {
+        const table = document.getElementById('dataPreview');
+        const headers = Object.keys(data.data_preview[0]);
+        
+        table.querySelector('thead').innerHTML = `
+            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+        `;
+        
+        table.querySelector('tbody').innerHTML = data.data_preview.map(row => `
+            <tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>
+        `).join('');
+    }
+}
+
+function setupPlayFiltering(filterOptions) {
+    const filterContainer = document.getElementById('filterControls');
+    const groupBySelect = document.getElementById('groupBySelect');
+    
+    // Clear existing content
+    filterContainer.innerHTML = '';
+    groupBySelect.innerHTML = '<option value="">No Grouping</option>';
+    
+    // Create filter controls
+    for (const [filterType, filterData] of Object.entries(filterOptions)) {
+        const colDiv = document.createElement('div');
+        colDiv.className = 'col-md-4 mb-3';
+        
+        colDiv.innerHTML = `
+            <label for="${filterType}Select" class="form-label">${filterData.display_name}:</label>
+            <select class="form-select filter-select" id="${filterType}Select" data-filter-type="${filterType}">
+                <option value="all">All ${filterData.display_name}</option>
+                ${filterData.values.map(value => `<option value="${value}">${value}</option>`).join('')}
+            </select>
+        `;
+        
+        filterContainer.appendChild(colDiv);
+        
+        // Add to group by options
+        groupBySelect.innerHTML += `<option value="${filterData.column}">${filterData.display_name}</option>`;
+    }
+}
+
+// Filter button event handlers - moved to be attached after elements are created
+function attachFilterHandlers() {
+    const filterBtn = document.getElementById('filterBtn');
+    const clearBtn = document.getElementById('clearFiltersBtn');
+    
+    if (filterBtn && !filterBtn.hasAttribute('data-handler-attached')) {
+        filterBtn.addEventListener('click', applyFilters);
+        filterBtn.setAttribute('data-handler-attached', 'true');
+    }
+    
+    if (clearBtn && !clearBtn.hasAttribute('data-handler-attached')) {
+        clearBtn.addEventListener('click', clearFilters);
+        clearBtn.setAttribute('data-handler-attached', 'true');
+    }
+}
+
+function applyFilters() {
+    const filters = {};
+    const filterSelects = document.querySelectorAll('.filter-select');
+    
+    filterSelects.forEach(select => {
+        const filterType = select.dataset.filterType;
+        const value = select.value;
+        if (value !== 'all') {
+            filters[filterType] = value;
+        }
+    });
+    
+    const groupBy = document.getElementById('groupBySelect').value;
+    const selectedSheets = Array.from(document.querySelectorAll('#sheetSelection input:checked'))
+        .map(cb => cb.value);
+    
+    document.getElementById('loadingSection').style.display = 'block';
+    
+    fetch('/hudl_filter_plays', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filters: filters,
+            group_by: groupBy,
+            selected_sheets: selectedSheets
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingSection').style.display = 'none';
+        
+        if (data.success) {
+            displayFilteredResults(data);
+            document.getElementById('filteredResultsSection').style.display = 'block';
+        } else {
+            showStatus(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        document.getElementById('loadingSection').style.display = 'none';
+        showStatus('Error filtering plays: ' + error.message, 'error');
+    });
+}
+
+function clearFilters() {
+    document.querySelectorAll('.filter-select').forEach(select => {
+        select.value = 'all';
+    });
+    document.getElementById('groupBySelect').value = '';
+    document.getElementById('filteredResultsSection').style.display = 'none';
+}
+
+function displayFilteredResults(data) {
+    // Display filtered summary
+    const summaryContainer = document.getElementById('filteredSummary');
+    summaryContainer.innerHTML = `
+        <div class="col-md-4">
+            <div class="stat-card" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);">
+                <div class="stat-number">${data.filtered_summary.total_plays}</div>
+                <div class="stat-label">Filtered Plays</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
+                <div class="stat-number">${data.filtered_summary.percentage_of_total}%</div>
+                <div class="stat-label">Of Total Plays</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card" style="background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);">
+                <div class="stat-number">${data.filtered_summary.applied_filters.length}</div>
+                <div class="stat-label">Active Filters</div>
+            </div>
+        </div>
+    `;
+    
+    // Display efficiency breakdown if available
+    if (data.efficiency_breakdown && Object.keys(data.efficiency_breakdown).length > 0) {
+        const effContainer = document.getElementById('efficiencyBreakdown');
+        effContainer.innerHTML = `
+            <div class="column-category">
+                <h5>🎯 Efficiency Breakdown</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="stat-number text-success">${data.efficiency_breakdown.efficient_plays}</div>
+                            <div class="stat-label">Efficient Plays</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="stat-number text-danger">${data.efficiency_breakdown.inefficient_plays}</div>
+                            <div class="stat-label">Inefficient Plays</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="stat-number text-primary">${data.efficiency_breakdown.efficiency_rate}%</div>
+                            <div class="stat-label">Efficiency Rate</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Display grouped analysis if available
+    if (data.grouped_analysis && data.grouped_analysis.data) {
+        const groupContainer = document.getElementById('groupedAnalysis');
+        groupContainer.innerHTML = `
+            <div class="column-category">
+                <h5>📈 Grouped by ${data.grouped_analysis.group_by}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>${data.grouped_analysis.group_by}</th>
+                                <th>Play Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.grouped_analysis.data.map(row => `
+                                <tr>
+                                    <td>${row[data.grouped_analysis.group_by]}</td>
+                                    <td>${row.play_count}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Display filtered charts
+    const chartsContainer = document.getElementById('filteredCharts');
+    chartsContainer.innerHTML = '';
+    
+    for (const [chartName, chartSpec] of Object.entries(data.charts)) {
+        const chartDiv = document.createElement('div');
+        chartDiv.className = 'chart-container';
+        chartDiv.innerHTML = `<h5>${chartName.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</h5>`;
+        chartsContainer.appendChild(chartDiv);
+        
+        // Render Altair chart
+        vegaEmbed(chartDiv, JSON.parse(chartSpec));
+    }
+    
+    // Display filtered data preview
+    if (data.filtered_data_preview && data.filtered_data_preview.length > 0) {
+        const table = document.getElementById('filteredDataPreview');
+        const headers = Object.keys(data.filtered_data_preview[0]);
+        
+        table.querySelector('thead').innerHTML = `
+            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+        `;
+        
+        table.querySelector('tbody').innerHTML = data.filtered_data_preview.map(row => `
+            <tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>
+        `).join('');
+    }
+}
+</script>
+
+<!-- Include Vega-Lite for chart rendering -->
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+{% endblock %}
