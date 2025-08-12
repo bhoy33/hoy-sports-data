@@ -174,14 +174,14 @@
             </div>
         </div>
         
-        <!-- Offensive Self Scout Analysis (Hudl Excel Export) - Admin Only -->
-        {% if session.get('is_admin') %}
+        <!-- Offensive Self Scout Analysis (Hudl Excel Export) -->
         <div class="col-lg-6 col-xl-4 mb-4">
+            {% if session.get('is_admin') %}
             <div class="analytics-card available" onclick="selectAnalytics('offensive_hudl')">
                 <div class="text-center">
                     <i class="fas fa-file-excel analytics-icon"></i>
                     <h3 class="analytics-title">Offensive Self Scout Analysis</h3>
-                    <p class="text-muted mb-2">(Hudl Excel Export) - Admin Only</p>
+                    <p class="text-muted mb-2">(Hudl Excel Export)</p>
                     <p class="analytics-description">
                         Offensive analysis with dynamic column recognition for any Hudl Excel export. 
                         Upload your file and we'll automatically detect and categorize your stats.
@@ -191,17 +191,32 @@
                     </div>
                 </div>
             </div>
+            {% else %}
+            <div class="analytics-card coming-soon">
+                <div class="text-center">
+                    <i class="fas fa-file-excel analytics-icon"></i>
+                    <h3 class="analytics-title">Offensive Self Scout Analysis</h3>
+                    <p class="text-muted mb-2">(Hudl Excel Export)</p>
+                    <p class="analytics-description">
+                        Offensive analysis with dynamic column recognition for any Hudl Excel export. 
+                        Upload your file and we'll automatically detect and categorize your stats.
+                    </p>
+                    <div class="analytics-status status-coming-soon">
+                        <i class="fas fa-clock me-1"></i>Coming Soon
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
         
-        <!-- Defensive Self Scout Analysis (Hudl Excel Export) - Admin Only -->
-        {% if session.get('is_admin') %}
+        <!-- Defensive Self Scout Analysis (Hudl Excel Export) -->
         <div class="col-lg-6 col-xl-4 mb-4">
+            {% if session.get('is_admin') %}
             <div class="analytics-card available" onclick="selectAnalytics('defensive_hudl')">
                 <div class="text-center">
                     <i class="fas fa-file-export analytics-icon"></i>
                     <h3 class="analytics-title">Defensive Self Scout Analysis</h3>
-                    <p class="text-muted mb-2">(Hudl Excel Export) - Admin Only</p>
+                    <p class="text-muted mb-2">(Hudl Excel Export)</p>
                     <p class="analytics-description">
                         Defensive analysis with smart column detection for Hudl Excel exports. 
                         Automatically categorizes defensive stats and suggests relevant calculations.
@@ -211,8 +226,23 @@
                     </div>
                 </div>
             </div>
+            {% else %}
+            <div class="analytics-card coming-soon">
+                <div class="text-center">
+                    <i class="fas fa-file-export analytics-icon"></i>
+                    <h3 class="analytics-title">Defensive Self Scout Analysis</h3>
+                    <p class="text-muted mb-2">(Hudl Excel Export)</p>
+                    <p class="analytics-description">
+                        Defensive analysis with smart column detection for Hudl Excel exports. 
+                        Automatically categorizes defensive stats and suggests relevant calculations.
+                    </p>
+                    <div class="analytics-status status-coming-soon">
+                        <i class="fas fa-clock me-1"></i>Coming Soon
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
         
         <!-- Player Grade Analysis (Hoy's Template) - Coming Soon -->
         <div class="col-lg-6 col-xl-4 mb-4">
