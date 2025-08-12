@@ -18,7 +18,7 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = 'hoysportsdata_secret_key_2025'  # For session management
 
 # Password protection configuration
-SITE_PASSWORD = 'scots25'
+SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25']  # Regular user passwords
 ADMIN_PASSWORD = 'Jackets21!'
 
 # Maintenance mode state (stored in memory for simplicity)
@@ -51,8 +51,8 @@ def login():
             session['is_admin'] = True
             return redirect(url_for('admin_dashboard'))
         
-        # Check for regular user password
-        elif password == SITE_PASSWORD:
+        # Check for regular user passwords
+        elif password in SITE_PASSWORDS:
             # Check if maintenance mode is active
             if maintenance_mode:
                 return render_template('login.html', 

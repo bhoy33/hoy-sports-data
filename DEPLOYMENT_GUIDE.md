@@ -81,7 +81,7 @@
 - Check that uploads directory is created properly
 
 ## Current App Features
-- 🔐 Password protection (regular: `scots25`, admin: `Jackets21!`)
+- 🔐 Password protection (regular: `scots25`, `hunt25`, `cobble25`, admin: `Jackets21!`)
 - 📊 Analytics selection menu
 - ⚙️ Admin dashboard with maintenance mode
 - 📈 Offensive Self Scout Analysis (fully functional)
