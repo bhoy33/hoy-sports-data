@@ -346,9 +346,11 @@ def compare_plays():
     """Compare selected plays and return their data"""
     try:
         data = request.get_json()
-        selected_plays = data.get('selected_plays', [])
+        play_indices = data.get('play_indices', [])
+        filename = data.get('filename', '')
+        sheets = data.get('sheets', [])
         
-        if not selected_plays:
+        if not play_indices:
             return jsonify({'error': 'No plays selected'}), 400
         
         # Get the uploaded file path from session
@@ -359,38 +361,43 @@ def compare_plays():
         # Load the Excel file
         xls = pd.ExcelFile(filepath)
         
-        # Find plays across all sheets
+        # Use specified sheets or all sheets
+        sheet_names = sheets if sheets else xls.sheet_names
+        
+        # Find plays by indices across specified sheets
         plays_data = []
-        for sheet_name in xls.sheet_names:
+        all_plays = []
+        
+        for sheet_name in sheet_names:
             try:
                 df = pd.read_excel(filepath, sheet_name=sheet_name)
-                df.columns = df.columns.str.strip().str.lower()
+                df.columns = df.columns.str.strip()
                 
-                # Add sheet info
+                # Add sheet info and row indices
                 df['sheet_name'] = sheet_name
                 df['sheet_order'] = list(xls.sheet_names).index(sheet_name)
+                df['row_index'] = df.index
                 
-                # Filter for selected plays
-                if 'play' in df.columns:
-                    matching_plays = df[df['play'].isin(selected_plays)]
-                    if not matching_plays.empty:
-                        plays_data.append(matching_plays)
+                all_plays.append(df)
                         
             except Exception as e:
                 continue
         
-        if not plays_data:
-            return jsonify({'error': 'No matching plays found'}), 404
+        if not all_plays:
+            return jsonify({'error': 'No data found in sheets'}), 404
         
-        # Combine all matching plays
-        combined_plays = pd.concat(plays_data, ignore_index=True)
+        # Combine all plays and filter by indices
+        combined_df = pd.concat(all_plays, ignore_index=True)
+        
+        # Filter for selected play indices
+        selected_plays = combined_df.iloc[play_indices] if play_indices else combined_df
         
         # Convert to JSON-serializable format
-        result_data = combined_plays.to_dict('records')
+        result_data = selected_plays.fillna('').to_dict('records')
         
         return jsonify({
             'success': True,
-            'plays_data': result_data,
+            'comparison_data': result_data,
             'total_plays': len(result_data)
         })
         
