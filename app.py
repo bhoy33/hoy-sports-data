@@ -27,12 +27,25 @@ maintenance_mode = False
 # Create uploads directory if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Authentication decorator
+# Authentication decorators
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('authenticated'):
             return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('authenticated'):
+            return redirect(url_for('login'))
+        if not session.get('is_admin'):
+            return render_template('error.html', 
+                                 error_title='Access Denied',
+                                 error_message='Admin access required for this feature.',
+                                 back_url=url_for('index')), 403
         return f(*args, **kwargs)
     return decorated_function
 
@@ -125,7 +138,7 @@ def defensive_hoy_analysis():
                          description='Defensive performance analysis using Hoy\'s specialized template.')
 
 @app.route('/analytics/offensive-hudl')
-@login_required
+@admin_required
 def offensive_hudl_analysis():
     """Offensive Self Scout Analysis (Hudl Excel Export) - Dynamic Column Recognition"""
     return render_template('hudl_analysis.html',
@@ -134,7 +147,7 @@ def offensive_hudl_analysis():
                          description='Upload your Hudl Excel export and we\'ll automatically detect and analyze your offensive stats.')
 
 @app.route('/analytics/defensive-hudl')
-@login_required
+@admin_required
 def defensive_hudl_analysis():
     """Defensive Self Scout Analysis (Hudl Excel Export) - Dynamic Column Recognition"""
     return render_template('hudl_analysis.html',
@@ -847,7 +860,7 @@ def suggest_calculations(categorized_columns, analysis_type='offensive'):
     return suggestions
 
 @app.route('/hudl_upload', methods=['POST'])
-@login_required
+@admin_required
 def hudl_upload():
     """Handle Hudl Excel file upload and analyze columns"""
     try:
@@ -900,7 +913,7 @@ def hudl_upload():
         return jsonify({'error': f'Error processing file: {str(e)}'}), 500
 
 @app.route('/hudl_analyze', methods=['POST'])
-@login_required
+@admin_required
 def hudl_analyze():
     """Analyze Hudl data with selected sheets and calculations"""
     try:
@@ -1090,7 +1103,7 @@ def generate_filter_options(df):
     return filter_options
 
 @app.route('/hudl_filter_plays', methods=['POST'])
-@login_required
+@admin_required
 def hudl_filter_plays():
     """Filter plays based on selected criteria and return analysis"""
     try:
