@@ -114,16 +114,110 @@
     <!-- Analysis Results Section -->
     <div class="row justify-content-center mt-4" id="analysisResults" style="display: none;">
         <div class="col-12">
-            <div class="card">
+            <!-- Summary Statistics -->
+            <div class="card mb-4">
                 <div class="card-header">
                     <h4 class="mb-0">
-                        <i class="fas fa-chart-bar me-2"></i>
-                        Defensive Analysis Results
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Defensive Summary Statistics
                     </h4>
                 </div>
                 <div class="card-body">
-                    <!-- Analysis content will be populated here -->
-                    <div id="analysisContent"></div>
+                    <div class="row" id="summaryStats">
+                        <!-- Summary stats will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Run vs Pass Analysis -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Run vs Pass Analysis
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div id="runPassChart"></div>
+                </div>
+            </div>
+
+            <!-- Stat Comparison -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-balance-scale me-2"></i>
+                        Compare Statistics Across Sheets
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">Select statistics to compare across different defensive sheets:</p>
+                    
+                    <!-- Stat Comparison Charts -->
+                    <div class="row">
+                        <div class="col-md-4 mb-4">
+                            <div class="stat-selector">
+                                <label for="statSelect1" class="form-label">Chart 1:</label>
+                                <select class="form-select" id="statSelect1" onchange="compareStats(1)">
+                                    <option value="">Choose a statistic...</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-secondary mt-2" id="clearBtn1" onclick="clearChart(1)" style="display: none;">Clear Chart</button>
+                            </div>
+                            <div class="chart-container mt-3" id="comparisonChartContainer1" style="display: none;">
+                                <div id="comparisonChart1"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <div class="stat-selector">
+                                <label for="statSelect2" class="form-label">Chart 2:</label>
+                                <select class="form-select" id="statSelect2" onchange="compareStats(2)">
+                                    <option value="">Choose a statistic...</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-secondary mt-2" id="clearBtn2" onclick="clearChart(2)" style="display: none;">Clear Chart</button>
+                            </div>
+                            <div class="chart-container mt-3" id="comparisonChartContainer2" style="display: none;">
+                                <div id="comparisonChart2"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <div class="stat-selector">
+                                <label for="statSelect3" class="form-label">Chart 3:</label>
+                                <select class="form-select" id="statSelect3" onchange="compareStats(3)">
+                                    <option value="">Choose a statistic...</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-secondary mt-2" id="clearBtn3" onclick="clearChart(3)" style="display: none;">Clear Chart</button>
+                            </div>
+                            <div class="chart-container mt-3" id="comparisonChartContainer3" style="display: none;">
+                                <div id="comparisonChart3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Preview -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Data Preview
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="dataPreviewTable">
+                            <thead class="table-dark">
+                                <tr id="dataPreviewHeader">
+                                    <!-- Headers will be populated dynamically -->
+                                </tr>
+                            </thead>
+                            <tbody id="dataPreviewBody">
+                                <!-- Data will be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -315,74 +409,179 @@ function analyzeSelectedSheets() {
 }
 
 function displayAnalysisResults(data) {
-    const content = document.getElementById('analysisContent');
+    // Display summary stats using the same logic as offensive analysis
+    displaySummaryStats(data.summary_stats);
     
-    let html = '<div class="row">';
-    
-    // Summary Statistics
-    if (data.summary) {
-        html += `
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Defensive Summary</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="stat-item">
-                                    <div class="stat-number">${data.summary.total_plays || 0}</div>
-                                    <div class="stat-label">Total Plays</div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="stat-item">
-                                    <div class="stat-number">${data.summary.sheets_analyzed || 0}</div>
-                                    <div class="stat-label">Sheets Analyzed</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+    // Display run vs pass chart using the same logic as offensive analysis
+    if (data.run_pass_chart) {
+        try {
+            const chartSpec = typeof data.run_pass_chart === 'string' ? JSON.parse(data.run_pass_chart) : data.run_pass_chart;
+            vegaEmbed('#runPassChart', chartSpec).catch(console.error);
+        } catch (error) {
+            console.error('Error rendering run/pass chart:', error);
+            document.getElementById('runPassChart').innerHTML = '<p class="text-muted">Chart could not be displayed</p>';
+        }
     }
     
-    // Charts
-    if (data.charts) {
-        Object.entries(data.charts).forEach(([chartName, chartSpec]) => {
-            html += `
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>${chartName.replace('_', ' ').toUpperCase()}</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="chart_${chartName}"></div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-    }
+    // Populate stat comparison dropdown using the same logic as offensive analysis
+    availableColumns = data.available_columns;
+    populateStatSelect();
     
-    html += '</div>';
-    content.innerHTML = html;
+    // Load data preview
+    loadDataPreview();
     
-    // Render charts
-    if (data.charts) {
-        Object.entries(data.charts).forEach(([chartName, chartSpec]) => {
-            try {
-                vegaEmbed(`#chart_${chartName}`, JSON.parse(chartSpec));
-            } catch (error) {
-                console.error('Error rendering chart:', error);
-                document.getElementById(`chart_${chartName}`).innerHTML = 
-                    '<p class="text-muted">Error rendering chart</p>';
-            }
-        });
-    }
-    
+    // Show results section
     document.getElementById('analysisResults').style.display = 'block';
+}
+
+function displaySummaryStats(stats) {
+    const container = document.getElementById('summaryStats');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="stat-item">
+            <div class="stat-number">${stats.total_plays}</div>
+            <div class="stat-label">Total Plays</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">${stats.columns.length}</div>
+            <div class="stat-label">Data Columns</div>
+        </div>
+        ${stats.avg_gain ? `
+        <div class="stat-item">
+            <div class="stat-number">${stats.avg_gain}</div>
+            <div class="stat-label">Avg Yards/Play</div>
+        </div>
+        ` : ''}
+        <div class="stat-item">
+            <div class="stat-number">${document.getElementById('sheetsDropdown').selectedOptions.length}</div>
+            <div class="stat-label">Sheets Analyzed</div>
+        </div>
+    `;
+}
+
+function populateStatSelect() {
+    // Populate all three stat selection dropdowns (same as offensive)
+    for (let i = 1; i <= 3; i++) {
+        const select = document.getElementById(`statSelect${i}`);
+        if (select) {
+            select.innerHTML = '<option value="">Choose a statistic...</option>';
+            
+            availableColumns.forEach(([value, display]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = display;
+                select.appendChild(option);
+            });
+        }
+    }
+}
+
+function compareStats(chartNumber) {
+    const selectedStat = document.getElementById(`statSelect${chartNumber}`).value;
+    if (!selectedStat) {
+        document.getElementById(`comparisonChartContainer${chartNumber}`).style.display = 'none';
+        document.getElementById(`clearBtn${chartNumber}`).style.display = 'none';
+        return;
+    }
+
+    showLoading(true);
+
+    fetch('/compare', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: currentFilename,
+            sheets: Array.from(document.getElementById('sheetsDropdown').selectedOptions).map(option => option.value),
+            column: selectedStat
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        if (data.success && data.chart) {
+            try {
+                const chartSpec = typeof data.chart === 'string' ? JSON.parse(data.chart) : data.chart;
+                vegaEmbed(`#comparisonChart${chartNumber}`, chartSpec).catch(console.error);
+                document.getElementById(`comparisonChartContainer${chartNumber}`).style.display = 'block';
+                document.getElementById(`clearBtn${chartNumber}`).style.display = 'inline-block';
+            } catch (error) {
+                console.error('Error rendering comparison chart:', error);
+                document.getElementById(`comparisonChart${chartNumber}`).innerHTML = '<p class="text-muted">Chart could not be displayed</p>';
+            }
+        } else {
+            showAlert(data.error || 'Failed to generate comparison chart', 'danger');
+        }
+    })
+    .catch(error => {
+        showLoading(false);
+        showAlert('Comparison failed: ' + error.message, 'danger');
+    });
+}
+
+function clearChart(chartNumber) {
+    document.getElementById(`statSelect${chartNumber}`).value = '';
+    document.getElementById(`comparisonChartContainer${chartNumber}`).style.display = 'none';
+    document.getElementById(`clearBtn${chartNumber}`).style.display = 'none';
+}
+
+function loadDataPreview() {
+    if (!currentFilename) return;
+
+    fetch('/preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: currentFilename,
+            sheets: Array.from(document.getElementById('sheetsDropdown').selectedOptions).map(option => option.value)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayDataPreview(data.preview_data);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading data preview:', error);
+    });
+}
+
+function displayDataPreview(previewData) {
+    if (!previewData || previewData.length === 0) return;
+
+    const headerRow = document.getElementById('dataPreviewHeader');
+    const bodyElement = document.getElementById('dataPreviewBody');
+    
+    // Clear existing content
+    headerRow.innerHTML = '';
+    bodyElement.innerHTML = '';
+    
+    // Get column names from first row
+    const columns = Object.keys(previewData[0]);
+    
+    // Create header
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col;
+        headerRow.appendChild(th);
+    });
+    
+    // Create body rows (limit to first 10 rows for performance)
+    const rowsToShow = Math.min(previewData.length, 10);
+    for (let i = 0; i < rowsToShow; i++) {
+        const row = document.createElement('tr');
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            td.textContent = previewData[i][col] || '';
+            row.appendChild(td);
+        });
+        bodyElement.appendChild(row);
+    }
 }
 
 function setupPlayComparison(playData) {

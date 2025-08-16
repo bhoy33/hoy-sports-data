@@ -285,7 +285,7 @@ def analyze_data():
 @app.route('/analyze_plays', methods=['POST'])
 @login_required
 def analyze_plays():
-    """Analyze plays for both offensive and defensive analysis"""
+    """Analyze plays for both offensive and defensive analysis using the same logic as offensive analysis"""
     try:
         data = request.get_json()
         filename = data.get('filename', '')
@@ -300,34 +300,24 @@ def analyze_plays():
         if not filepath:
             return jsonify({'error': 'No file uploaded'}), 400
         
-        # Load and process the data
-        xls = pd.ExcelFile(filepath)
-        all_plays = []
+        print(f"DEBUG: Loading data from {filepath} with sheets {selected_sheets}")
         
-        for sheet_name in selected_sheets:
-            try:
-                df = pd.read_excel(filepath, sheet_name=sheet_name)
-                df.columns = df.columns.str.strip()
-                
-                # Add metadata
-                df['sheet_name'] = sheet_name
-                df['sheet_order'] = list(xls.sheet_names).index(sheet_name)
-                
-                all_plays.append(df)
-            except Exception as e:
-                continue
+        # Use the same data processing as offensive analysis
+        combined_df = load_and_process_data(filepath, selected_sheets)
+        print(f"DEBUG: Combined dataframe shape: {combined_df.shape}")
+        print(f"DEBUG: Combined dataframe columns: {list(combined_df.columns)}")
         
-        if not all_plays:
-            return jsonify({'error': 'No data found in selected sheets'}), 404
+        # Get available columns for comparison (same as offensive)
+        available_columns = get_available_columns(combined_df)
+        print(f"DEBUG: Available columns: {available_columns}")
         
-        # Combine all data
-        combined_df = pd.concat(all_plays, ignore_index=True)
+        # Generate summary statistics (same as offensive)
+        summary_stats = generate_summary_stats(combined_df)
+        print(f"DEBUG: Summary stats: {summary_stats}")
         
-        # Generate analysis based on type
-        if analysis_type == 'defensive':
-            analysis_result = generate_defensive_analysis(combined_df)
-        else:
-            analysis_result = generate_offensive_analysis(combined_df)
+        # Generate run vs pass chart (same as offensive)
+        run_pass_chart = generate_run_pass_chart(combined_df)
+        print(f"DEBUG: Run pass chart generated: {run_pass_chart is not None}")
         
         # Prepare play data for comparison
         play_data = combined_df.fillna('').to_dict('records')
@@ -335,14 +325,16 @@ def analyze_plays():
         return jsonify({
             'success': True,
             'analysis_type': analysis_type,
-            'summary': analysis_result.get('summary', {}),
-            'charts': analysis_result.get('charts', {}),
+            'summary_stats': summary_stats,
+            'available_columns': available_columns,
+            'run_pass_chart': run_pass_chart,
             'play_data': play_data,
             'total_plays': len(combined_df),
             'sheets_analyzed': len(selected_sheets)
         })
     
     except Exception as e:
+        print(f"ERROR in analyze_plays: {str(e)}")
         return jsonify({'error': f'Error analyzing plays: {str(e)}'}), 500
 
 @app.route('/compare', methods=['POST'])
