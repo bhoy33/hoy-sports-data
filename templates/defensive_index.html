@@ -1,0 +1,649 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container text-center">
+        <h1 class="hero-title">
+            <i class="fas fa-shield-alt me-3"></i>
+            Defensive Self Scout Analysis
+        </h1>
+        <p class="hero-subtitle">
+            Professional Defensive Performance Analysis Platform
+        </p>
+        <p class="mt-4">
+            Upload your defensive self-scout Excel data and get instant, professional analytics with interactive visualizations
+        </p>
+    </div>
+</section>
+
+<div class="container">
+    <!-- Features Section -->
+    <div class="row mb-5">
+        <div class="col-md-4 text-center mb-4">
+            <div class="feature-icon">
+                <i class="fas fa-upload"></i>
+            </div>
+            <h4>Easy Upload</h4>
+            <p class="text-muted">Simply drag and drop your defensive Excel self-scout files for instant analysis</p>
+        </div>
+        <div class="col-md-4 text-center mb-4">
+            <div class="feature-icon">
+                <i class="fas fa-chart-bar"></i>
+            </div>
+            <h4>Defensive Analytics</h4>
+            <p class="text-muted">Get detailed defensive statistics and comparisons across different formations and situations</p>
+        </div>
+        <div class="col-md-4 text-center mb-4">
+            <div class="feature-icon">
+                <i class="fas fa-eye"></i>
+            </div>
+            <h4>Interactive Visualizations</h4>
+            <p class="text-muted">Explore your defensive data with professional, interactive charts and graphs</p>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-excel me-2"></i>
+                        Upload Your Defensive Self-Scout Excel File
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
+                        <h5>Drag & Drop Your Defensive Excel File Here</h5>
+                        <p class="text-muted mb-3">or click to browse files</p>
+                        <input type="file" id="fileInput" class="d-none" accept=".xlsx,.xls">
+                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-folder-open me-2"></i>
+                            Choose File
+                        </button>
+                        <p class="text-muted mt-3 mb-0">
+                            <small>Supported formats: .xlsx, .xls (Max size: 16MB)</small>
+                        </p>
+                    </div>
+
+                    <!-- Loading Spinner -->
+                    <div class="loading-spinner" id="loadingSpinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Processing your defensive data...</p>
+                    </div>
+
+                    <!-- Alert Messages -->
+                    <div id="alertContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sheet Selection Section -->
+    <div class="row justify-content-center mt-4" id="sheetSelection" style="display: none;">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Select Defensive Sheets to Analyze
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Choose which defensive sheets from your Excel file you want to include in the analysis:</p>
+                    <div class="mb-3">
+                        <label for="sheetsDropdown" class="form-label">Select defensive sheets to compare:</label>
+                        <select id="sheetsDropdown" class="form-select" multiple size="6" style="min-height: 150px;">
+                            <!-- Sheets will be populated dynamically -->
+                        </select>
+                        <div class="form-text">Hold Ctrl (Cmd on Mac) to select multiple sheets</div>
+                    </div>
+                    <button class="btn btn-success" onclick="analyzeSelectedSheets()" id="analyzeBtn" disabled>
+                        <i class="fas fa-chart-line me-2"></i>
+                        Analyze Selected Sheets
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Results Section -->
+    <div class="row justify-content-center mt-4" id="analysisResults" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Defensive Analysis Results
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Analysis content will be populated here -->
+                    <div id="analysisContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Play Comparison Section -->
+    <div class="row justify-content-center mt-4" id="playComparisonSection" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-balance-scale me-2"></i>
+                        Defensive Play Comparison
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Select specific defensive plays to compare in detail:</p>
+                    
+                    <!-- Play Selection -->
+                    <div class="row mb-4" id="playSelection">
+                        <!-- Play selectors will be populated dynamically -->
+                    </div>
+                    
+                    <div class="text-center mb-4">
+                        <button class="btn btn-primary" onclick="compareSelectedPlays()" id="comparePlaysBtn" disabled>
+                            <i class="fas fa-search me-2"></i>
+                            Compare Selected Plays
+                        </button>
+                    </div>
+                    
+                    <!-- Comparison Results -->
+                    <div id="comparisonResults"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables for defensive analysis
+let currentFilename = '';
+let availableSheets = [];
+let analysisData = {};
+let playData = [];
+
+// File upload handling
+document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+document.getElementById('uploadArea').addEventListener('click', () => {
+    document.getElementById('fileInput').click();
+});
+
+// Drag and drop handling
+document.getElementById('uploadArea').addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.add('dragover');
+});
+
+document.getElementById('uploadArea').addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('dragover');
+});
+
+document.getElementById('uploadArea').addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleFileSelect({ target: { files: files } });
+    }
+});
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+    ];
+    
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
+        showAlert('Please select a valid Excel file (.xlsx or .xls)', 'danger');
+        return;
+    }
+
+    // Validate file size (16MB limit)
+    if (file.size > 16 * 1024 * 1024) {
+        showAlert('File size must be less than 16MB', 'danger');
+        return;
+    }
+
+    uploadFile(file);
+}
+
+function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('analysis_type', 'defensive');
+
+    showLoading(true);
+    currentFilename = file.name;
+
+    fetch('/upload_plays', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        if (data.success) {
+            availableSheets = data.sheets;
+            populateSheetSelection(data.sheets);
+            showSheetSelection();
+            showAlert('File uploaded successfully! Select sheets to analyze.', 'success');
+        } else {
+            showAlert('Error uploading file: ' + (data.error || 'Unknown error'), 'danger');
+        }
+    })
+    .catch(error => {
+        showLoading(false);
+        console.error('Error uploading file:', error);
+        showAlert('Error uploading file: ' + error.message, 'danger');
+    });
+}
+
+function populateSheetSelection(sheets) {
+    const dropdown = document.getElementById('sheetsDropdown');
+    dropdown.innerHTML = '';
+    
+    sheets.forEach(sheet => {
+        const option = document.createElement('option');
+        option.value = sheet;
+        option.textContent = sheet;
+        dropdown.appendChild(option);
+    });
+    
+    // Enable analyze button when sheets are selected
+    dropdown.addEventListener('change', () => {
+        const selectedSheets = Array.from(dropdown.selectedOptions).map(option => option.value);
+        document.getElementById('analyzeBtn').disabled = selectedSheets.length === 0;
+    });
+}
+
+function showSheetSelection() {
+    document.getElementById('sheetSelection').style.display = 'block';
+}
+
+function analyzeSelectedSheets() {
+    const selectedSheets = Array.from(document.getElementById('sheetsDropdown').selectedOptions)
+        .map(option => option.value);
+    
+    if (selectedSheets.length === 0) {
+        showAlert('Please select at least one sheet to analyze', 'warning');
+        return;
+    }
+    
+    showLoading(true);
+    
+    fetch('/analyze_plays', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: currentFilename,
+            sheets: selectedSheets,
+            analysis_type: 'defensive'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        if (data.success) {
+            analysisData = data;
+            playData = data.play_data || [];
+            displayAnalysisResults(data);
+            setupPlayComparison(data.play_data);
+            showAlert('Defensive analysis complete!', 'success');
+        } else {
+            showAlert('Error analyzing data: ' + (data.error || 'Unknown error'), 'danger');
+        }
+    })
+    .catch(error => {
+        showLoading(false);
+        console.error('Error analyzing data:', error);
+        showAlert('Error analyzing data: ' + error.message, 'danger');
+    });
+}
+
+function displayAnalysisResults(data) {
+    const content = document.getElementById('analysisContent');
+    
+    let html = '<div class="row">';
+    
+    // Summary Statistics
+    if (data.summary) {
+        html += `
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Defensive Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="stat-item">
+                                    <div class="stat-number">${data.summary.total_plays || 0}</div>
+                                    <div class="stat-label">Total Plays</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-item">
+                                    <div class="stat-number">${data.summary.sheets_analyzed || 0}</div>
+                                    <div class="stat-label">Sheets Analyzed</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Charts
+    if (data.charts) {
+        Object.entries(data.charts).forEach(([chartName, chartSpec]) => {
+            html += `
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>${chartName.replace('_', ' ').toUpperCase()}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="chart_${chartName}"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    html += '</div>';
+    content.innerHTML = html;
+    
+    // Render charts
+    if (data.charts) {
+        Object.entries(data.charts).forEach(([chartName, chartSpec]) => {
+            try {
+                vegaEmbed(`#chart_${chartName}`, JSON.parse(chartSpec));
+            } catch (error) {
+                console.error('Error rendering chart:', error);
+                document.getElementById(`chart_${chartName}`).innerHTML = 
+                    '<p class="text-muted">Error rendering chart</p>';
+            }
+        });
+    }
+    
+    document.getElementById('analysisResults').style.display = 'block';
+}
+
+function setupPlayComparison(playData) {
+    if (!playData || playData.length === 0) {
+        return;
+    }
+    
+    const playSelection = document.getElementById('playSelection');
+    let html = '';
+    
+    // Create play selectors (limit to first 10 for performance)
+    const maxPlays = Math.min(playData.length, 10);
+    for (let i = 0; i < maxPlays; i++) {
+        html += `
+            <div class="col-md-4 mb-3">
+                <label for="playSelect${i}" class="form-label">Play ${i + 1}:</label>
+                <select class="form-select play-select" id="playSelect${i}" data-play-index="${i}">
+                    <option value="">Select a play...</option>
+        `;
+        
+        playData.forEach((play, index) => {
+            const playLabel = play.play || play.Play || `Play ${index + 1}`;
+            html += `<option value="${index}">${playLabel}</option>`;
+        });
+        
+        html += `
+                </select>
+            </div>
+        `;
+    }
+    
+    playSelection.innerHTML = html;
+    
+    // Add event listeners to enable/disable compare button
+    document.querySelectorAll('.play-select').forEach(select => {
+        select.addEventListener('change', updateCompareButton);
+    });
+    
+    document.getElementById('playComparisonSection').style.display = 'block';
+}
+
+function updateCompareButton() {
+    const playSelects = document.querySelectorAll('.play-select');
+    let selectedCount = 0;
+    
+    playSelects.forEach(select => {
+        if (select.value) selectedCount++;
+    });
+    
+    // Enable compare button if at least 1 play is selected
+    document.getElementById('comparePlaysBtn').disabled = selectedCount < 1;
+}
+
+function compareSelectedPlays() {
+    const playSelects = document.querySelectorAll('.play-select');
+    const selectedPlayIndices = [];
+    
+    playSelects.forEach(select => {
+        if (select.value) {
+            selectedPlayIndices.push(parseInt(select.value));
+        }
+    });
+    
+    if (selectedPlayIndices.length < 1) {
+        showAlert('Please select at least 1 play to view', 'warning');
+        return;
+    }
+    
+    showLoading(true);
+    
+    fetch('/compare_plays', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: currentFilename,
+            sheets: Array.from(document.querySelectorAll('#sheetSelection input:checked'))
+                .map(cb => cb.value),
+            play_indices: selectedPlayIndices
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        if (data.success) {
+            displayPlayComparison(data.comparison_data);
+            showAlert('Play comparison complete!', 'success');
+        } else {
+            showAlert('Error comparing plays: ' + (data.error || 'Unknown error'), 'danger');
+        }
+    })
+    .catch(error => {
+        showLoading(false);
+        console.error('Error comparing plays:', error);
+        showAlert('Error comparing plays: ' + error.message, 'danger');
+    });
+}
+
+function displayPlayComparison(comparisonData) {
+    const results = document.getElementById('comparisonResults');
+    
+    if (!comparisonData || comparisonData.length === 0) {
+        results.innerHTML = '<p class="text-muted">No comparison data available.</p>';
+        return;
+    }
+    
+    let html = `
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-table me-2"></i>Selected Defensive Plays Comparison</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+    `;
+    
+    // Table headers
+    if (comparisonData.length > 0) {
+        Object.keys(comparisonData[0]).forEach(key => {
+            html += `<th>${key}</th>`;
+        });
+    }
+    
+    html += `
+                            </tr>
+                        </thead>
+                        <tbody>
+    `;
+    
+    // Table rows
+    comparisonData.forEach(play => {
+        html += '<tr>';
+        Object.values(play).forEach(value => {
+            html += `<td>${value || '-'}</td>`;
+        });
+        html += '</tr>';
+    });
+    
+    html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    results.innerHTML = html;
+}
+
+// Utility functions
+function showLoading(show) {
+    document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+}
+
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertId = 'alert_' + Date.now();
+    
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert" id="${alertId}">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Auto-remove success alerts after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+}
+</script>
+
+<style>
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4rem 0;
+    margin-bottom: 3rem;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.hero-subtitle {
+    font-size: 1.25rem;
+    opacity: 0.9;
+    margin-bottom: 0;
+}
+
+.feature-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    color: white;
+    font-size: 2rem;
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    padding: 3rem 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-area:hover, .upload-area.dragover {
+    border-color: #0d6efd;
+    background-color: #f8f9fa;
+}
+
+.loading-spinner {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #0d6efd;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+</style>
+{% endblock %}

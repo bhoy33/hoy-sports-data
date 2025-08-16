@@ -155,9 +155,9 @@
             </div>
         </div>
         
-        <!-- Defensive Self Scout Analysis (Hoy's Template) - Coming Soon -->
+        <!-- Defensive Self Scout Analysis (Hoy's Template) - Available -->
         <div class="col-lg-6 col-xl-4 mb-4">
-            <div class="analytics-card coming-soon">
+            <div class="analytics-card available" onclick="selectAnalytics('defensive_hoy')">
                 <div class="text-center">
                     <i class="fas fa-shield-alt analytics-icon"></i>
                     <h3 class="analytics-title">Defensive Self Scout Analysis</h3>
@@ -167,8 +167,8 @@
                         Coverage analysis, pressure metrics, tackle efficiency, 
                         and defensive formation breakdowns.
                     </p>
-                    <div class="analytics-status status-coming-soon">
-                        <i class="fas fa-clock me-1"></i>Coming Soon
+                    <div class="analytics-status status-available">
+                        <i class="fas fa-check-circle me-1"></i>Available Now
                     </div>
                 </div>
             </div>
@@ -297,6 +297,9 @@ function selectAnalytics(type) {
     if (type === 'offensive_hoy') {
         // Redirect to the current analytics page (renamed)
         window.location.href = "{{ url_for('offensive_hoy_analysis') }}";
+    } else if (type === 'defensive_hoy') {
+        // Redirect to the defensive analytics page
+        window.location.href = "{{ url_for('defensive_hoy_analysis') }}";
     } else if (type === 'offensive_hudl') {
         // Redirect to offensive Hudl Excel analysis
         window.location.href = "{{ url_for('offensive_hudl_analysis') }}";

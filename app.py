@@ -132,10 +132,8 @@ def offensive_hoy_analysis():
 @app.route('/analytics/defensive-hoy')
 @login_required
 def defensive_hoy_analysis():
-    """Defensive Self Scout Analysis (Hoy's Template) - Coming Soon"""
-    return render_template('coming_soon.html', 
-                         title='Defensive Self Scout Analysis (Hoy\'s Template)',
-                         description='Defensive performance analysis using Hoy\'s specialized template.')
+    """Defensive Self Scout Analysis (Hoy's Template) - Current functionality"""
+    return render_template('defensive_index.html')
 
 @app.route('/analytics/offensive-hudl')
 @admin_required
@@ -183,6 +181,9 @@ def upload_file():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         
+        # Store file path in session for later use
+        session['uploaded_file_path'] = filepath
+        
         # Read Excel file and get sheet names
         xls = pd.ExcelFile(filepath)
         sheet_names = xls.sheet_names
@@ -191,6 +192,47 @@ def upload_file():
             'success': True,
             'filename': filename,
             'sheets': sheet_names
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Error processing file: {str(e)}'}), 500
+
+@app.route('/upload_plays', methods=['POST'])
+@login_required
+def upload_plays():
+    """Handle Excel file upload for play analysis (both offensive and defensive)"""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if not file.filename.lower().endswith(('.xlsx', '.xls')):
+        return jsonify({'error': 'Please upload an Excel file (.xlsx or .xls)'}), 400
+    
+    try:
+        # Get analysis type from form data
+        analysis_type = request.form.get('analysis_type', 'offensive')
+        
+        # Save file temporarily
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        # Store file path and analysis type in session
+        session['uploaded_file_path'] = filepath
+        session['analysis_type'] = analysis_type
+        
+        # Read Excel file and get sheet names
+        xls = pd.ExcelFile(filepath)
+        sheet_names = xls.sheet_names
+        
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'sheets': sheet_names,
+            'analysis_type': analysis_type
         })
     
     except Exception as e:
@@ -239,6 +281,69 @@ def analyze_data():
     
     except Exception as e:
         return jsonify({'error': f'Error analyzing data: {str(e)}'}), 500
+
+@app.route('/analyze_plays', methods=['POST'])
+@login_required
+def analyze_plays():
+    """Analyze plays for both offensive and defensive analysis"""
+    try:
+        data = request.get_json()
+        filename = data.get('filename', '')
+        selected_sheets = data.get('sheets', [])
+        analysis_type = data.get('analysis_type', session.get('analysis_type', 'offensive'))
+        
+        if not filename or not selected_sheets:
+            return jsonify({'error': 'Missing filename or sheets'}), 400
+        
+        # Get the uploaded file path from session
+        filepath = session.get('uploaded_file_path')
+        if not filepath:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        # Load and process the data
+        xls = pd.ExcelFile(filepath)
+        all_plays = []
+        
+        for sheet_name in selected_sheets:
+            try:
+                df = pd.read_excel(filepath, sheet_name=sheet_name)
+                df.columns = df.columns.str.strip()
+                
+                # Add metadata
+                df['sheet_name'] = sheet_name
+                df['sheet_order'] = list(xls.sheet_names).index(sheet_name)
+                
+                all_plays.append(df)
+            except Exception as e:
+                continue
+        
+        if not all_plays:
+            return jsonify({'error': 'No data found in selected sheets'}), 404
+        
+        # Combine all data
+        combined_df = pd.concat(all_plays, ignore_index=True)
+        
+        # Generate analysis based on type
+        if analysis_type == 'defensive':
+            analysis_result = generate_defensive_analysis(combined_df)
+        else:
+            analysis_result = generate_offensive_analysis(combined_df)
+        
+        # Prepare play data for comparison
+        play_data = combined_df.fillna('').to_dict('records')
+        
+        return jsonify({
+            'success': True,
+            'analysis_type': analysis_type,
+            'summary': analysis_result.get('summary', {}),
+            'charts': analysis_result.get('charts', {}),
+            'play_data': play_data,
+            'total_plays': len(combined_df),
+            'sheets_analyzed': len(selected_sheets)
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Error analyzing plays: {str(e)}'}), 500
 
 @app.route('/compare', methods=['POST'])
 @login_required
@@ -1234,6 +1339,191 @@ def hudl_filter_plays():
         error_details = traceback.format_exc()
         print(f"Error in hudl_filter_plays: {error_details}")
         return jsonify({'error': f'Error filtering plays: {str(e)}'}), 500
+
+def generate_defensive_analysis(df):
+    """Generate defensive-specific analysis and charts"""
+    try:
+        # Basic summary statistics
+        summary = {
+            'total_plays': len(df),
+            'total_sheets': len(df['sheet_name'].unique()) if 'sheet_name' in df.columns else 1
+        }
+        
+        # Defensive-specific column analysis
+        defensive_columns = [
+            'Formation', 'FORMATION', 'DEF FORM', 'Defense', 'DEFENSE',
+            'Coverage', 'COVERAGE', 'COV', 'Blitz', 'BLITZ', 'RUSH',
+            'Personnel', 'PERSONNEL', 'PERS', 'Down', 'DOWN', 'DN',
+            'Distance', 'DISTANCE', 'DIST', 'Result', 'RESULT', 'GAIN',
+            'Success', 'SUCCESS', 'STOP', 'TFL', 'SACK', 'INT', 'PBU'
+        ]
+        
+        # Find available defensive columns
+        available_cols = [col for col in df.columns if any(def_col.lower() in col.lower() for def_col in defensive_columns)]
+        
+        charts = {}
+        
+        # Generate formation distribution chart if formation data exists
+        formation_cols = [col for col in df.columns if any(term in col.upper() for term in ['FORM', 'FORMATION', 'DEF'])]
+        if formation_cols:
+            formation_col = formation_cols[0]
+            formation_counts = df[formation_col].value_counts().head(10)
+            if len(formation_counts) > 0:
+                formation_chart = {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "title": "Defensive Formation Distribution",
+                    "data": {"values": [{"formation": str(k), "count": int(v)} for k, v in formation_counts.items()]},
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {"field": "formation", "type": "nominal", "title": "Formation"},
+                        "y": {"field": "count", "type": "quantitative", "title": "Number of Plays"},
+                        "color": {"value": "#1f77b4"}
+                    }
+                }
+                charts['formation_distribution'] = json.dumps(formation_chart)
+        
+        # Generate down and distance analysis
+        down_cols = [col for col in df.columns if col.upper() in ['DOWN', 'DN']]
+        dist_cols = [col for col in df.columns if col.upper() in ['DISTANCE', 'DIST']]
+        
+        if down_cols and dist_cols:
+            down_col, dist_col = down_cols[0], dist_cols[0]
+            down_dist_data = df.groupby([down_col, dist_col]).size().reset_index(name='count')
+            down_dist_data = down_dist_data.head(20)  # Limit for readability
+            
+            if len(down_dist_data) > 0:
+                down_dist_chart = {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "title": "Down and Distance Analysis",
+                    "data": {"values": down_dist_data.to_dict('records')},
+                    "mark": "circle",
+                    "encoding": {
+                        "x": {"field": down_col, "type": "ordinal", "title": "Down"},
+                        "y": {"field": dist_col, "type": "quantitative", "title": "Distance"},
+                        "size": {"field": "count", "type": "quantitative", "title": "Play Count"},
+                        "color": {"value": "#ff7f0e"}
+                    }
+                }
+                charts['down_distance'] = json.dumps(down_dist_chart)
+        
+        # Generate success rate analysis if success/result columns exist
+        result_cols = [col for col in df.columns if any(term in col.upper() for term in ['RESULT', 'SUCCESS', 'STOP', 'GAIN'])]
+        if result_cols:
+            result_col = result_cols[0]
+            result_counts = df[result_col].value_counts()
+            if len(result_counts) > 0:
+                result_chart = {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "title": "Defensive Results",
+                    "data": {"values": [{"result": str(k), "count": int(v)} for k, v in result_counts.items()]},
+                    "mark": "arc",
+                    "encoding": {
+                        "theta": {"field": "count", "type": "quantitative"},
+                        "color": {"field": "result", "type": "nominal", "title": "Result"}
+                    }
+                }
+                charts['defensive_results'] = json.dumps(result_chart)
+        
+        return {
+            'summary': summary,
+            'charts': charts
+        }
+    
+    except Exception as e:
+        return {
+            'summary': {'total_plays': len(df), 'error': str(e)},
+            'charts': {}
+        }
+
+def generate_offensive_analysis(df):
+    """Generate offensive-specific analysis and charts"""
+    try:
+        # Basic summary statistics
+        summary = {
+            'total_plays': len(df),
+            'total_sheets': len(df['sheet_name'].unique()) if 'sheet_name' in df.columns else 1
+        }
+        
+        # Offensive-specific column analysis
+        offensive_columns = [
+            'Formation', 'FORMATION', 'OFF FORM', 'Offense', 'OFFENSE',
+            'Play Type', 'PLAY TYPE', 'PLAY_TYPE', 'Run', 'RUN', 'Pass', 'PASS',
+            'Personnel', 'PERSONNEL', 'PERS', 'Down', 'DOWN', 'DN',
+            'Distance', 'DISTANCE', 'DIST', 'Result', 'RESULT', 'GAIN',
+            'Yards', 'YARDS', 'YDS', 'Success', 'SUCCESS', 'EFF', 'EFFICIENCY'
+        ]
+        
+        # Find available offensive columns
+        available_cols = [col for col in df.columns if any(off_col.lower() in col.lower() for off_col in offensive_columns)]
+        
+        charts = {}
+        
+        # Generate play type distribution chart
+        play_type_cols = [col for col in df.columns if any(term in col.upper() for term in ['PLAY TYPE', 'PLAY_TYPE', 'RUN', 'PASS'])]
+        if play_type_cols:
+            play_type_col = play_type_cols[0]
+            play_type_counts = df[play_type_col].value_counts()
+            if len(play_type_counts) > 0:
+                play_type_chart = {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "title": "Play Type Distribution",
+                    "data": {"values": [{"play_type": str(k), "count": int(v)} for k, v in play_type_counts.items()]},
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {"field": "play_type", "type": "nominal", "title": "Play Type"},
+                        "y": {"field": "count", "type": "quantitative", "title": "Number of Plays"},
+                        "color": {"field": "play_type", "type": "nominal"}
+                    }
+                }
+                charts['play_type_distribution'] = json.dumps(play_type_chart)
+        
+        # Generate formation analysis
+        formation_cols = [col for col in df.columns if any(term in col.upper() for term in ['FORM', 'FORMATION', 'OFF'])]
+        if formation_cols:
+            formation_col = formation_cols[0]
+            formation_counts = df[formation_col].value_counts().head(10)
+            if len(formation_counts) > 0:
+                formation_chart = {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "title": "Offensive Formation Usage",
+                    "data": {"values": [{"formation": str(k), "count": int(v)} for k, v in formation_counts.items()]},
+                    "mark": "arc",
+                    "encoding": {
+                        "theta": {"field": "count", "type": "quantitative"},
+                        "color": {"field": "formation", "type": "nominal", "title": "Formation"}
+                    }
+                }
+                charts['formation_usage'] = json.dumps(formation_chart)
+        
+        # Generate efficiency analysis if available
+        eff_cols = [col for col in df.columns if any(term in col.upper() for term in ['EFF', 'EFFICIENCY', 'SUCCESS'])]
+        if eff_cols:
+            eff_col = eff_cols[0]
+            eff_counts = df[eff_col].value_counts()
+            if len(eff_counts) > 0:
+                eff_chart = {
+                    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+                    "title": "Play Efficiency",
+                    "data": {"values": [{"efficiency": str(k), "count": int(v)} for k, v in eff_counts.items()]},
+                    "mark": "bar",
+                    "encoding": {
+                        "x": {"field": "efficiency", "type": "nominal", "title": "Efficiency"},
+                        "y": {"field": "count", "type": "quantitative", "title": "Number of Plays"},
+                        "color": {"value": "#2ca02c"}
+                    }
+                }
+                charts['efficiency_analysis'] = json.dumps(eff_chart)
+        
+        return {
+            'summary': summary,
+            'charts': charts
+        }
+    
+    except Exception as e:
+        return {
+            'summary': {'total_plays': len(df), 'error': str(e)},
+            'charts': {}
+        }
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5004))
