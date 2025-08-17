@@ -424,32 +424,52 @@ def get_plays():
             
         combined_df = load_and_process_data(filepath, selected_sheets)
         
-        # Create play identifiers for both offensive and defensive data
-        plays = []
-        for idx, row in combined_df.iterrows():
-            # Try to find a play identifier column, checking both offensive and defensive patterns
-            play_id = None
-            for col in ['Front/Coverage', 'front/coverage', 'FRONT/COVERAGE', 'Play', 'PlayNumber', 'Play_Number', 'play', 'play_number', 'Coverage', 'Front']:
-                if col in combined_df.columns and pd.notna(row[col]):
-                    play_id = str(row[col])
-                    break
-            
-            if not play_id:
-                play_id = f"Row {idx + 1}"
-            
-            # Create a description for the play (check both offensive and defensive columns)
-            description_parts = []
-            for col in ['Down', 'Distance', 'Formation', 'PlayType', 'Result', 'Yards', 'Hash', 'Field Position']:
-                if col in combined_df.columns and pd.notna(row[col]):
-                    description_parts.append(f"{col}: {row[col]}")
-            
-            description = " | ".join(description_parts) if description_parts else "No description"
-            
-            plays.append({
-                'id': idx,  # Use DataFrame index as unique identifier
-                'display': f"{play_id} - {description[:100]}{'...' if len(description) > 100 else ''}",
-                'play_id': play_id
-            })
+        # Get unique Front/Coverage values for defensive data, or play identifiers for offensive data
+        front_coverage_col = None
+        for col in ['Front/Coverage', 'front/coverage', 'FRONT/COVERAGE', 'Coverage', 'Front']:
+            if col in combined_df.columns:
+                front_coverage_col = col
+                break
+        
+        if front_coverage_col:
+            # For defensive data: get unique Front/Coverage values
+            unique_fronts = combined_df[front_coverage_col].dropna().unique()
+            plays = []
+            for front_name in sorted(unique_fronts):
+                # Count how many times this front/coverage appears
+                count = len(combined_df[combined_df[front_coverage_col] == front_name])
+                plays.append({
+                    'id': front_name,  # Use the actual front/coverage name as ID
+                    'display': f"{front_name} ({count} plays)",
+                    'front_name': front_name
+                })
+        else:
+            # For offensive data: use row-based approach
+            plays = []
+            for idx, row in combined_df.iterrows():
+                # Try to find a play identifier column
+                play_id = None
+                for col in ['Play', 'PlayNumber', 'Play_Number', 'play', 'play_number']:
+                    if col in combined_df.columns and pd.notna(row[col]):
+                        play_id = str(row[col])
+                        break
+                
+                if not play_id:
+                    play_id = f"Row {idx + 1}"
+                
+                # Create a description for the play
+                description_parts = []
+                for col in ['Down', 'Distance', 'Formation', 'PlayType', 'Result', 'Yards', 'Hash', 'Field Position']:
+                    if col in combined_df.columns and pd.notna(row[col]):
+                        description_parts.append(f"{col}: {row[col]}")
+                
+                description = " | ".join(description_parts) if description_parts else "No description"
+                
+                plays.append({
+                    'id': idx,  # Use DataFrame index as unique identifier
+                    'display': f"{play_id} - {description[:100]}{'...' if len(description) > 100 else ''}",
+                    'play_id': play_id
+                })
         
         return jsonify({
             'success': True,
@@ -462,7 +482,6 @@ def get_plays():
 @app.route('/compare_plays', methods=['POST'])
 @login_required
 def compare_plays():
-    """Compare selected plays and return their data"""
     try:
         data = request.get_json()
         play_indices = data.get('play_indices', [])
@@ -472,46 +491,46 @@ def compare_plays():
         if not play_indices:
             return jsonify({'error': 'No plays selected'}), 400
         
-        # Get the uploaded file path from session
         filepath = session.get('uploaded_file_path')
         if not filepath:
             return jsonify({'error': 'No file uploaded'}), 400
         
-        # Load the Excel file
         xls = pd.ExcelFile(filepath)
-        
-        # Use specified sheets or all sheets
         sheet_names = sheets if sheets else xls.sheet_names
         
-        # Find plays by indices across specified sheets
-        plays_data = []
         all_plays = []
         
         for sheet_name in sheet_names:
             try:
                 df = pd.read_excel(filepath, sheet_name=sheet_name)
                 df.columns = df.columns.str.strip()
-                
-                # Add sheet info and row indices
                 df['sheet_name'] = sheet_name
                 df['sheet_order'] = list(xls.sheet_names).index(sheet_name)
                 df['row_index'] = df.index
-                
                 all_plays.append(df)
-                        
             except Exception as e:
                 continue
         
         if not all_plays:
             return jsonify({'error': 'No data found in sheets'}), 404
         
-        # Combine all plays and filter by indices
         combined_df = pd.concat(all_plays, ignore_index=True)
         
-        # Filter for selected play indices
-        selected_plays = combined_df.iloc[play_indices] if play_indices else combined_df
+        # Check if we're dealing with Front/Coverage names or row indices
+        front_coverage_col = None
+        for col in ['Front/Coverage', 'front/coverage', 'FRONT/COVERAGE', 'Coverage', 'Front']:
+            if col in combined_df.columns:
+                front_coverage_col = col
+                break
         
-        # Convert to JSON-serializable format
+        if front_coverage_col and all(isinstance(idx, str) for idx in play_indices):
+            # Filter by Front/Coverage names
+            selected_plays = combined_df[combined_df[front_coverage_col].isin(play_indices)]
+        else:
+            # Filter by row indices (for offensive data or numeric indices)
+            numeric_indices = [int(idx) for idx in play_indices if str(idx).isdigit()]
+            selected_plays = combined_df.iloc[numeric_indices] if numeric_indices else combined_df
+        
         result_data = selected_plays.fillna('').to_dict('records')
         
         return jsonify({
@@ -519,7 +538,6 @@ def compare_plays():
             'comparison_data': result_data,
             'total_plays': len(result_data)
         })
-        
     except Exception as e:
         return jsonify({'error': f'Error comparing plays: {str(e)}'}), 500
 

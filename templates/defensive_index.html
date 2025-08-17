@@ -690,8 +690,9 @@ function generateFrontDropdowns(frontCount) {
                 <select class="form-select front-select" id="frontSelect${i}" onchange="updateCompareFrontsButton()">
                     <option value="">Select front/coverage...</option>
                     ${availableFronts.map((front, index) => {
-                        const frontLabel = front['Front/Coverage'] || front['front/coverage'] || front['Coverage'] || front['Front'] || front['FRONT/COVERAGE'] || `Row ${index + 1}`;
-                        return `<option value="${index}">${frontLabel}</option>`;
+                        const frontId = front.id || front.front_name || index;
+                        const frontDisplay = front.display || front.front_name || `Row ${index + 1}`;
+                        return `<option value="${frontId}">${frontDisplay}</option>`;
                     }).join('')}
                 </select>
             </div>
@@ -714,15 +715,15 @@ function updateCompareFrontsButton() {
 
 function compareSelectedFronts() {
     const frontSelects = document.querySelectorAll('.front-select');
-    const selectedFrontIndices = [];
+    const selectedFrontNames = [];
     
     frontSelects.forEach(select => {
         if (select.value) {
-            selectedFrontIndices.push(parseInt(select.value));
+            selectedFrontNames.push(select.value);  // Use the actual front/coverage name, not index
         }
     });
     
-    if (selectedFrontIndices.length < 1) {
+    if (selectedFrontNames.length < 1) {
         showAlert('Please select at least 1 front/coverage to compare', 'warning');
         return;
     }
@@ -737,7 +738,7 @@ function compareSelectedFronts() {
         body: JSON.stringify({
             filename: currentFilename,
             sheets: Array.from(document.getElementById('sheetsDropdown').selectedOptions).map(option => option.value),
-            play_indices: selectedFrontIndices
+            play_indices: selectedFrontNames  // Pass front/coverage names instead of indices
         })
     })
     .then(response => response.json())
