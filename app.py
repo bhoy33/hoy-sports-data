@@ -417,25 +417,29 @@ def get_plays():
         if not filename or not selected_sheets:
             return jsonify({'error': 'Missing filename or sheets'}), 400
             
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        # Use session-stored file path instead of constructing from filename
+        filepath = session.get('uploaded_file_path')
+        if not filepath:
+            return jsonify({'error': 'No file uploaded'}), 400
+            
         combined_df = load_and_process_data(filepath, selected_sheets)
         
-        # Create play identifiers (assuming there's a play number or we'll use row index)
+        # Create play identifiers for both offensive and defensive data
         plays = []
         for idx, row in combined_df.iterrows():
-            # Try to find a play identifier column, otherwise use row index
+            # Try to find a play identifier column, checking both offensive and defensive patterns
             play_id = None
-            for col in ['Play', 'PlayNumber', 'Play_Number', 'play', 'play_number']:
+            for col in ['Front/Coverage', 'front/coverage', 'FRONT/COVERAGE', 'Play', 'PlayNumber', 'Play_Number', 'play', 'play_number', 'Coverage', 'Front']:
                 if col in combined_df.columns and pd.notna(row[col]):
                     play_id = str(row[col])
                     break
             
             if not play_id:
-                play_id = f"Play {idx + 1}"
+                play_id = f"Row {idx + 1}"
             
-            # Create a description for the play
+            # Create a description for the play (check both offensive and defensive columns)
             description_parts = []
-            for col in ['Down', 'Distance', 'Formation', 'PlayType', 'Result']:
+            for col in ['Down', 'Distance', 'Formation', 'PlayType', 'Result', 'Yards', 'Hash', 'Field Position']:
                 if col in combined_df.columns and pd.notna(row[col]):
                     description_parts.append(f"{col}: {row[col]}")
             
