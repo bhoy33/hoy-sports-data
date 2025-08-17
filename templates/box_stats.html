@@ -349,6 +349,236 @@
             loadPlayerProfiles();
         });
 
+        // Player Profile Management Functions
+        function showAddPlayerModal() {
+            const modal = new bootstrap.Modal(document.getElementById('addPlayerModal'));
+            modal.show();
+        }
+
+        function savePlayerProfile() {
+            const number = document.getElementById('playerNumber').value;
+            const name = document.getElementById('playerName').value;
+            const position = document.getElementById('playerPosition').value;
+
+            if (!number || !name || !position) {
+                showAlert('Please fill in all required fields', 'danger');
+                return;
+            }
+
+            // Check if jersey number already exists
+            if (playerProfiles[number]) {
+                showAlert(`Jersey number ${number} already exists for ${playerProfiles[number].name}`, 'danger');
+                return;
+            }
+
+            // Save player profile
+            playerProfiles[number] = {
+                number: parseInt(number),
+                name: name,
+                position: position
+            };
+
+            // Save to session storage for persistence
+            sessionStorage.setItem('playerProfiles', JSON.stringify(playerProfiles));
+
+            // Close modal and refresh display
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addPlayerModal'));
+            modal.hide();
+            
+            // Clear form
+            document.getElementById('addPlayerForm').reset();
+            
+            // Refresh displays
+            updatePlayerProfilesDisplay();
+            updatePositionFilter();
+            
+            showAlert(`Player #${number} ${name} added successfully!`, 'success');
+        }
+
+        function loadPlayerProfiles() {
+            const saved = sessionStorage.getItem('playerProfiles');
+            if (saved) {
+                playerProfiles = JSON.parse(saved);
+                updatePlayerProfilesDisplay();
+                updatePositionFilter();
+            }
+        }
+
+        function updatePlayerProfilesDisplay() {
+            const container = document.getElementById('playerProfilesContainer');
+            
+            if (Object.keys(playerProfiles).length === 0) {
+                container.innerHTML = '<p class="text-muted">No player profiles created yet. Add players to get started.</p>';
+                return;
+            }
+
+            let html = '<div class="row">';
+            Object.values(playerProfiles).forEach(player => {
+                html += `
+                    <div class="col-md-3 mb-2">
+                        <div class="card card-body py-2">
+                            <small><strong>#${player.number} ${player.name}</strong></small>
+                            <small class="text-muted">${player.position}</small>
+                            <button class="btn btn-outline-danger btn-sm mt-1" onclick="removePlayerProfile(${player.number})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        function removePlayerProfile(number) {
+            if (confirm(`Remove player #${number} ${playerProfiles[number].name}?`)) {
+                delete playerProfiles[number];
+                sessionStorage.setItem('playerProfiles', JSON.stringify(playerProfiles));
+                updatePlayerProfilesDisplay();
+                updatePositionFilter();
+                showAlert('Player removed successfully', 'success');
+            }
+        }
+
+        function updatePositionFilter() {
+            const positionFilter = document.getElementById('positionFilter');
+            const playerSelect = document.getElementById('playerSelect');
+            
+            if (positionFilter && playerSelect) {
+                // Reset player select
+                playerSelect.innerHTML = '<option value="">Select a position first</option>';
+                playerSelect.disabled = true;
+            }
+        }
+
+        function filterPlayersByPosition() {
+            const position = document.getElementById('positionFilter').value;
+            const playerSelect = document.getElementById('playerSelect');
+            
+            if (!position) {
+                playerSelect.innerHTML = '<option value="">Select a position first</option>';
+                playerSelect.disabled = true;
+                return;
+            }
+
+            const playersInPosition = Object.values(playerProfiles).filter(p => p.position === position);
+            
+            if (playersInPosition.length === 0) {
+                playerSelect.innerHTML = '<option value="">No players in this position</option>';
+                playerSelect.disabled = true;
+                return;
+            }
+
+            let html = '<option value="">Select a player</option>';
+            playersInPosition.forEach(player => {
+                html += `<option value="${player.number}">#${player.number} ${player.name}</option>`;
+            });
+            
+            playerSelect.innerHTML = html;
+            playerSelect.disabled = false;
+        }
+
+        function addSelectedPlayer() {
+            const playerNumber = document.getElementById('playerSelect').value;
+            if (!playerNumber) {
+                showAlert('Please select a player', 'warning');
+                return;
+            }
+
+            const player = playerProfiles[playerNumber];
+            if (!player) {
+                showAlert('Player not found', 'danger');
+                return;
+            }
+
+            // Check if player already added to this play
+            if (selectedPlayersForPlay.find(p => p.number === player.number)) {
+                showAlert(`Player #${player.number} already added to this play`, 'warning');
+                return;
+            }
+
+            // Add player to play
+            selectedPlayersForPlay.push({
+                number: player.number,
+                name: player.name,
+                position: player.position,
+                role: '',
+                touchdown: false,
+                fumble: false,
+                completion: false
+            });
+
+            updateSelectedPlayersDisplay();
+        }
+
+        function updateSelectedPlayersDisplay() {
+            const container = document.getElementById('playersContainer');
+            
+            if (selectedPlayersForPlay.length === 0) {
+                container.innerHTML = '<p class="text-muted">No players selected for this play.</p>';
+                return;
+            }
+
+            let html = '';
+            selectedPlayersForPlay.forEach((player, index) => {
+                html += `
+                    <div class="card mb-2" id="selectedPlayer-${index}">
+                        <div class="card-body py-2">
+                            <div class="row align-items-center">
+                                <div class="col-md-3">
+                                    <strong>#${player.number} ${player.name}</strong>
+                                    <small class="text-muted d-block">${player.position}</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select form-select-sm" onchange="updatePlayerRole(${index}, this.value)">
+                                        <option value="">Select Role</option>
+                                        <option value="rusher" ${player.role === 'rusher' ? 'selected' : ''}>Rusher</option>
+                                        <option value="receiver" ${player.role === 'receiver' ? 'selected' : ''}>Receiver</option>
+                                        <option value="passer" ${player.role === 'passer' ? 'selected' : ''}>Passer</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" ${player.touchdown ? 'checked' : ''} onchange="updatePlayerEvent(${index}, 'touchdown', this.checked)">
+                                        <label class="form-check-label">TD</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" ${player.fumble ? 'checked' : ''} onchange="updatePlayerEvent(${index}, 'fumble', this.checked)">
+                                        <label class="form-check-label">Fumble</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" ${player.completion ? 'checked' : ''} onchange="updatePlayerEvent(${index}, 'completion', this.checked)">
+                                        <label class="form-check-label">Complete</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="removeSelectedPlayer(${index})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function updatePlayerRole(index, role) {
+            selectedPlayersForPlay[index].role = role;
+        }
+
+        function updatePlayerEvent(index, event, checked) {
+            selectedPlayersForPlay[index][event] = checked;
+        }
+
+        function removeSelectedPlayer(index) {
+            selectedPlayersForPlay.splice(index, 1);
+            updateSelectedPlayersDisplay();
+        }
+
         // Add player input group
         function addPlayerInput() {
             playerInputCount++;
@@ -448,10 +678,14 @@
             updateSelectedPlayersDisplay();
             updatePlayNumber();
             
-            // Reset position filter
-            document.getElementById('positionFilter').value = '';
-            document.getElementById('playerSelect').innerHTML = '<option value="">Select a position first</option>';
-            document.getElementById('playerSelect').disabled = true;
+            // Reset position filter if elements exist
+            const positionFilter = document.getElementById('positionFilter');
+            const playerSelect = document.getElementById('playerSelect');
+            if (positionFilter && playerSelect) {
+                positionFilter.value = '';
+                playerSelect.innerHTML = '<option value="">Select a position first</option>';
+                playerSelect.disabled = true;
+            }
         }
 
         // Load and display stats
