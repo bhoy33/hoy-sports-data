@@ -222,9 +222,39 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Players Involved</label>
-                                <button type="button" class="btn btn-outline-primary btn-sm ms-2" onclick="addPlayerInput()">
-                                    <i class="fas fa-plus me-1"></i>Add Player
-                                </button>
+                                <div class="row mt-2">
+                                    <div class="col-md-4">
+                                        <select class="form-select" id="positionFilter" onchange="filterPlayersByPosition()">
+                                            <option value="">All Positions</option>
+                                            <option value="QB">QB</option>
+                                            <option value="RB">RB</option>
+                                            <option value="WR">WR</option>
+                                            <option value="TE">TE</option>
+                                            <option value="OL">OL</option>
+                                            <option value="K">K</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <select class="form-select" id="playerSelect" disabled>
+                                            <option value="">Select a position first</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addSelectedPlayer()">
+                                            <i class="fas fa-plus"></i> Add Player
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Players Display -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <label class="form-label">Selected Players for this Play</label>
+                                <div id="playersContainer">
+                                    <p class="text-muted">No players selected for this play.</p>
+                                </div>
                             </div>
                         </div>
                         
