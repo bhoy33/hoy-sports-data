@@ -1639,7 +1639,8 @@ def add_box_stats_play():
         return jsonify({
             'success': True,
             'play_count': len(session['box_stats']['plays']),
-            'message': 'Play added successfully'
+            'message': 'Play added successfully',
+            'next_situation': session['box_stats'].get('next_situation', {})
         })
         
     except Exception as e:
@@ -1648,17 +1649,20 @@ def add_box_stats_play():
 def calculate_next_situation(current_play, all_plays):
     """Calculate the next down, distance, and field position based on current play"""
     try:
-        current_down = current_play.get('down', 1)
-        current_distance = current_play.get('distance', 10)
-        current_field_pos = current_play.get('field_position', 'OWN 25')
-        yards_gained = current_play.get('yards_gained', 0)
+        current_down = int(current_play.get('down', 1))
+        current_distance = int(current_play.get('distance', 10))
+        current_field_pos = str(current_play.get('field_position', 'OWN 25'))
+        yards_gained = int(current_play.get('yards_gained', 0))
         play_result = current_play.get('result', '').lower()
         
         # Parse current field position (e.g., "OWN 25" or "OPP 30")
         field_parts = current_field_pos.upper().split()
         if len(field_parts) >= 2:
             side = field_parts[0]  # OWN or OPP
-            yard_line = int(field_parts[1]) if field_parts[1].isdigit() else 25
+            try:
+                yard_line = int(field_parts[1])
+            except (ValueError, IndexError):
+                yard_line = 25
         else:
             side = "OWN"
             yard_line = 25
