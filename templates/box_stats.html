@@ -140,7 +140,10 @@
                                 <input type="number" class="form-control" id="playNumber" min="1" required>
                             </div>
                             <div class="col-md-2">
-                                <label for="down" class="form-label">Down</label>
+                                <label for="down" class="form-label">
+                                    Down 
+                                    <span id="downAutoIndicator" class="badge bg-success ms-1 d-none">AUTO</span>
+                                </label>
                                 <select class="form-select" id="down" required>
                                     <option value="">Select Down</option>
                                     <option value="1">1st Down</option>
@@ -150,11 +153,17 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <label for="distance" class="form-label">Distance</label>
+                                <label for="distance" class="form-label">
+                                    Distance 
+                                    <span id="distanceAutoIndicator" class="badge bg-success ms-1 d-none">AUTO</span>
+                                </label>
                                 <input type="number" class="form-control" id="distance" min="1" max="99" required>
                             </div>
                             <div class="col-md-3">
-                                <label for="fieldPosition" class="form-label">Field Position</label>
+                                <label for="fieldPosition" class="form-label">
+                                    Field Position 
+                                    <span id="fieldPosAutoIndicator" class="badge bg-success ms-1 d-none">AUTO</span>
+                                </label>
                                 <input type="text" class="form-control" id="fieldPosition" placeholder="e.g., OWN 25" required>
                             </div>
                             <div class="col-md-3">
@@ -167,6 +176,19 @@
                                     <option value="field_goal">Field Goal</option>
                                     <option value="kickoff">Kickoff</option>
                                 </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Auto-calculation status -->
+                        <div class="row mt-2" id="autoCalculationStatus" style="display: none;">
+                            <div class="col-12">
+                                <div class="alert alert-info alert-sm">
+                                    <i class="fas fa-robot me-2"></i>
+                                    <strong>Auto-calculated:</strong> <span id="autoCalculationReason"></span>
+                                    <button type="button" class="btn btn-outline-primary btn-sm ms-2" onclick="toggleAutoCalculation()">
+                                        <i class="fas fa-edit me-1"></i>Manual Override
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         
@@ -342,49 +364,6 @@
             addPlay();
         });
 
-        // Add play function
-        function addPlay() {
-            const playData = {
-                play_number: parseInt(document.getElementById('playNumber').value),
-                down: parseInt(document.getElementById('down').value),
-                distance: parseInt(document.getElementById('distance').value),
-                field_position: document.getElementById('fieldPosition').value,
-                play_type: document.getElementById('playType').value,
-                result: document.getElementById('result').value,
-                yards_gained: parseInt(document.getElementById('yardsGained').value) || 0,
-                players_involved: getPlayersData(),
-                timestamp: new Date().toISOString()
-            };
-
-            showLoading(true);
-
-            fetch('/box_stats/add_play', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(playData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                showLoading(false);
-                if (data.success) {
-                    showAlert('Play added successfully!', 'success');
-                    clearForm();
-                    currentPlayNumber++;
-                    updatePlayNumber();
-                    loadStats();
-                } else {
-                    showAlert('Error adding play: ' + (data.error || 'Unknown error'), 'danger');
-                }
-            })
-            .catch(error => {
-                showLoading(false);
-                console.error('Error:', error);
-                showAlert('Error adding play: ' + error.message, 'danger');
-            });
-        }
-
         // Get players data from form
         function getPlayersData() {
             const players = [];
@@ -425,6 +404,7 @@
                     updateTeamStats(data.team_stats);
                     updatePlayerStats(data.box_stats.players);
                     updateRecentPlays(data.box_stats.plays);
+                    updateNextSituation(data.next_situation);
                 }
             })
             .catch(error => {
@@ -571,6 +551,121 @@
                     alertElement.remove();
                 }
             }, 5000);
+        }
+
+        // Update next situation based on automation
+        function updateNextSituation(nextSituation) {
+            if (nextSituation && nextSituation.auto_calculated) {
+                // Update form fields with auto-calculated values
+                document.getElementById('down').value = nextSituation.down;
+                document.getElementById('distance').value = nextSituation.distance;
+                document.getElementById('fieldPosition').value = nextSituation.field_position;
+                
+                // Show auto indicators
+                document.getElementById('downAutoIndicator').classList.remove('d-none');
+                document.getElementById('distanceAutoIndicator').classList.remove('d-none');
+                document.getElementById('fieldPosAutoIndicator').classList.remove('d-none');
+                
+                // Show auto-calculation status
+                document.getElementById('autoCalculationStatus').style.display = 'block';
+                document.getElementById('autoCalculationReason').textContent = nextSituation.reason;
+                
+                // Add visual feedback to auto-filled fields
+                ['down', 'distance', 'fieldPosition'].forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    field.classList.add('border-success');
+                    field.style.backgroundColor = '#f8fff8';
+                });
+            } else {
+                // Hide auto indicators if not auto-calculated
+                hideAutoIndicators();
+            }
+        }
+
+        // Hide auto calculation indicators
+        function hideAutoIndicators() {
+            document.getElementById('downAutoIndicator').classList.add('d-none');
+            document.getElementById('distanceAutoIndicator').classList.add('d-none');
+            document.getElementById('fieldPosAutoIndicator').classList.add('d-none');
+            document.getElementById('autoCalculationStatus').style.display = 'none';
+            
+            // Remove visual feedback
+            ['down', 'distance', 'fieldPosition'].forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                field.classList.remove('border-success');
+                field.style.backgroundColor = '';
+            });
+        }
+
+        // Toggle auto-calculation (allow manual override)
+        function toggleAutoCalculation() {
+            hideAutoIndicators();
+            showAlert('Manual override enabled. You can now edit down, distance, and field position manually.', 'info');
+        }
+
+        // Clear form with automation awareness
+        function clearForm() {
+            document.getElementById('playForm').reset();
+            document.getElementById('playersContainer').innerHTML = '';
+            playerInputCount = 0;
+            updatePlayNumber();
+            // Don't hide auto indicators on clear - they'll be updated on next loadStats()
+        }
+
+        // Enhanced add play function with automation feedback
+        function addPlay() {
+            const playData = {
+                play_number: parseInt(document.getElementById('playNumber').value),
+                down: parseInt(document.getElementById('down').value),
+                distance: parseInt(document.getElementById('distance').value),
+                field_position: document.getElementById('fieldPosition').value,
+                play_type: document.getElementById('playType').value,
+                result: document.getElementById('result').value,
+                yards_gained: parseInt(document.getElementById('yardsGained').value) || 0,
+                players_involved: getPlayersData(),
+                timestamp: new Date().toISOString()
+            };
+
+            showLoading(true);
+
+            fetch('/box_stats/add_play', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(playData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    showAlert('Play added successfully! Next situation auto-calculated.', 'success');
+                    clearFormForNextPlay();
+                    currentPlayNumber++;
+                    updatePlayNumber();
+                    loadStats(); // This will update the next situation automatically
+                } else {
+                    showAlert('Error adding play: ' + (data.error || 'Unknown error'), 'danger');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Error:', error);
+                showAlert('Error adding play: ' + error.message, 'danger');
+            });
+        }
+
+        // Clear form but keep automated values for next play
+        function clearFormForNextPlay() {
+            // Clear only player-specific and result fields
+            document.getElementById('result').value = '';
+            document.getElementById('yardsGained').value = '0';
+            document.getElementById('playType').value = '';
+            document.getElementById('playersContainer').innerHTML = '';
+            playerInputCount = 0;
+            
+            // Keep down, distance, field position - they'll be auto-updated
+            // Don't reset play number - it auto-increments
         }
 
         // Auto-add first player input when page loads

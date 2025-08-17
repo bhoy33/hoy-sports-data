@@ -1585,6 +1585,10 @@ def add_box_stats_play():
         # Add play to session
         session['box_stats']['plays'].append(play_data)
         
+        # Calculate next play situation based on this play's result
+        next_situation = calculate_next_situation(play_data, session['box_stats']['plays'])
+        session['box_stats']['next_situation'] = next_situation
+        
         # Update player stats
         for player in play_data['players_involved']:
             player_num = player.get('number')
@@ -1641,6 +1645,125 @@ def add_box_stats_play():
     except Exception as e:
         return jsonify({'error': f'Error adding play: {str(e)}'}), 500
 
+def calculate_next_situation(current_play, all_plays):
+    """Calculate the next down, distance, and field position based on current play"""
+    try:
+        current_down = current_play.get('down', 1)
+        current_distance = current_play.get('distance', 10)
+        current_field_pos = current_play.get('field_position', 'OWN 25')
+        yards_gained = current_play.get('yards_gained', 0)
+        play_result = current_play.get('result', '').lower()
+        
+        # Parse current field position (e.g., "OWN 25" or "OPP 30")
+        field_parts = current_field_pos.upper().split()
+        if len(field_parts) >= 2:
+            side = field_parts[0]  # OWN or OPP
+            yard_line = int(field_parts[1]) if field_parts[1].isdigit() else 25
+        else:
+            side = "OWN"
+            yard_line = 25
+        
+        # Calculate new field position
+        if side == "OWN":
+            new_yard_line = yard_line + yards_gained
+            if new_yard_line >= 50:
+                new_side = "OPP"
+                new_yard_line = 100 - new_yard_line
+            else:
+                new_side = "OWN"
+        else:  # OPP side
+            new_yard_line = yard_line - yards_gained
+            if new_yard_line <= 0:
+                # Touchdown!
+                return {
+                    'down': 1,
+                    'distance': 10,
+                    'field_position': 'OWN 25',  # Assume kickoff return position
+                    'auto_calculated': True,
+                    'reason': 'Touchdown - Reset for next drive'
+                }
+            elif new_yard_line > 50:
+                new_side = "OWN"
+                new_yard_line = 100 - new_yard_line
+            else:
+                new_side = "OPP"
+        
+        new_field_position = f"{new_side} {abs(int(new_yard_line))}"
+        
+        # Determine next down and distance
+        remaining_distance = current_distance - yards_gained
+        
+        # Check for first down
+        if remaining_distance <= 0:
+            # First down achieved
+            next_down = 1
+            next_distance = 10
+            reason = "First down achieved"
+        elif current_down >= 4:
+            # Fourth down - assume turnover on downs (could be punt/FG in real game)
+            next_down = 1
+            next_distance = 10
+            # Flip field position for turnover
+            if new_side == "OWN":
+                new_field_position = f"OPP {100 - abs(int(new_yard_line))}"
+            else:
+                new_field_position = f"OWN {100 - abs(int(new_yard_line))}"
+            reason = "Turnover on downs"
+        else:
+            # Normal down progression
+            next_down = current_down + 1
+            next_distance = remaining_distance
+            reason = f"Next down: {next_down} & {next_distance}"
+        
+        # Handle special cases based on play result
+        if any(keyword in play_result for keyword in ['touchdown', 'td', 'score']):
+            return {
+                'down': 1,
+                'distance': 10,
+                'field_position': 'OWN 25',
+                'auto_calculated': True,
+                'reason': 'Touchdown scored - Reset for next drive'
+            }
+        elif any(keyword in play_result for keyword in ['interception', 'int', 'fumble', 'turnover']):
+            # Turnover - flip field position
+            if new_side == "OWN":
+                new_field_position = f"OPP {100 - abs(int(new_yard_line))}"
+            else:
+                new_field_position = f"OWN {100 - abs(int(new_yard_line))}"
+            return {
+                'down': 1,
+                'distance': 10,
+                'field_position': new_field_position,
+                'auto_calculated': True,
+                'reason': 'Turnover - Opponent takes possession'
+            }
+        elif any(keyword in play_result for keyword in ['punt', 'field goal', 'fg']):
+            return {
+                'down': 1,
+                'distance': 10,
+                'field_position': 'OWN 25',  # Simplified - assume average return
+                'auto_calculated': True,
+                'reason': 'Change of possession'
+            }
+        
+        return {
+            'down': next_down,
+            'distance': next_distance,
+            'field_position': new_field_position,
+            'auto_calculated': True,
+            'reason': reason
+        }
+        
+    except Exception as e:
+        # Fallback to safe defaults
+        return {
+            'down': 1,
+            'distance': 10,
+            'field_position': 'OWN 25',
+            'auto_calculated': False,
+            'reason': f'Error calculating: {str(e)}'
+        }
+
 @app.route('/box_stats/get_stats', methods=['GET'])
 @login_required
 def get_box_stats():
@@ -1666,7 +1789,14 @@ def get_box_stats():
         return jsonify({
             'success': True,
             'box_stats': box_stats,
-            'team_stats': team_stats
+            'team_stats': team_stats,
+            'next_situation': box_stats.get('next_situation', {
+                'down': 1,
+                'distance': 10,
+                'field_position': 'OWN 25',
+                'auto_calculated': False,
+                'reason': 'Starting position'
+            })
         })
         
     except Exception as e:
