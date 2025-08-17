@@ -1592,9 +1592,11 @@ def add_box_stats_play():
         # Update player stats
         for player in play_data['players_involved']:
             player_num = player.get('number')
+            print(f"DEBUG: Processing player - raw data: {player}")
             if player_num:
                 # Ensure player_num is a string for consistent session storage
                 player_key = str(player_num)
+                print(f"DEBUG: Player key: {player_key}, Player number: {player_num}")
                 if player_key not in session['box_stats']['players']:
                     session['box_stats']['players'][player_key] = {
                         'number': int(player_num),  # Store as int for display
@@ -1805,6 +1807,8 @@ def get_box_stats():
                             for player in play.get('players_involved', []) 
                             if player.get('touchdown', False))
         }
+        
+        print(f"DEBUG: Returning player stats: {box_stats.get('players', {})}")
         
         return jsonify({
             'success': True,

@@ -433,11 +433,12 @@
             let html = '<div class="row">';
             
             Object.values(players).forEach(player => {
+                const displayName = player.name && player.name.trim() ? player.name : `Player #${player.number}`;
                 html += `
                     <div class="col-md-6 col-lg-4 mb-3">
                         <div class="player-card">
-                            <h6><strong>#${player.number} ${player.name}</strong></h6>
-                            <small class="text-muted">${player.position}</small>
+                            <h6><strong>#${player.number} ${displayName}</strong></h6>
+                            <small class="text-muted">${player.position || 'Unknown Position'}</small>
                             <div class="mt-2">
                                 <span class="stat-badge">Rush: ${player.rushing_attempts} att, ${player.rushing_yards} yds</span>
                                 <span class="stat-badge">Rec: ${player.receptions} rec, ${player.receiving_yards} yds</span>
