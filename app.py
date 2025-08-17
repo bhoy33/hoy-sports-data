@@ -1649,11 +1649,16 @@ def add_box_stats_play():
 def calculate_next_situation(current_play, all_plays):
     """Calculate the next down, distance, and field position based on current play"""
     try:
+        # Debug logging
+        print(f"DEBUG: current_play data: {current_play}")
+        
         current_down = int(current_play.get('down', 1))
         current_distance = int(current_play.get('distance', 10))
         current_field_pos = str(current_play.get('field_position', 'OWN 25'))
         yards_gained = int(current_play.get('yards_gained', 0))
-        play_result = current_play.get('result', '').lower()
+        play_result = str(current_play.get('result', '')).lower()
+        
+        print(f"DEBUG: Parsed values - down: {current_down}, distance: {current_distance}, field_pos: {current_field_pos}, yards: {yards_gained}")
         
         # Parse current field position (e.g., "OWN 25" or "OPP 30")
         field_parts = current_field_pos.upper().split()
@@ -1668,17 +1673,20 @@ def calculate_next_situation(current_play, all_plays):
             yard_line = 25
         
         # Calculate new field position
+        print(f"DEBUG: Starting calculation - side: {side}, yard_line: {yard_line}, yards_gained: {yards_gained}")
+        
         if side == "OWN":
-            new_yard_line = yard_line + yards_gained
+            new_yard_line = int(yard_line) + int(yards_gained)
             if new_yard_line >= 50:
                 new_side = "OPP"
                 new_yard_line = 100 - new_yard_line
             else:
                 new_side = "OWN"
         else:  # OPP side
-            new_yard_line = yard_line - yards_gained
+            new_yard_line = int(yard_line) - int(yards_gained)
             if new_yard_line <= 0:
                 # Touchdown!
+                print("DEBUG: Touchdown detected")
                 return {
                     'down': 1,
                     'distance': 10,
@@ -1692,10 +1700,13 @@ def calculate_next_situation(current_play, all_plays):
             else:
                 new_side = "OPP"
         
+        print(f"DEBUG: After calculation - new_side: {new_side}, new_yard_line: {new_yard_line}")
+        
         new_field_position = f"{new_side} {abs(int(new_yard_line))}"
         
         # Determine next down and distance
-        remaining_distance = current_distance - yards_gained
+        remaining_distance = int(current_distance) - int(yards_gained)
+        print(f"DEBUG: Down calculation - current_down: {current_down}, remaining_distance: {remaining_distance}")
         
         # Check for first down
         if remaining_distance <= 0:
@@ -1703,7 +1714,7 @@ def calculate_next_situation(current_play, all_plays):
             next_down = 1
             next_distance = 10
             reason = "First down achieved"
-        elif current_down >= 4:
+        elif int(current_down) >= 4:
             # Fourth down - assume turnover on downs (could be punt/FG in real game)
             next_down = 1
             next_distance = 10
@@ -1715,9 +1726,11 @@ def calculate_next_situation(current_play, all_plays):
             reason = "Turnover on downs"
         else:
             # Normal down progression
-            next_down = current_down + 1
-            next_distance = remaining_distance
+            next_down = int(current_down) + 1
+            next_distance = max(1, remaining_distance)  # Ensure distance is at least 1
             reason = f"Next down: {next_down} & {next_distance}"
+        
+        print(f"DEBUG: Final values - next_down: {next_down}, next_distance: {next_distance}, new_field_position: {new_field_position}")
         
         # Handle special cases based on play result
         if any(keyword in play_result for keyword in ['touchdown', 'td', 'score']):
