@@ -1544,6 +1544,186 @@ def generate_offensive_analysis(df):
             'charts': {}
         }
 
+# =====================================
+# IN-GAME BOX STATS ANALYTICS ROUTES
+# =====================================
+
+@app.route('/analytics/box-stats')
+@login_required
+def box_stats_analytics():
+    """In-Game Box Stats Analytics main page"""
+    return render_template('box_stats.html')
+
+@app.route('/box_stats/add_play', methods=['POST'])
+@login_required
+def add_box_stats_play():
+    """Add a single play's box stats"""
+    try:
+        data = request.get_json()
+        
+        # Initialize box stats in session if not exists
+        if 'box_stats' not in session:
+            session['box_stats'] = {
+                'plays': [],
+                'players': {},
+                'game_info': {}
+            }
+        
+        # Extract play data
+        play_data = {
+            'play_number': data.get('play_number'),
+            'down': data.get('down'),
+            'distance': data.get('distance'),
+            'field_position': data.get('field_position'),
+            'play_type': data.get('play_type'),
+            'result': data.get('result'),
+            'yards_gained': data.get('yards_gained', 0),
+            'players_involved': data.get('players_involved', []),
+            'timestamp': data.get('timestamp')
+        }
+        
+        # Add play to session
+        session['box_stats']['plays'].append(play_data)
+        
+        # Update player stats
+        for player in play_data['players_involved']:
+            player_num = player.get('number')
+            if player_num:
+                if player_num not in session['box_stats']['players']:
+                    session['box_stats']['players'][player_num] = {
+                        'number': player_num,
+                        'name': player.get('name', f'Player #{player_num}'),
+                        'position': player.get('position', ''),
+                        'rushing_attempts': 0,
+                        'rushing_yards': 0,
+                        'receptions': 0,
+                        'receiving_yards': 0,
+                        'passing_attempts': 0,
+                        'passing_completions': 0,
+                        'passing_yards': 0,
+                        'touchdowns': 0,
+                        'fumbles': 0,
+                        'interceptions': 0
+                    }
+                
+                # Update stats based on player's role in the play
+                player_stats = session['box_stats']['players'][player_num]
+                role = player.get('role', '')
+                
+                if role == 'rusher':
+                    player_stats['rushing_attempts'] += 1
+                    player_stats['rushing_yards'] += play_data['yards_gained']
+                elif role == 'receiver':
+                    player_stats['receptions'] += 1
+                    player_stats['receiving_yards'] += play_data['yards_gained']
+                elif role == 'passer':
+                    player_stats['passing_attempts'] += 1
+                    if player.get('completion', False):
+                        player_stats['passing_completions'] += 1
+                        player_stats['passing_yards'] += play_data['yards_gained']
+                
+                if player.get('touchdown', False):
+                    player_stats['touchdowns'] += 1
+                if player.get('fumble', False):
+                    player_stats['fumbles'] += 1
+                if player.get('interception', False):
+                    player_stats['interceptions'] += 1
+        
+        # Mark session as modified
+        session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'play_count': len(session['box_stats']['plays']),
+            'message': 'Play added successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error adding play: {str(e)}'}), 500
+
+@app.route('/box_stats/get_stats', methods=['GET'])
+@login_required
+def get_box_stats():
+    """Get current box stats data"""
+    try:
+        box_stats = session.get('box_stats', {
+            'plays': [],
+            'players': {},
+            'game_info': {}
+        })
+        
+        # Calculate team totals
+        team_stats = {
+            'total_plays': len(box_stats['plays']),
+            'total_yards': sum(play.get('yards_gained', 0) for play in box_stats['plays']),
+            'rushing_plays': len([p for p in box_stats['plays'] if p.get('play_type') == 'rush']),
+            'passing_plays': len([p for p in box_stats['plays'] if p.get('play_type') == 'pass']),
+            'touchdowns': sum(1 for play in box_stats['plays'] 
+                            for player in play.get('players_involved', []) 
+                            if player.get('touchdown', False))
+        }
+        
+        return jsonify({
+            'success': True,
+            'box_stats': box_stats,
+            'team_stats': team_stats
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting stats: {str(e)}'}), 500
+
+@app.route('/box_stats/reset', methods=['POST'])
+@login_required
+def reset_box_stats():
+    """Reset all box stats data"""
+    try:
+        session['box_stats'] = {
+            'plays': [],
+            'players': {},
+            'game_info': {}
+        }
+        session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'message': 'Box stats reset successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error resetting stats: {str(e)}'}), 500
+
+@app.route('/box_stats/export', methods=['GET'])
+@login_required
+def export_box_stats():
+    """Export box stats to Excel file"""
+    try:
+        box_stats = session.get('box_stats', {})
+        
+        if not box_stats.get('plays'):
+            return jsonify({'error': 'No box stats data to export'}), 400
+        
+        # Create DataFrames for export
+        plays_df = pd.DataFrame(box_stats['plays'])
+        players_df = pd.DataFrame.from_dict(box_stats['players'], orient='index')
+        
+        # Create Excel file in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            plays_df.to_excel(writer, sheet_name='Plays', index=False)
+            players_df.to_excel(writer, sheet_name='Player Stats', index=False)
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='box_stats_export.xlsx'
+        )
+        
+    except Exception as e:
+        return jsonify({'error': f'Error exporting stats: {str(e)}'}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5004))
     app.run(debug=True, host='0.0.0.0', port=port)
