@@ -431,7 +431,7 @@ function analyzeSelectedSheets() {
             analysisData = data;
             playData = data.play_data || [];
             displayAnalysisResults(data);
-            setupPlayComparison(data.play_data);
+            // Front/Coverage comparison is set up when results section is shown
             showAlert('Defensive analysis complete!', 'success');
         } else {
             showAlert('Error analyzing data: ' + (data.error || 'Unknown error'), 'danger');
@@ -690,7 +690,7 @@ function generateFrontDropdowns(frontCount) {
                 <select class="form-select front-select" id="frontSelect${i}" onchange="updateCompareFrontsButton()">
                     <option value="">Select front/coverage...</option>
                     ${availableFronts.map((front, index) => {
-                        const frontLabel = front['Front/Coverage'] || front['front/coverage'] || front['Coverage'] || front['Front'] || `Front/Coverage ${index + 1}`;
+                        const frontLabel = front['Front/Coverage'] || front['front/coverage'] || front['Coverage'] || front['Front'] || front['FRONT/COVERAGE'] || `Row ${index + 1}`;
                         return `<option value="${index}">${frontLabel}</option>`;
                     }).join('')}
                 </select>
