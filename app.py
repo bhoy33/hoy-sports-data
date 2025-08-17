@@ -350,7 +350,11 @@ def compare_stats():
         return jsonify({'error': 'Missing required parameters'}), 400
     
     try:
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        # Use session-stored file path if available, otherwise fall back to uploads folder
+        filepath = session.get('uploaded_file_path')
+        if not filepath:
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
         combined_df = load_and_process_data(filepath, selected_sheets)
         
         # Generate comparison chart
@@ -376,7 +380,11 @@ def preview_data():
         return jsonify({'error': 'Missing required parameters'}), 400
     
     try:
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        # Use session-stored file path if available, otherwise fall back to uploads folder
+        filepath = session.get('uploaded_file_path')
+        if not filepath:
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
         combined_df = load_and_process_data(filepath, selected_sheets)
         
         # Get all data for preview (like Streamlit)
@@ -385,15 +393,12 @@ def preview_data():
         # Handle NaN values that can't be serialized to JSON
         preview_df = preview_df.fillna('')  # Replace NaN with empty string
         
-        # Convert to format suitable for HTML table
-        preview_data = {
-            'columns': preview_df.columns.tolist(),
-            'rows': preview_df.values.tolist()
-        }
+        # Convert to records format that frontend expects
+        preview_data = preview_df.to_dict('records')
         
         return jsonify({
             'success': True,
-            'data': preview_data,
+            'preview_data': preview_data,
             'total_rows': len(combined_df)
         })
     

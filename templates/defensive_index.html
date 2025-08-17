@@ -223,33 +223,69 @@
         </div>
     </div>
 
-    <!-- Play Comparison Section -->
-    <div class="row justify-content-center mt-4" id="playComparisonSection" style="display: none;">
+    <!-- Front/Coverage Comparison Section -->
+    <div class="row justify-content-center mt-4" id="resultsSection" style="display: none;">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
                     <h4 class="mb-0">
-                        <i class="fas fa-balance-scale me-2"></i>
-                        Defensive Play Comparison
+                        <i class="fas fa-search"></i> Front/Coverage Comparison
                     </h4>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-3">Select specific defensive plays to compare in detail:</p>
-                    
-                    <!-- Play Selection -->
-                    <div class="row mb-4" id="playSelection">
-                        <!-- Play selectors will be populated dynamically -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="frontCountSelect" class="form-label">Number of fronts/coverages to compare:</label>
+                            <select class="form-select" id="frontCountSelect" onchange="setupFrontComparison()">
+                                <option value="">Select number of fronts/coverages...</option>
+                                <option value="1">1 front/coverage</option>
+                                <option value="2">2 fronts/coverages</option>
+                                <option value="3">3 fronts/coverages</option>
+                                <option value="4">4 fronts/coverages</option>
+                                <option value="5">5 fronts/coverages</option>
+                                <option value="6">6 fronts/coverages</option>
+                                <option value="7">7 fronts/coverages</option>
+                                <option value="8">8 fronts/coverages</option>
+                                <option value="9">9 fronts/coverages</option>
+                                <option value="10">10 fronts/coverages</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-end h-100">
+                                <button class="btn btn-primary" onclick="compareSelectedFronts()" id="compareFrontsBtn" disabled>
+                                    <i class="fas fa-chart-bar"></i> Compare Selected Fronts/Coverages
+                                </button>
+                                <button class="btn btn-outline-secondary ms-2" onclick="clearFrontComparison()" id="clearFrontComparisonBtn" disabled>
+                                    <i class="fas fa-times"></i> Clear
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="text-center mb-4">
-                        <button class="btn btn-primary" onclick="compareSelectedPlays()" id="comparePlaysBtn" disabled>
-                            <i class="fas fa-search me-2"></i>
-                            Compare Selected Plays
-                        </button>
+                    <!-- Front/Coverage Selection Dropdowns -->
+                    <div id="frontSelectionContainer" class="mb-4" style="display: none;">
+                        <h5>Select fronts/coverages to compare:</h5>
+                        <div id="frontDropdowns" class="row">
+                            <!-- Front/coverage selection dropdowns will be generated here -->
+                        </div>
                     </div>
                     
-                    <!-- Comparison Results -->
-                    <div id="comparisonResults"></div>
+                    <!-- Front/Coverage Comparison Results -->
+                    <div id="frontComparisonResults" style="display: none;">
+                        <h5>Front/Coverage Comparison Results:</h5>
+                        <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                            <table class="table table-striped table-hover" id="frontComparisonTable">
+                                <thead class="table-dark">
+                                    <tr id="frontComparisonHeader">
+                                        <!-- Headers will be populated dynamically -->
+                                    </tr>
+                                </thead>
+                                <tbody id="frontComparisonBody">
+                                    <!-- Comparison data will be populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -432,6 +468,9 @@ function displayAnalysisResults(data) {
     
     // Show results section
     document.getElementById('analysisResults').style.display = 'block';
+    
+    // Show front/coverage comparison section
+    document.getElementById('resultsSection').style.display = 'block';
 }
 
 function displaySummaryStats(stats) {
@@ -584,69 +623,107 @@ function displayDataPreview(previewData) {
     }
 }
 
-function setupPlayComparison(playData) {
-    if (!playData || playData.length === 0) {
+// Front/Coverage Comparison Functions (matching offensive structure)
+let selectedFrontCount = 0;
+let availableFronts = [];
+
+function setupFrontComparison() {
+    const frontCount = parseInt(document.getElementById('frontCountSelect').value);
+    if (!frontCount) {
+        document.getElementById('frontSelectionContainer').style.display = 'none';
+        document.getElementById('clearFrontComparisonBtn').disabled = true;
         return;
     }
     
-    const playSelection = document.getElementById('playSelection');
-    let html = '';
+    selectedFrontCount = frontCount;
     
-    // Create play selectors (limit to first 10 for performance)
-    const maxPlays = Math.min(playData.length, 10);
-    for (let i = 0; i < maxPlays; i++) {
-        html += `
-            <div class="col-md-4 mb-3">
-                <label for="playSelect${i}" class="form-label">Play ${i + 1}:</label>
-                <select class="form-select play-select" id="playSelect${i}" data-play-index="${i}">
-                    <option value="">Select a play...</option>
-        `;
+    // Load available fronts/coverages first
+    loadAvailableFronts().then(() => {
+        generateFrontDropdowns(frontCount);
+        document.getElementById('frontSelectionContainer').style.display = 'block';
+        document.getElementById('clearFrontComparisonBtn').disabled = false;
+    });
+}
+
+function loadAvailableFronts() {
+    if (!currentFilename || !Array.from(document.getElementById('sheetsDropdown').selectedOptions).length) {
+        showAlert('Please upload a file and select sheets first', 'warning');
+        return Promise.reject('No data available');
+    }
+    
+    return fetch('/get_plays', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            filename: currentFilename,
+            sheets: Array.from(document.getElementById('sheetsDropdown').selectedOptions).map(option => option.value)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            availableFronts = data.plays;
+        } else {
+            showAlert('Error loading fronts/coverages: ' + (data.error || 'Unknown error'), 'danger');
+            throw new Error(data.error || 'Unknown error');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading fronts/coverages:', error);
+        showAlert('Error loading fronts/coverages: ' + error.message, 'danger');
+        throw error;
+    });
+}
+
+function generateFrontDropdowns(frontCount) {
+    const container = document.getElementById('frontDropdowns');
+    container.innerHTML = '';
+    
+    for (let i = 1; i <= frontCount; i++) {
+        const colClass = frontCount <= 4 ? 'col-md-3' : frontCount <= 6 ? 'col-md-2' : 'col-md-1';
         
-        playData.forEach((play, index) => {
-            const playLabel = play.play || play.Play || `Play ${index + 1}`;
-            html += `<option value="${index}">${playLabel}</option>`;
-        });
-        
-        html += `
+        const dropdownHtml = `
+            <div class="${colClass} mb-3">
+                <label for="frontSelect${i}" class="form-label">Front/Coverage ${i}:</label>
+                <select class="form-select front-select" id="frontSelect${i}" onchange="updateCompareFrontsButton()">
+                    <option value="">Select front/coverage...</option>
+                    ${availableFronts.map((front, index) => {
+                        const frontLabel = front['Front/Coverage'] || front['front/coverage'] || front['Coverage'] || front['Front'] || `Front/Coverage ${index + 1}`;
+                        return `<option value="${index}">${frontLabel}</option>`;
+                    }).join('')}
                 </select>
             </div>
         `;
+        
+        container.insertAdjacentHTML('beforeend', dropdownHtml);
     }
-    
-    playSelection.innerHTML = html;
-    
-    // Add event listeners to enable/disable compare button
-    document.querySelectorAll('.play-select').forEach(select => {
-        select.addEventListener('change', updateCompareButton);
-    });
-    
-    document.getElementById('playComparisonSection').style.display = 'block';
 }
 
-function updateCompareButton() {
-    const playSelects = document.querySelectorAll('.play-select');
+function updateCompareFrontsButton() {
+    const frontSelects = document.querySelectorAll('.front-select');
     let selectedCount = 0;
     
-    playSelects.forEach(select => {
+    frontSelects.forEach(select => {
         if (select.value) selectedCount++;
     });
     
-    // Enable compare button if at least 1 play is selected
-    document.getElementById('comparePlaysBtn').disabled = selectedCount < 1;
+    document.getElementById('compareFrontsBtn').disabled = selectedCount < 1;
 }
 
-function compareSelectedPlays() {
-    const playSelects = document.querySelectorAll('.play-select');
-    const selectedPlayIndices = [];
+function compareSelectedFronts() {
+    const frontSelects = document.querySelectorAll('.front-select');
+    const selectedFrontIndices = [];
     
-    playSelects.forEach(select => {
+    frontSelects.forEach(select => {
         if (select.value) {
-            selectedPlayIndices.push(parseInt(select.value));
+            selectedFrontIndices.push(parseInt(select.value));
         }
     });
     
-    if (selectedPlayIndices.length < 1) {
-        showAlert('Please select at least 1 play to view', 'warning');
+    if (selectedFrontIndices.length < 1) {
+        showAlert('Please select at least 1 front/coverage to compare', 'warning');
         return;
     }
     
@@ -659,79 +736,70 @@ function compareSelectedPlays() {
         },
         body: JSON.stringify({
             filename: currentFilename,
-            sheets: Array.from(document.querySelectorAll('#sheetSelection input:checked'))
-                .map(cb => cb.value),
-            play_indices: selectedPlayIndices
+            sheets: Array.from(document.getElementById('sheetsDropdown').selectedOptions).map(option => option.value),
+            play_indices: selectedFrontIndices
         })
     })
     .then(response => response.json())
     .then(data => {
         showLoading(false);
         if (data.success) {
-            displayPlayComparison(data.comparison_data);
-            showAlert('Play comparison complete!', 'success');
+            displayFrontComparison(data.comparison_data);
+            showAlert('Front/Coverage comparison complete!', 'success');
         } else {
-            showAlert('Error comparing plays: ' + (data.error || 'Unknown error'), 'danger');
+            showAlert('Error comparing fronts/coverages: ' + (data.error || 'Unknown error'), 'danger');
         }
     })
     .catch(error => {
         showLoading(false);
-        console.error('Error comparing plays:', error);
-        showAlert('Error comparing plays: ' + error.message, 'danger');
+        console.error('Error comparing fronts/coverages:', error);
+        showAlert('Error comparing fronts/coverages: ' + error.message, 'danger');
     });
 }
 
-function displayPlayComparison(comparisonData) {
-    const results = document.getElementById('comparisonResults');
-    
+function clearFrontComparison() {
+    document.getElementById('frontCountSelect').value = '';
+    document.getElementById('frontSelectionContainer').style.display = 'none';
+    document.getElementById('frontComparisonResults').style.display = 'none';
+    document.getElementById('clearFrontComparisonBtn').disabled = true;
+    document.getElementById('compareFrontsBtn').disabled = true;
+}
+
+function displayFrontComparison(comparisonData) {
     if (!comparisonData || comparisonData.length === 0) {
-        results.innerHTML = '<p class="text-muted">No comparison data available.</p>';
+        document.getElementById('frontComparisonResults').innerHTML = '<p class="text-muted">No comparison data available.</p>';
         return;
     }
     
-    let html = `
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-table me-2"></i>Selected Defensive Plays Comparison</h5>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
-                            <tr>
-    `;
+    const headerRow = document.getElementById('frontComparisonHeader');
+    const bodyElement = document.getElementById('frontComparisonBody');
     
-    // Table headers
-    if (comparisonData.length > 0) {
-        Object.keys(comparisonData[0]).forEach(key => {
-            html += `<th>${key}</th>`;
-        });
-    }
+    // Clear existing content
+    headerRow.innerHTML = '';
+    bodyElement.innerHTML = '';
     
-    html += `
-                            </tr>
-                        </thead>
-                        <tbody>
-    `;
+    // Get column names from first row
+    const columns = Object.keys(comparisonData[0]);
     
-    // Table rows
-    comparisonData.forEach(play => {
-        html += '<tr>';
-        Object.values(play).forEach(value => {
-            html += `<td>${value || '-'}</td>`;
-        });
-        html += '</tr>';
+    // Create header
+    columns.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col;
+        headerRow.appendChild(th);
     });
     
-    html += `
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    `;
+    // Create body rows
+    comparisonData.forEach(front => {
+        const row = document.createElement('tr');
+        columns.forEach(col => {
+            const td = document.createElement('td');
+            td.textContent = front[col] || '';
+            row.appendChild(td);
+        });
+        bodyElement.appendChild(row);
+    });
     
-    results.innerHTML = html;
+    document.getElementById('frontComparisonResults').style.display = 'block';
 }
 
 // Utility functions
