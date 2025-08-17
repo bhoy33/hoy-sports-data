@@ -1593,11 +1593,13 @@ def add_box_stats_play():
         for player in play_data['players_involved']:
             player_num = player.get('number')
             if player_num:
-                if player_num not in session['box_stats']['players']:
-                    session['box_stats']['players'][player_num] = {
-                        'number': player_num,
-                        'name': player.get('name', f'Player #{player_num}'),
-                        'position': player.get('position', ''),
+                # Ensure player_num is a string for consistent session storage
+                player_key = str(player_num)
+                if player_key not in session['box_stats']['players']:
+                    session['box_stats']['players'][player_key] = {
+                        'number': int(player_num),  # Store as int for display
+                        'name': str(player.get('name', f'Player #{player_num}')),
+                        'position': str(player.get('position', '')),
                         'rushing_attempts': 0,
                         'rushing_yards': 0,
                         'receptions': 0,
@@ -1611,20 +1613,21 @@ def add_box_stats_play():
                     }
                 
                 # Update stats based on player's role in the play
-                player_stats = session['box_stats']['players'][player_num]
-                role = player.get('role', '')
+                player_stats = session['box_stats']['players'][player_key]
+                role = str(player.get('role', ''))
+                yards_gained = int(play_data.get('yards_gained', 0))
                 
                 if role == 'rusher':
                     player_stats['rushing_attempts'] += 1
-                    player_stats['rushing_yards'] += play_data['yards_gained']
+                    player_stats['rushing_yards'] += yards_gained
                 elif role == 'receiver':
                     player_stats['receptions'] += 1
-                    player_stats['receiving_yards'] += play_data['yards_gained']
+                    player_stats['receiving_yards'] += yards_gained
                 elif role == 'passer':
                     player_stats['passing_attempts'] += 1
                     if player.get('completion', False):
                         player_stats['passing_completions'] += 1
-                        player_stats['passing_yards'] += play_data['yards_gained']
+                        player_stats['passing_yards'] += yards_gained
                 
                 if player.get('touchdown', False):
                     player_stats['touchdowns'] += 1
