@@ -946,7 +946,7 @@
                 play_type: document.getElementById('playType').value,
                 result: document.getElementById('result').value,
                 yards_gained: parseInt(document.getElementById('yardsGained').value) || 0,
-                players_involved: getPlayersData(),
+                players_involved: collectPlayerData(),
                 timestamp: new Date().toISOString()
             };
 
@@ -985,17 +985,25 @@
             document.getElementById('result').value = '';
             document.getElementById('yardsGained').value = '0';
             document.getElementById('playType').value = '';
-            document.getElementById('playersContainer').innerHTML = '';
-            playerInputCount = 0;
+            
+            // Clear selected players for next play
+            selectedPlayersForPlay = [];
+            updateSelectedPlayersDisplay();
+            
+            // Reset position filter
+            const positionFilter = document.getElementById('positionFilter');
+            const playerSelect = document.getElementById('playerSelect');
+            if (positionFilter && playerSelect) {
+                positionFilter.value = '';
+                playerSelect.innerHTML = '<option value="">Select a position first</option>';
+                playerSelect.disabled = true;
+            }
             
             // Keep down, distance, field position - they'll be auto-updated
             // Don't reset play number - it auto-increments
         }
 
-        // Auto-add first player input when page loads
-        setTimeout(() => {
-            addPlayerInput();
-        }, 500);
+        // Player profile system handles player selection - no auto-add needed
     </script>
 </body>
 </html>
