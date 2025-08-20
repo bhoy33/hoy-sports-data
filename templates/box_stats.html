@@ -233,118 +233,25 @@
             </div>
         </div>
         
-        <!-- Overall Team Stats -->
-        <div class="row">
+        <!-- Game Management Actions -->
+        <div class="row mb-4">
             <div class="col-12">
-                <div class="team-stats-overview">
-                    <h4><i class="fas fa-chart-bar me-2"></i>Overall Game Stats</h4>
-                    <!-- Basic Stats Row -->
-                    <div class="row mb-3">
-                        <div class="col-md-2">
-                            <strong>Total Plays:</strong><br>
-                            <span id="totalPlays" class="h5">0</span>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>Total Yards:</strong><br>
-                            <span id="totalYards" class="h5">0</span>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>Rush Plays:</strong><br>
-                            <span id="rushPlays" class="h5">0</span>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>Pass Plays:</strong><br>
-                            <span id="passPlays" class="h5">0</span>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>Touchdowns:</strong><br>
-                            <span id="totalTouchdowns" class="h5">0</span>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>Turnovers:</strong><br>
-                            <span id="totalTurnovers" class="h5">0</span>
-                        </div>
-                        <div class="col-md-2">
-                            <div class="btn-group">
-                                <button class="btn btn-success btn-sm" onclick="showSaveGameModal()">
-                                    <i class="fas fa-save me-1"></i>Save Game
-                                </button>
-                                <button class="btn btn-info btn-sm" onclick="showLoadGameModal()">
-                                    <i class="fas fa-folder-open me-1"></i>Load Game
-                                </button>
-                                <button class="btn btn-light btn-sm" onclick="exportStats()">
-                                    <i class="fas fa-download me-1"></i>Export
-                                </button>
-                                <button class="btn btn-outline-light btn-sm" onclick="resetStats()">
-                                    <i class="fas fa-refresh me-1"></i>Reset
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Advanced Team Analytics Row -->
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="advanced-team-stats p-3 bg-light rounded">
-                                <h6 class="text-primary mb-3">
-                                    <i class="fas fa-chart-line me-2"></i>Team Advanced Analytics
-                                </h6>
-                                <div class="row">
-                                    <div class="col-lg-2 col-md-4 col-sm-6">
-                                        <div class="text-center mb-3">
-                                            <strong class="text-success">Team Efficiency Rate</strong><br>
-                                            <span id="teamEfficiencyRate" class="h4 text-success" title="Percentage of plays that were efficient based on down and distance">0.0%</span>
-                                            <small class="d-block text-muted">
-                                                <span id="teamEfficientPlays">0</span> of <span id="teamTotalPlaysForEfficiency">0</span> plays
-                                            </small>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-2 col-md-4 col-sm-6">
-                                        <div class="text-center mb-3">
-                                            <strong class="text-warning">Team Explosive Rate</strong><br>
-                                            <span id="teamExplosiveRate" class="h4 text-warning" title="Percentage of plays that were explosive (Rush ≥10yds, Pass ≥15yds)">0.0%</span>
-                                            <small class="d-block text-muted">
-                                                <span id="teamExplosivePlays">0</span> of <span id="teamTotalPlaysForExplosive">0</span> plays
-                                            </small>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-2 col-md-4 col-sm-6">
-                                        <div class="text-center mb-3">
-                                            <strong class="text-danger">Team Negative Rate</strong><br>
-                                            <span id="teamNegativeRate" class="h4 text-danger" title="Percentage of plays with negative yards or turnovers">0.0%</span>
-                                            <small class="d-block text-muted">
-                                                <span id="teamNegativePlays">0</span> of <span id="teamTotalPlaysForNegative">0</span> plays
-                                            </small>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-2 col-md-4 col-sm-6">
-                                        <div class="text-center mb-3">
-                                            <strong class="text-info">Avg Yards/Play</strong><br>
-                                            <span id="teamAvgYardsPerPlay" class="h4 text-info">0.0</span>
-                                            <small class="d-block text-muted">Overall efficiency</small>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4 col-md-8 col-sm-12">
-                                        <div class="text-center mb-3">
-                                            <strong class="text-purple">NEE Score</strong><br>
-                                            <span id="teamNeeScore" class="h4 text-info" title="Net Explosive Efficiency: Efficiency Rate + Explosive Rate - Negative Rate">0.0</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-2 col-md-4 col-sm-6">
-                                        <div class="text-center mb-3">
-                                            <button class="btn btn-outline-primary btn-sm mb-1" onclick="showTeamNeeGraph()" title="View Team NEE Progression Graph">
-                                                <i class="fas fa-chart-line me-1"></i>NEE Graph
-                                            </button><br>
-                                            <button class="btn btn-outline-success btn-sm mb-1" onclick="showTeamEfficiencyGraph()" title="View Team Efficiency Progression Graph">
-                                                <i class="fas fa-chart-line me-1"></i>Efficiency Graph
-                                            </button><br>
-                                            <button class="btn btn-outline-warning btn-sm" onclick="showTeamAvgYardsGraph()" title="View Team Average Yards Progression Graph">
-                                                <i class="fas fa-chart-line me-1"></i>Avg Yards Graph
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-gamepad me-2"></i>Game Management</h5>
+                        <div class="btn-group">
+                            <button class="btn btn-success btn-sm" onclick="showSaveGameModal()">
+                                <i class="fas fa-save me-1"></i>Save Game
+                            </button>
+                            <button class="btn btn-info btn-sm" onclick="showLoadGameModal()">
+                                <i class="fas fa-folder-open me-1"></i>Load Game
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="exportStats()">
+                                <i class="fas fa-download me-1"></i>Export
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="resetStats()">
+                                <i class="fas fa-refresh me-1"></i>Reset
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1579,14 +1486,7 @@
                 document.getElementById('specialTeamsNeeScore').textContent = teamStats.special_teams.nee_score || 0;
             }
             
-            // Update overall stats (backward compatibility)
-            const overall = teamStats.overall || teamStats; // Fallback for old format
-            document.getElementById('totalPlays').textContent = overall.total_plays || 0;
-            document.getElementById('totalYards').textContent = overall.total_yards || 0;
-            document.getElementById('rushPlays').textContent = overall.rushing_plays || 0;
-            document.getElementById('passPlays').textContent = overall.passing_plays || 0;
-            document.getElementById('totalTouchdowns').textContent = overall.touchdowns || 0;
-            document.getElementById('totalTurnovers').textContent = overall.turnovers || 0;
+            // Overall stats section removed - phase-specific stats provide all needed information
         }
 
         // Update player stats display
