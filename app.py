@@ -1820,6 +1820,9 @@ def add_box_stats_play():
                         qb_player = player
                         break
             
+            print(f"DEBUG: Players involved in play: {play_data['players_involved']}")
+            print(f"DEBUG: Number of players involved: {len(play_data['players_involved'])}")
+            
             for player in play_data['players_involved']:
                 player_num = player.get('number')
                 print(f"DEBUG: Processing player - raw data: {player}")
