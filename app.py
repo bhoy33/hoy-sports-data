@@ -3185,6 +3185,44 @@ def load_saved_game():
                 'field_position': 'OWN 25'
             }
         }
+        
+        # Apply backward compatibility for loaded game data
+        # Ensure all advanced analytics fields exist in loaded team_stats
+        if 'team_stats' in session['box_stats']:
+            required_team_fields = {
+                'negative_plays': 0,
+                'efficiency_rate': 0.0,
+                'explosive_rate': 0.0,
+                'negative_rate': 0.0,
+                'nee_score': 0.0,
+                'avg_yards_per_play': 0.0,
+                'success_rate': 0.0,
+                'nee_progression': [],
+                'efficiency_progression': [],
+                'avg_yards_progression': []
+            }
+            
+            for field, default_value in required_team_fields.items():
+                if field not in session['box_stats']['team_stats']:
+                    session['box_stats']['team_stats'][field] = default_value
+        
+        # Ensure all advanced analytics fields exist in loaded player stats
+        if 'players' in session['box_stats']:
+            required_player_fields = {
+                'negative_plays': 0,
+                'efficiency_rate': 0.0,
+                'explosive_rate': 0.0,
+                'negative_rate': 0.0,
+                'nee_score': 0.0,
+                'nee_progression': [],
+                'efficiency_progression': [],
+                'avg_yards_progression': []
+            }
+            
+            for player_key, player_data in session['box_stats']['players'].items():
+                for field, default_value in required_player_fields.items():
+                    if field not in player_data:
+                        player_data[field] = default_value
         session.modified = True
         
         return jsonify({
