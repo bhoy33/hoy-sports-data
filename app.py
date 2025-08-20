@@ -1612,13 +1612,23 @@ def add_box_stats_play():
         if 'turnovers' not in session['box_stats']['team_stats']:
             session['box_stats']['team_stats']['turnovers'] = 0
         
-        # Ensure progression tracking exists in existing team_stats (backward compatibility)
-        if 'nee_progression' not in session['box_stats']['team_stats']:
-            session['box_stats']['team_stats']['nee_progression'] = []
-        if 'efficiency_progression' not in session['box_stats']['team_stats']:
-            session['box_stats']['team_stats']['efficiency_progression'] = []
-        if 'avg_yards_progression' not in session['box_stats']['team_stats']:
-            session['box_stats']['team_stats']['avg_yards_progression'] = []
+        # Ensure all advanced analytics fields exist in existing team_stats (backward compatibility)
+        required_team_fields = {
+            'negative_plays': 0,
+            'efficiency_rate': 0.0,
+            'explosive_rate': 0.0,
+            'negative_rate': 0.0,
+            'nee_score': 0.0,
+            'avg_yards_per_play': 0.0,
+            'success_rate': 0.0,
+            'nee_progression': [],
+            'efficiency_progression': [],
+            'avg_yards_progression': []
+        }
+        
+        for field, default_value in required_team_fields.items():
+            if field not in session['box_stats']['team_stats']:
+                session['box_stats']['team_stats'][field] = default_value
         
         # Ensure play_call_stats exists in existing sessions (backward compatibility)
         if 'play_call_stats' not in session['box_stats']:
@@ -1875,6 +1885,23 @@ def add_box_stats_play():
                     
                     # Update stats based on player's role in the play
                     player_stats = session['box_stats']['players'][player_key]
+                    
+                    # Ensure all advanced analytics fields exist in existing player stats (backward compatibility)
+                    required_player_fields = {
+                        'negative_plays': 0,
+                        'efficiency_rate': 0.0,
+                        'explosive_rate': 0.0,
+                        'negative_rate': 0.0,
+                        'nee_score': 0.0,
+                        'nee_progression': [],
+                        'efficiency_progression': [],
+                        'avg_yards_progression': []
+                    }
+                    
+                    for field, default_value in required_player_fields.items():
+                        if field not in player_stats:
+                            player_stats[field] = default_value
+                    
                     role = str(player.get('role', ''))
                     
                     # Update basic stats based on role
