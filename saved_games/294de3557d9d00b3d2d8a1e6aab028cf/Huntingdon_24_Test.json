@@ -1,0 +1,1900 @@
+{
+  "game_info": {},
+  "plays": [
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 31",
+      "penalty_on": "defense",
+      "penalty_type": "facemask",
+      "penalty_yards": 15,
+      "play_call": null,
+      "play_number": 1,
+      "play_type": "penalty",
+      "players_involved": [],
+      "result": "",
+      "timestamp": "2025-08-19T23:24:36.888Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 46",
+      "play_call": null,
+      "play_number": 2,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:25:01.906Z",
+      "yards_gained": 1
+    },
+    {
+      "distance": 9,
+      "down": 2,
+      "field_position": "OWN 47",
+      "play_call": null,
+      "play_number": 3,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:25:11.889Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 9,
+      "down": 3,
+      "field_position": "OWN 47",
+      "penalty_on": "offense",
+      "penalty_type": "holding",
+      "penalty_yards": 5,
+      "play_call": null,
+      "play_number": 4,
+      "play_type": "penalty",
+      "players_involved": [],
+      "result": "",
+      "timestamp": "2025-08-19T23:25:32.671Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 14,
+      "down": 3,
+      "field_position": "OWN 42",
+      "play_call": null,
+      "play_number": 5,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Carter Jr.",
+          "number": 1,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": false
+        },
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:25:55.224Z",
+      "yards_gained": 17
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 41",
+      "play_call": null,
+      "play_number": 6,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:26:12.040Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 2,
+      "field_position": "OPP 41",
+      "play_call": null,
+      "play_number": 7,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:26:27.521Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 3,
+      "field_position": "OPP 41",
+      "play_call": null,
+      "play_number": 8,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Carter Jr.",
+          "number": 1,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:26:53.088Z",
+      "yards_gained": 13
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 28",
+      "penalty_on": "offense",
+      "penalty_type": "holding",
+      "penalty_yards": 5,
+      "play_call": null,
+      "play_number": 9,
+      "play_type": "penalty",
+      "players_involved": [],
+      "result": "",
+      "timestamp": "2025-08-19T23:27:16.735Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 15,
+      "down": 1,
+      "field_position": "OPP 33",
+      "play_call": null,
+      "play_number": 10,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:27:45.288Z",
+      "yards_gained": 7
+    },
+    {
+      "distance": 8,
+      "down": 2,
+      "field_position": "OPP 26",
+      "play_call": null,
+      "play_number": 11,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Skelton",
+          "number": 84,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:28:08.422Z",
+      "yards_gained": 15
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 11",
+      "play_call": null,
+      "play_number": 12,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:28:23.639Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 2,
+      "field_position": "OPP 11",
+      "play_call": null,
+      "play_number": 13,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:28:49.271Z",
+      "yards_gained": 3
+    },
+    {
+      "distance": 7,
+      "down": 3,
+      "field_position": "OPP 8",
+      "play_call": null,
+      "play_number": 14,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:29:12.538Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 7,
+      "down": 3,
+      "field_position": "OPP 8",
+      "play_call": null,
+      "play_number": 15,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:29:48.104Z",
+      "yards_gained": 5
+    },
+    {
+      "distance": 2,
+      "down": 4,
+      "field_position": "OPP 3",
+      "penalty_on": "defense",
+      "penalty_type": "pass_interference",
+      "penalty_yards": 0,
+      "play_call": null,
+      "play_number": 16,
+      "play_type": "penalty",
+      "players_involved": [],
+      "result": "",
+      "timestamp": "2025-08-19T23:30:09.154Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 3",
+      "play_call": null,
+      "play_number": 17,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": true
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:30:31.120Z",
+      "yards_gained": 3
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 33",
+      "play_call": null,
+      "play_number": 18,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:32:04.971Z",
+      "yards_gained": 2
+    },
+    {
+      "distance": 8,
+      "down": 2,
+      "field_position": "OWN 35",
+      "play_call": null,
+      "play_number": 19,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Abner",
+          "number": 20,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:32:28.453Z",
+      "yards_gained": 4
+    },
+    {
+      "distance": 4,
+      "down": 3,
+      "field_position": "OWN 39",
+      "play_call": null,
+      "play_number": 20,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Abner",
+          "number": 20,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:32:48.019Z",
+      "yards_gained": 14
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 47",
+      "play_call": null,
+      "play_number": 21,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:33:03.787Z",
+      "yards_gained": 3
+    },
+    {
+      "distance": 7,
+      "down": 2,
+      "field_position": "OPP 44",
+      "play_call": null,
+      "play_number": 22,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:33:37.704Z",
+      "yards_gained": -17
+    },
+    {
+      "distance": 24,
+      "down": 3,
+      "field_position": "OWN 39",
+      "play_call": null,
+      "play_number": 23,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:33:50.518Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 47",
+      "play_call": null,
+      "play_number": 24,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Carter Jr.",
+          "number": 1,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:34:58.587Z",
+      "yards_gained": 42
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 11",
+      "play_call": null,
+      "play_number": 25,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:35:20.504Z",
+      "yards_gained": 6
+    },
+    {
+      "distance": 4,
+      "down": 2,
+      "field_position": "OPP 5",
+      "play_call": null,
+      "play_number": 26,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:35:35.318Z",
+      "yards_gained": 2
+    },
+    {
+      "distance": 2,
+      "down": 3,
+      "field_position": "OPP 3",
+      "penalty_on": "offense",
+      "penalty_type": "holding",
+      "penalty_yards": 5,
+      "play_call": null,
+      "play_number": 27,
+      "play_type": "penalty",
+      "players_involved": [],
+      "result": "",
+      "timestamp": "2025-08-19T23:36:06.183Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 7,
+      "down": 3,
+      "field_position": "OPP 8",
+      "play_call": null,
+      "play_number": 28,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:36:24.036Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 38",
+      "play_call": null,
+      "play_number": 29,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Carter Jr.",
+          "number": 1,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:37:55.351Z",
+      "yards_gained": 15
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 47",
+      "penalty_on": "defense",
+      "penalty_type": "pass_interference",
+      "penalty_yards": 15,
+      "play_call": null,
+      "play_number": 30,
+      "play_type": "penalty",
+      "players_involved": [],
+      "result": "",
+      "timestamp": "2025-08-19T23:38:16.466Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 32",
+      "play_call": null,
+      "play_number": 31,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:38:33.551Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 2,
+      "field_position": "OPP 32",
+      "play_call": null,
+      "play_number": 32,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Jones",
+          "number": 16,
+          "position": "TE",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:38:58.484Z",
+      "yards_gained": 8
+    },
+    {
+      "distance": 2,
+      "down": 3,
+      "field_position": "OPP 24",
+      "play_call": null,
+      "play_number": 33,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Jones",
+          "number": 16,
+          "position": "TE",
+          "role": "receiver",
+          "touchdown": false
+        },
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:39:21.237Z",
+      "yards_gained": 17
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 7",
+      "play_call": null,
+      "play_number": 34,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:39:40.050Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 2,
+      "field_position": "OPP 7",
+      "play_call": null,
+      "play_number": 35,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:39:54.333Z",
+      "yards_gained": 4
+    },
+    {
+      "distance": 6,
+      "down": 3,
+      "field_position": "OPP 3",
+      "play_call": null,
+      "play_number": 36,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Abner",
+          "number": 20,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": true
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:40:20.049Z",
+      "yards_gained": 2
+    },
+    {
+      "distance": 5,
+      "down": 1,
+      "field_position": "OWN 22",
+      "play_call": null,
+      "play_number": 37,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:41:42.533Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 5,
+      "down": 2,
+      "field_position": "OWN 22",
+      "play_call": null,
+      "play_number": 38,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:42:00.932Z",
+      "yards_gained": 6
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 28",
+      "play_call": null,
+      "play_number": 39,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Jones",
+          "number": 16,
+          "position": "TE",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:43:08.249Z",
+      "yards_gained": 11
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 39",
+      "penalty_on": "defense",
+      "penalty_type": "pass_interference",
+      "penalty_yards": 15,
+      "play_call": null,
+      "play_number": 40,
+      "play_type": "penalty",
+      "players_involved": [],
+      "result": "",
+      "timestamp": "2025-08-19T23:43:21.947Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 46",
+      "play_call": null,
+      "play_number": 41,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "McCovery IV",
+          "number": 3,
+          "position": "RB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:43:44.732Z",
+      "yards_gained": 23
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 23",
+      "play_call": null,
+      "play_number": 42,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:44:44.848Z",
+      "yards_gained": 7
+    },
+    {
+      "distance": 3,
+      "down": 2,
+      "field_position": "OPP 7",
+      "play_call": null,
+      "play_number": 43,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:44:59.648Z",
+      "yards_gained": 3
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 4",
+      "play_call": null,
+      "play_number": 44,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Carter Jr.",
+          "number": 1,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": true
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:45:34.082Z",
+      "yards_gained": 5
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 22",
+      "play_call": null,
+      "play_number": 45,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:46:31.780Z",
+      "yards_gained": 6
+    },
+    {
+      "distance": 4,
+      "down": 2,
+      "field_position": "OWN 28",
+      "play_call": null,
+      "play_number": 46,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:46:58.513Z",
+      "yards_gained": 22
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 50",
+      "play_call": null,
+      "play_number": 47,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:47:21.296Z",
+      "yards_gained": 11
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 39",
+      "play_call": null,
+      "play_number": 48,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:47:37.314Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 2,
+      "field_position": "OPP 39",
+      "play_call": null,
+      "play_number": 49,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "turnover",
+      "timestamp": "2025-08-19T23:47:57.263Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 41",
+      "play_call": null,
+      "play_number": 50,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:49:25.895Z",
+      "yards_gained": 3
+    },
+    {
+      "distance": 7,
+      "down": 2,
+      "field_position": "OWN 44",
+      "play_call": null,
+      "play_number": 51,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:49:48.345Z",
+      "yards_gained": -4
+    },
+    {
+      "distance": 11,
+      "down": 3,
+      "field_position": "OWN 40",
+      "play_call": null,
+      "play_number": 52,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:50:23.647Z",
+      "yards_gained": 31
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 29",
+      "play_call": null,
+      "play_number": 53,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Abner",
+          "number": 20,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:51:11.111Z",
+      "yards_gained": 3
+    },
+    {
+      "distance": 7,
+      "down": 2,
+      "field_position": "OPP 26",
+      "play_call": null,
+      "play_number": 54,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Redd",
+          "number": 5,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:51:39.745Z",
+      "yards_gained": 26
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 23",
+      "play_call": null,
+      "play_number": 55,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:52:39.577Z",
+      "yards_gained": 5
+    },
+    {
+      "distance": 5,
+      "down": 2,
+      "field_position": "OWN 28",
+      "play_call": null,
+      "play_number": 56,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:52:58.978Z",
+      "yards_gained": 1
+    },
+    {
+      "distance": 4,
+      "down": 3,
+      "field_position": "OWN 29",
+      "play_call": null,
+      "play_number": 57,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:53:15.828Z",
+      "yards_gained": -1
+    },
+    {
+      "distance": 5,
+      "down": 4,
+      "field_position": "OWN 33",
+      "play_call": null,
+      "play_number": 58,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:54:20.294Z",
+      "yards_gained": -3
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 30",
+      "play_call": null,
+      "play_number": 59,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": true
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Carter Jr.",
+          "number": 1,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": true
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:55:07.027Z",
+      "yards_gained": 70
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 48",
+      "play_call": null,
+      "play_number": 60,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:56:53.927Z",
+      "yards_gained": -4
+    },
+    {
+      "distance": 14,
+      "down": 2,
+      "field_position": "OWN 48",
+      "play_call": null,
+      "play_number": 61,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Swinea",
+          "number": 22,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:57:20.578Z",
+      "yards_gained": 1
+    },
+    {
+      "distance": 13,
+      "down": 3,
+      "field_position": "OWN 49",
+      "play_call": null,
+      "play_number": 62,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:57:29.926Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 13,
+      "down": 4,
+      "field_position": "OWN 33",
+      "play_call": null,
+      "play_number": 63,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:58:11.742Z",
+      "yards_gained": 4
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 37",
+      "play_call": null,
+      "play_number": 64,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:58:45.642Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 6,
+      "down": 3,
+      "field_position": "OWN 37",
+      "play_call": null,
+      "play_number": 65,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Orton",
+          "number": 2,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:59:14.993Z",
+      "yards_gained": 9
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OWN 46",
+      "play_call": null,
+      "play_number": 66,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:59:26.675Z",
+      "yards_gained": 5
+    },
+    {
+      "distance": 5,
+      "down": 2,
+      "field_position": "OPP 49",
+      "play_call": null,
+      "play_number": 67,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:59:44.325Z",
+      "yards_gained": 3
+    },
+    {
+      "distance": 2,
+      "down": 3,
+      "field_position": "OPP 46",
+      "play_call": null,
+      "play_number": 68,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-19T23:59:59.191Z",
+      "yards_gained": 0
+    },
+    {
+      "distance": 10,
+      "down": 1,
+      "field_position": "OPP 10",
+      "play_call": null,
+      "play_number": 69,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": true,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-20T00:00:55.057Z",
+      "yards_gained": -10
+    },
+    {
+      "distance": 20,
+      "down": 2,
+      "field_position": "OPP 20",
+      "play_call": null,
+      "play_number": 70,
+      "play_type": "pass",
+      "players_involved": [
+        {
+          "completion": true,
+          "fumble": false,
+          "name": "Rollins",
+          "number": 10,
+          "position": "QB",
+          "role": "passer",
+          "touchdown": false
+        },
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Orton",
+          "number": 2,
+          "position": "WR",
+          "role": "receiver",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-20T00:01:15.590Z",
+      "yards_gained": 12
+    },
+    {
+      "distance": 8,
+      "down": 3,
+      "field_position": "OPP 8",
+      "play_call": null,
+      "play_number": 71,
+      "play_type": "rush",
+      "players_involved": [
+        {
+          "completion": false,
+          "fumble": false,
+          "name": "Claiborne",
+          "number": 7,
+          "position": "RB",
+          "role": "rusher",
+          "touchdown": false
+        }
+      ],
+      "result": "",
+      "timestamp": "2025-08-20T00:01:29.241Z",
+      "yards_gained": 5
+    }
+  ],
+  "players": {
+    "1": {
+      "efficiency_rate": 100.0,
+      "efficient_plays": 6,
+      "explosive_plays": 4,
+      "explosive_rate": 66.7,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "Carter Jr.",
+      "nee_score": 166.7,
+      "negative_plays": 0,
+      "negative_rate": 0.0,
+      "number": 1,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "WR",
+      "receiving_yards": 162,
+      "receptions": 6,
+      "rushing_attempts": 0,
+      "rushing_yards": 0,
+      "total_plays": 6,
+      "touchdowns": 2
+    },
+    "10": {
+      "efficiency_rate": 51.4,
+      "efficient_plays": 18,
+      "explosive_plays": 9,
+      "explosive_rate": 25.7,
+      "fumbles": 1,
+      "interceptions": 0,
+      "name": "Rollins",
+      "nee_score": 71.4,
+      "negative_plays": 2,
+      "negative_rate": 5.7,
+      "number": 10,
+      "passing_attempts": 26,
+      "passing_completions": 15,
+      "passing_yards": 314,
+      "position": "QB",
+      "receiving_yards": 0,
+      "receptions": 0,
+      "rushing_attempts": 9,
+      "rushing_yards": 1,
+      "total_plays": 35,
+      "touchdowns": 1
+    },
+    "16": {
+      "efficiency_rate": 100.0,
+      "efficient_plays": 3,
+      "explosive_plays": 1,
+      "explosive_rate": 33.3,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "Jones",
+      "nee_score": 133.3,
+      "negative_plays": 0,
+      "negative_rate": 0.0,
+      "number": 16,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "TE",
+      "receiving_yards": 36,
+      "receptions": 3,
+      "rushing_attempts": 0,
+      "rushing_yards": 0,
+      "total_plays": 3,
+      "touchdowns": 0
+    },
+    "2": {
+      "efficiency_rate": 100.0,
+      "efficient_plays": 2,
+      "explosive_plays": 0,
+      "explosive_rate": 0.0,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "Orton",
+      "nee_score": 100.0,
+      "negative_plays": 0,
+      "negative_rate": 0.0,
+      "number": 2,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "WR",
+      "receiving_yards": 21,
+      "receptions": 2,
+      "rushing_attempts": 0,
+      "rushing_yards": 0,
+      "total_plays": 2,
+      "touchdowns": 0
+    },
+    "20": {
+      "efficiency_rate": 50.0,
+      "efficient_plays": 2,
+      "explosive_plays": 1,
+      "explosive_rate": 25.0,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "Abner",
+      "nee_score": 75.0,
+      "negative_plays": 0,
+      "negative_rate": 0.0,
+      "number": 20,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "RB",
+      "receiving_yards": 0,
+      "receptions": 0,
+      "rushing_attempts": 4,
+      "rushing_yards": 23,
+      "total_plays": 4,
+      "touchdowns": 1
+    },
+    "22": {
+      "efficiency_rate": 30.8,
+      "efficient_plays": 4,
+      "explosive_plays": 3,
+      "explosive_rate": 23.1,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "Swinea",
+      "nee_score": 30.8,
+      "negative_plays": 3,
+      "negative_rate": 23.1,
+      "number": 22,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "RB",
+      "receiving_yards": 31,
+      "receptions": 1,
+      "rushing_attempts": 12,
+      "rushing_yards": 36,
+      "total_plays": 13,
+      "touchdowns": 1
+    },
+    "3": {
+      "efficiency_rate": 100.0,
+      "efficient_plays": 1,
+      "explosive_plays": 0,
+      "explosive_rate": 0.0,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "McCovery IV",
+      "nee_score": 100.0,
+      "negative_plays": 0,
+      "negative_rate": 0.0,
+      "number": 3,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "RB",
+      "receiving_yards": 0,
+      "receptions": 0,
+      "rushing_attempts": 0,
+      "rushing_yards": 0,
+      "total_plays": 1,
+      "touchdowns": 0
+    },
+    "5": {
+      "efficiency_rate": 100.0,
+      "efficient_plays": 1,
+      "explosive_plays": 1,
+      "explosive_rate": 100.0,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "Redd",
+      "nee_score": 200.0,
+      "negative_plays": 0,
+      "negative_rate": 0.0,
+      "number": 5,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "WR",
+      "receiving_yards": 26,
+      "receptions": 1,
+      "rushing_attempts": 0,
+      "rushing_yards": 0,
+      "total_plays": 1,
+      "touchdowns": 0
+    },
+    "7": {
+      "efficiency_rate": 46.2,
+      "efficient_plays": 6,
+      "explosive_plays": 0,
+      "explosive_rate": 0.0,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "Claiborne",
+      "nee_score": 38.5,
+      "negative_plays": 1,
+      "negative_rate": 7.7,
+      "number": 7,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "RB",
+      "receiving_yards": 0,
+      "receptions": 0,
+      "rushing_attempts": 13,
+      "rushing_yards": 42,
+      "total_plays": 13,
+      "touchdowns": 0
+    },
+    "84": {
+      "efficiency_rate": 100.0,
+      "efficient_plays": 1,
+      "explosive_plays": 1,
+      "explosive_rate": 100.0,
+      "fumbles": 0,
+      "interceptions": 0,
+      "name": "Skelton",
+      "nee_score": 200.0,
+      "negative_plays": 0,
+      "negative_rate": 0.0,
+      "number": 84,
+      "passing_attempts": 0,
+      "passing_completions": 0,
+      "passing_yards": 0,
+      "position": "WR",
+      "receiving_yards": 15,
+      "receptions": 1,
+      "rushing_attempts": 0,
+      "rushing_yards": 0,
+      "total_plays": 1,
+      "touchdowns": 0
+    }
+  },
+  "team_stats": {
+    "avg_yards_per_play": 6.5,
+    "efficiency_rate": 45.3,
+    "efficient_plays": 29,
+    "explosive_plays": 12,
+    "explosive_rate": 18.8,
+    "nee_score": 54.7,
+    "negative_plays": 6,
+    "negative_rate": 9.4,
+    "success_rate": 64.1,
+    "total_plays": 64,
+    "total_yards": 416
+  },
+  "saved_at": "2025-08-19T20:03:17.893950",
+  "username": "anonymous"
+}

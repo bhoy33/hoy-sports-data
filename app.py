@@ -7,6 +7,8 @@ import base64
 from werkzeug.utils import secure_filename
 import os
 from functools import wraps
+from datetime import datetime
+import hashlib
 
 # Configure Altair to use inline data for web serving
 alt.data_transformers.disable_max_rows()
@@ -1566,8 +1568,61 @@ def add_box_stats_play():
             session['box_stats'] = {
                 'plays': [],
                 'players': {},
-                'game_info': {}
+                'game_info': {},
+                'team_stats': {
+                    'total_plays': 0,
+                    'efficient_plays': 0,
+                    'explosive_plays': 0,
+                    'total_yards': 0,
+                    'efficiency_rate': 0.0,
+                    'explosive_rate': 0.0,
+                    'avg_yards_per_play': 0.0,
+                    'success_rate': 0.0
+                }
             }
+        
+        # Ensure team_stats exists in existing sessions (backward compatibility)
+        if 'team_stats' not in session['box_stats']:
+            session['box_stats']['team_stats'] = {
+                'total_plays': 0,
+                'efficient_plays': 0,
+                'explosive_plays': 0,
+                'negative_plays': 0,
+                'total_yards': 0,
+                'touchdowns': 0,
+                'turnovers': 0,
+                'interceptions': 0,
+                'efficiency_rate': 0.0,
+                'explosive_rate': 0.0,
+                'negative_rate': 0.0,
+                'nee_score': 0.0,
+                'avg_yards_per_play': 0.0,
+                'success_rate': 0.0,
+                # Progression tracking
+                'nee_progression': [],
+                'efficiency_progression': [],
+                'avg_yards_progression': []
+            }
+        
+        # Ensure interception tracking exists in existing team_stats (backward compatibility)
+        if 'interceptions' not in session['box_stats']['team_stats']:
+            session['box_stats']['team_stats']['interceptions'] = 0
+        if 'touchdowns' not in session['box_stats']['team_stats']:
+            session['box_stats']['team_stats']['touchdowns'] = 0
+        if 'turnovers' not in session['box_stats']['team_stats']:
+            session['box_stats']['team_stats']['turnovers'] = 0
+        
+        # Ensure progression tracking exists in existing team_stats (backward compatibility)
+        if 'nee_progression' not in session['box_stats']['team_stats']:
+            session['box_stats']['team_stats']['nee_progression'] = []
+        if 'efficiency_progression' not in session['box_stats']['team_stats']:
+            session['box_stats']['team_stats']['efficiency_progression'] = []
+        if 'avg_yards_progression' not in session['box_stats']['team_stats']:
+            session['box_stats']['team_stats']['avg_yards_progression'] = []
+        
+        # Ensure play_call_stats exists in existing sessions (backward compatibility)
+        if 'play_call_stats' not in session['box_stats']:
+            session['box_stats']['play_call_stats'] = {}
         
         # Extract play data
         play_data = {
@@ -1576,32 +1631,454 @@ def add_box_stats_play():
             'distance': data.get('distance'),
             'field_position': data.get('field_position'),
             'play_type': data.get('play_type'),
+            'play_call': data.get('play_call'),  # Optional play call field
             'result': data.get('result'),
             'yards_gained': data.get('yards_gained', 0),
             'players_involved': data.get('players_involved', []),
             'timestamp': data.get('timestamp')
         }
         
+        # Add penalty-specific data if this is a penalty
+        if data.get('play_type') == 'penalty':
+            play_data.update({
+                'penalty_type': data.get('penalty_type'),
+                'penalty_yards': data.get('penalty_yards', 0),
+                'penalty_on': data.get('penalty_on', 'offense')
+            })
+        
         # Add play to session
         session['box_stats']['plays'].append(play_data)
         
-        # Calculate next play situation based on this play's result
-        next_situation = calculate_next_situation(play_data, session['box_stats']['plays'])
+        # Calculate next play situation based on play type
+        if data.get('play_type') == 'penalty':
+            next_situation = calculate_penalty_situation(play_data, session['box_stats']['plays'])
+        else:
+            next_situation = calculate_next_situation(play_data, session['box_stats']['plays'])
         session['box_stats']['next_situation'] = next_situation
         
-        # Update player stats
-        for player in play_data['players_involved']:
-            player_num = player.get('number')
-            print(f"DEBUG: Processing player - raw data: {player}")
-            if player_num:
-                # Ensure player_num is a string for consistent session storage
-                player_key = str(player_num)
-                print(f"DEBUG: Player key: {player_key}, Player number: {player_num}")
-                if player_key not in session['box_stats']['players']:
-                    session['box_stats']['players'][player_key] = {
-                        'number': int(player_num),  # Store as int for display
-                        'name': str(player.get('name', f'Player #{player_num}')),
-                        'position': str(player.get('position', '')),
+        # Update team-level analytics (skip penalties - they don't count as offensive plays)
+        if data.get('play_type') != 'penalty':
+            yards_gained = int(play_data.get('yards_gained', 0))
+            team_stats = session['box_stats']['team_stats']
+            
+            # Update basic team stats
+            team_stats['total_plays'] += 1
+            team_stats['total_yards'] += yards_gained
+            
+            # Calculate team efficiency and explosiveness for this play
+            # For team calculation, pass None as player_data to check all players for turnovers
+            is_team_efficient = calculate_play_efficiency(play_data, yards_gained, None)
+            if is_team_efficient:
+                team_stats['efficient_plays'] += 1
+                
+            # For team explosive rate, check if any player had an explosive play
+            # BUT if ANY player on the play has a turnover, the team play is not explosive
+            team_explosive_this_play = False
+            team_negative_this_play = False
+            
+            # First check if ANY player on the play has a turnover
+            play_has_turnover = False
+            for player in play_data['players_involved']:
+                if player.get('fumble', False) or player.get('interception', False):
+                    play_has_turnover = True
+                    break
+            
+            for player in play_data['players_involved']:
+                role = str(player.get('role', ''))
+                
+                # For team explosive calculation, don't count as explosive if ANY player on play has turnover
+                if not play_has_turnover and calculate_play_explosiveness(role, yards_gained, player):
+                    team_explosive_this_play = True
+                    
+                if calculate_play_negativeness(play_data, yards_gained, player):
+                    team_negative_this_play = True
+                
+                # Update team-level special stats
+                if player.get('touchdown', False):
+                    team_stats['touchdowns'] += 1
+                if player.get('interception', False):
+                    team_stats['interceptions'] += 1
+                    team_stats['turnovers'] += 1  # Interceptions count as turnovers
+                if player.get('fumble', False):
+                    team_stats['turnovers'] += 1  # Fumbles count as turnovers
+            
+            # Debug logging for this play's calculations
+            print(f"DEBUG PLAY: Down {play_data.get('down')}, Distance {play_data.get('distance')}, Yards {yards_gained}")
+            print(f"DEBUG PLAY: Efficient: {is_team_efficient}, Explosive: {team_explosive_this_play}, Negative: {team_negative_this_play}")
+            player_roles = [f"{p.get('role', 'unknown')}-#{p.get('number', 'N/A')}" for p in play_data['players_involved']]
+            print(f"DEBUG PLAY: Players involved: {player_roles}")
+            
+            if team_explosive_this_play:
+                team_stats['explosive_plays'] += 1
+                
+            if team_negative_this_play:
+                team_stats['negative_plays'] += 1
+        else:
+            # For penalties, just get team_stats reference but don't update counts
+            team_stats = session['box_stats']['team_stats']
+        
+        # Update team rates
+        team_stats['efficiency_rate'] = round((team_stats['efficient_plays'] / team_stats['total_plays']) * 100, 1) if team_stats['total_plays'] > 0 else 0.0
+        team_stats['explosive_rate'] = round((team_stats['explosive_plays'] / team_stats['total_plays']) * 100, 1) if team_stats['total_plays'] > 0 else 0.0
+        team_stats['negative_rate'] = round((team_stats['negative_plays'] / team_stats['total_plays']) * 100, 1) if team_stats['total_plays'] > 0 else 0.0
+        team_stats['avg_yards_per_play'] = round(team_stats['total_yards'] / team_stats['total_plays'], 1) if team_stats['total_plays'] > 0 else 0.0
+        
+        # Calculate NEE (Net Explosive Efficiency): Efficiency Rate + Explosive Rate - Negative Rate
+        team_stats['nee_score'] = round(team_stats['efficiency_rate'] + team_stats['explosive_rate'] - team_stats['negative_rate'], 1)
+        
+        # Debug logging for team advanced analytics
+        print(f"DEBUG TEAM ANALYTICS: Total plays: {team_stats['total_plays']}, Efficient plays: {team_stats['efficient_plays']}, Explosive plays: {team_stats['explosive_plays']}, Negative plays: {team_stats['negative_plays']}")
+        print(f"DEBUG TEAM ANALYTICS: Efficiency rate: {team_stats['efficiency_rate']}%, Explosive rate: {team_stats['explosive_rate']}%, Negative rate: {team_stats['negative_rate']}%, NEE: {team_stats['nee_score']}")
+        print(f"DEBUG TEAM ANALYTICS: Total yards: {team_stats['total_yards']}, Avg yards/play: {team_stats['avg_yards_per_play']}")
+        
+        # Record team progression data (play number and various metrics)
+        current_play_number = len(session['box_stats']['plays']) + 1
+        
+        # NEE progression
+        if 'nee_progression' not in team_stats:
+            team_stats['nee_progression'] = []
+        team_stats['nee_progression'].append({
+            'play': current_play_number,
+            'nee': team_stats['nee_score']
+        })
+        
+        # Efficiency progression
+        if 'efficiency_progression' not in team_stats:
+            team_stats['efficiency_progression'] = []
+        team_stats['efficiency_progression'].append({
+            'play': current_play_number,
+            'efficiency': team_stats['efficiency_rate']
+        })
+        
+        # Average yards progression
+        if 'avg_yards_progression' not in team_stats:
+            team_stats['avg_yards_progression'] = []
+        team_stats['avg_yards_progression'].append({
+            'play': current_play_number,
+            'avg_yards': team_stats['avg_yards_per_play']
+        })
+        
+        # Update play call analytics if play call is provided
+        play_call = play_data.get('play_call')
+        if play_call and play_call.strip():
+            print(f"DEBUG: Processing play call '{play_call}' for analytics")
+            update_play_call_analytics(session, play_call, play_data, yards_gained, is_team_efficient, team_explosive_this_play, team_negative_this_play)
+        else:
+            print(f"DEBUG: No play call provided or empty play call: '{play_call}'")
+        
+        # Success rate: percentage of plays that are either efficient OR explosive
+        # We need to track this properly by checking each play individually
+        # For now, use a simplified calculation: (efficient + explosive) / total, capped at 100%
+        success_percentage = min(100.0, team_stats['efficiency_rate'] + team_stats['explosive_rate'])
+        team_stats['success_rate'] = round(success_percentage, 1)
+        
+        # Mark session as modified
+        session.modified = True
+        
+        # Update player stats (skip penalties - they don't affect individual player stats)
+        if data.get('play_type') != 'penalty':
+            # Smart passing automation: detect if this is a passing play
+            play_type = data.get('play_type', '').lower()
+            is_passing_play = play_type == 'pass'
+            yards_gained = int(play_data.get('yards_gained', 0))
+            
+            # For passing plays, determine if it's a completion or incompletion
+            is_completion = False
+            if is_passing_play:
+                # Check if any player has completion marked, or if there are positive yards with a receiver
+                for player in play_data['players_involved']:
+                    if player.get('completion', False):
+                        is_completion = True
+                        break
+                    # If there's a receiver with positive yards, it's likely a completion
+                    if player.get('role') == 'receiver' and yards_gained > 0:
+                        is_completion = True
+                        break
+                
+                # If zero yards and no completion checkbox, it's an incompletion
+                if yards_gained == 0 and not is_completion:
+                    is_completion = False
+            
+            # Find QB for passing plays (look for passer role or QB position)
+            qb_player = None
+            if is_passing_play:
+                for player in play_data['players_involved']:
+                    if player.get('role') == 'passer':
+                        qb_player = player
+                        break
+                    elif player.get('position', '').upper() == 'QB':
+                        qb_player = player
+                        break
+            
+            for player in play_data['players_involved']:
+                player_num = player.get('number')
+                print(f"DEBUG: Processing player - raw data: {player}")
+                if player_num:
+                    # Ensure player_num is a string for consistent session storage
+                    player_key = str(player_num)
+                    print(f"DEBUG: Player key: {player_key}, Player number: {player_num}")
+                    if player_key not in session['box_stats']['players']:
+                        session['box_stats']['players'][player_key] = {
+                            'number': int(player_num),  # Store as int for display
+                            'name': str(player.get('name', f'Player #{player_num}')),
+                            'position': str(player.get('position', '')),
+                            # Offensive stats
+                            'rushing_attempts': 0,
+                            'rushing_yards': 0,
+                            'receptions': 0,
+                            'receiving_yards': 0,
+                            'passing_attempts': 0,
+                            'passing_completions': 0,
+                            'passing_yards': 0,
+                            'touchdowns': 0,
+                            'fumbles': 0,
+                            'interceptions': 0,
+                            # Defensive stats
+                            'tackles_solo': 0,
+                            'tackles_assisted': 0,
+                            'tackles_total': 0,
+                            'sacks': 0,
+                            'qb_hits': 0,
+                            'interceptions_def': 0,
+                            'pass_breakups': 0,
+                            'fumble_recoveries': 0,
+                            'forced_fumbles': 0,
+                            'defensive_tds': 0,
+                            'tackles_for_loss': 0,
+                            # Special teams stats
+                            'field_goals_made': 0,
+                            'field_goals_attempted': 0,
+                            'extra_points_made': 0,
+                            'extra_points_attempted': 0,
+                            'punts': 0,
+                            'punt_yards': 0,
+                            'kickoff_returns': 0,
+                            'kickoff_return_yards': 0,
+                            'punt_returns': 0,
+                            'punt_return_yards': 0,
+                            'blocked_kicks': 0,
+                            'coverage_tackles': 0,
+                            # Advanced analytics
+                            'total_plays': 0,
+                            'efficient_plays': 0,
+                            'explosive_plays': 0,
+                            'negative_plays': 0,
+                            'efficiency_rate': 0.0,
+                            'explosive_rate': 0.0,
+                            'negative_rate': 0.0,
+                            'nee_score': 0.0,
+                            # Progression tracking
+                            'nee_progression': [],
+                            'efficiency_progression': [],
+                            'avg_yards_progression': []
+                        }
+                    
+                    # Update stats based on player's role in the play
+                    player_stats = session['box_stats']['players'][player_key]
+                    role = str(player.get('role', ''))
+                    
+                    # Update basic stats based on role
+                    if role == 'rusher':
+                        player_stats['rushing_attempts'] += 1
+                        player_stats['rushing_yards'] += yards_gained
+                    elif role == 'receiver':
+                        player_stats['receptions'] += 1
+                        player_stats['receiving_yards'] += yards_gained
+                    elif role == 'passer':
+                        player_stats['passing_attempts'] += 1
+                        if player.get('completion', False) or is_completion:
+                            player_stats['passing_completions'] += 1
+                            player_stats['passing_yards'] += yards_gained
+                    
+                    # Defensive stats
+                    elif role == 'tackler':
+                        player_stats['tackles_solo'] += 1
+                        player_stats['tackles_total'] += 1
+                        if yards_gained < 0:
+                            player_stats['tackles_for_loss'] += 1
+                    elif role == 'assist':
+                        player_stats['tackles_assisted'] += 1
+                        player_stats['tackles_total'] += 1
+                    elif role == 'sacker':
+                        player_stats['sacks'] += 1
+                        player_stats['tackles_solo'] += 1
+                        player_stats['tackles_total'] += 1
+                        player_stats['tackles_for_loss'] += 1
+                    elif role == 'interceptor':
+                        player_stats['interceptions_def'] += 1
+                        if player.get('touchdown', False):
+                            player_stats['defensive_tds'] += 1
+                    elif role == 'fumble_forcer':
+                        player_stats['forced_fumbles'] += 1
+                    elif role == 'fumble_recoverer':
+                        player_stats['fumble_recoveries'] += 1
+                        if player.get('touchdown', False):
+                            player_stats['defensive_tds'] += 1
+                    elif role == 'pass_breakup':
+                        player_stats['pass_breakups'] += 1
+                    
+                    # Special teams stats
+                    elif role == 'kicker':
+                        play_type = play_data.get('play_type', '')
+                        result = play_data.get('result', '')
+                        if play_type == 'field_goal':
+                            player_stats['field_goals_attempted'] += 1
+                            if result == 'good':
+                                player_stats['field_goals_made'] += 1
+                        elif play_type == 'extra_point':
+                            player_stats['extra_points_attempted'] += 1
+                            if result == 'good':
+                                player_stats['extra_points_made'] += 1
+                    elif role == 'punter':
+                        player_stats['punts'] += 1
+                        player_stats['punt_yards'] += abs(yards_gained)
+                    elif role == 'returner':
+                        play_type = play_data.get('play_type', '')
+                        if play_type == 'kickoff_return':
+                            player_stats['kickoff_returns'] += 1
+                            player_stats['kickoff_return_yards'] += yards_gained
+                        elif play_type == 'punt_return':
+                            player_stats['punt_returns'] += 1
+                            player_stats['punt_return_yards'] += yards_gained
+                    elif role == 'coverage' or role == 'coverage_tackler':
+                        player_stats['coverage_tackles'] += 1
+                        player_stats['tackles_total'] += 1
+                    
+                    # Smart RB reception automation: If this is a passing play and player is RB, auto-credit reception
+                    if is_passing_play and is_completion:
+                        player_position = player.get('position', '').upper()
+                        if player_position == 'RB' and role != 'receiver':  # RB involved but not marked as receiver
+                            player_stats['receptions'] += 1
+                            player_stats['receiving_yards'] += yards_gained
+                            print(f"DEBUG: Auto-credited RB #{player.get('number')} with reception on pass play")
+                    
+                    # Update special stats - Offensive
+                    if player.get('touchdown', False):
+                        player_stats['touchdowns'] += 1
+                    if player.get('fumble', False):
+                        player_stats['fumbles'] += 1
+                    if player.get('interception', False):
+                        player_stats['interceptions'] += 1
+                    
+                    # Update special stats - Defensive (from checkboxes)
+                    if player.get('tackle', False):
+                        player_stats['tackles_solo'] += 1
+                        player_stats['tackles_total'] += 1
+                    if player.get('sack', False):
+                        player_stats['sacks'] += 1
+                        player_stats['tackles_solo'] += 1
+                        player_stats['tackles_total'] += 1
+                        player_stats['tackles_for_loss'] += 1
+                    if player.get('interception_def', False):
+                        player_stats['interceptions_def'] += 1
+                    if player.get('pass_breakup', False):
+                        player_stats['pass_breakups'] += 1
+                    if player.get('fumble_recovery', False):
+                        player_stats['fumble_recoveries'] += 1
+                    if player.get('forced_fumble', False):
+                        player_stats['forced_fumbles'] += 1
+                    if player.get('tackle_for_loss', False):
+                        player_stats['tackles_for_loss'] += 1
+                        player_stats['tackles_solo'] += 1
+                        player_stats['tackles_total'] += 1
+                    if player.get('defensive_td', False):
+                        player_stats['defensive_tds'] += 1
+                        player_stats['touchdowns'] += 1  # Also count in general TDs
+                    
+                    # Update special stats - Special Teams (from checkboxes)
+                    if player.get('field_goal_made', False):
+                        player_stats['field_goals_attempted'] += 1
+                        player_stats['field_goals_made'] += 1
+                    if player.get('extra_point_made', False):
+                        player_stats['extra_points_attempted'] += 1
+                        player_stats['extra_points_made'] += 1
+                    if player.get('punt_return', False):
+                        player_stats['punt_returns'] += 1
+                        player_stats['punt_return_yards'] += yards_gained
+                    if player.get('kickoff_return', False):
+                        player_stats['kickoff_returns'] += 1
+                        player_stats['kickoff_return_yards'] += yards_gained
+                    if player.get('coverage_tackle', False):
+                        player_stats['coverage_tackles'] += 1
+                        player_stats['tackles_total'] += 1
+                    if player.get('blocked_kick', False):
+                        player_stats['blocked_kicks'] += 1
+                    if player.get('special_teams_td', False):
+                        player_stats['touchdowns'] += 1  # Count in general TDs
+                    
+                    # Update advanced analytics for all players
+                    player_stats['total_plays'] += 1
+                    
+                    # Calculate if play was efficient
+                    # For individual player calculation, pass the player data to check only their turnover
+                    is_efficient = calculate_play_efficiency(play_data, yards_gained, player)
+                    if is_efficient:
+                        player_stats['efficient_plays'] += 1
+                    
+                    # Calculate if play was explosive
+                    is_explosive = calculate_play_explosiveness(role, yards_gained, player)
+                    if is_explosive:
+                        player_stats['explosive_plays'] += 1
+                    
+                    # Calculate if play was negative
+                    is_negative = calculate_play_negativeness(play_data, yards_gained, player)
+                    if is_negative:
+                        player_stats['negative_plays'] += 1
+                    
+                    # Update rates
+                    player_stats['efficiency_rate'] = round((player_stats['efficient_plays'] / player_stats['total_plays']) * 100, 1) if player_stats['total_plays'] > 0 else 0.0
+                    player_stats['explosive_rate'] = round((player_stats['explosive_plays'] / player_stats['total_plays']) * 100, 1) if player_stats['total_plays'] > 0 else 0.0
+                    player_stats['negative_rate'] = round((player_stats['negative_plays'] / player_stats['total_plays']) * 100, 1) if player_stats['total_plays'] > 0 else 0.0
+                    
+                    # Calculate NEE (Net Explosive Efficiency): Efficiency Rate + Explosive Rate - Negative Rate
+                    player_stats['nee_score'] = round(player_stats['efficiency_rate'] + player_stats['explosive_rate'] - player_stats['negative_rate'], 1)
+                    
+                    # Record progression data (play number and various metrics)
+                    current_play_number = len(session['box_stats']['plays']) + 1
+                    
+                    # NEE progression
+                    if 'nee_progression' not in player_stats:
+                        player_stats['nee_progression'] = []
+                    player_stats['nee_progression'].append({
+                        'play': current_play_number,
+                        'nee': player_stats['nee_score']
+                    })
+                    
+                    # Efficiency progression
+                    if 'efficiency_progression' not in player_stats:
+                        player_stats['efficiency_progression'] = []
+                    player_stats['efficiency_progression'].append({
+                        'play': current_play_number,
+                        'efficiency': player_stats['efficiency_rate']
+                    })
+                    
+                    # Average yards progression (calculate avg yards per play for this player)
+                    player_avg_yards = 0.0
+                    if player_stats['total_plays'] > 0:
+                        total_yards = (player_stats.get('rushing_yards', 0) + 
+                                     player_stats.get('receiving_yards', 0) + 
+                                     player_stats.get('passing_yards', 0))
+                        player_avg_yards = round(total_yards / player_stats['total_plays'], 1)
+                    
+                    if 'avg_yards_progression' not in player_stats:
+                        player_stats['avg_yards_progression'] = []
+                    player_stats['avg_yards_progression'].append({
+                        'play': current_play_number,
+                        'avg_yards': player_avg_yards
+                    })
+                    
+                    print(f"DEBUG: Updated advanced analytics for player #{player_key} - Total plays: {player_stats['total_plays']}, Efficiency: {player_stats['efficiency_rate']}%, Explosive: {player_stats['explosive_rate']}%, NEE: {player_stats['nee_score']}")
+            
+            # Smart QB automation: If this is a passing play and we found a QB, update their passing stats
+            if is_passing_play and qb_player and qb_player.get('number'):
+                qb_key = str(qb_player.get('number'))
+                
+                # Ensure QB exists in stats
+                if qb_key not in session['box_stats']['players']:
+                    session['box_stats']['players'][qb_key] = {
+                        'number': int(qb_player.get('number')),
+                        'name': str(qb_player.get('name', f'Player #{qb_player.get("number")}')),
+                        'position': str(qb_player.get('position', 'QB')),
                         'rushing_attempts': 0,
                         'rushing_yards': 0,
                         'receptions': 0,
@@ -1611,32 +2088,35 @@ def add_box_stats_play():
                         'passing_yards': 0,
                         'touchdowns': 0,
                         'fumbles': 0,
-                        'interceptions': 0
+                        'interceptions': 0,
+                        'total_plays': 0,
+                        'efficient_plays': 0,
+                        'explosive_plays': 0,
+                        'negative_plays': 0,
+                        'efficiency_rate': 0.0,
+                        'explosive_rate': 0.0,
+                        'negative_rate': 0.0,
+                        'nee_score': 0.0
                     }
                 
-                # Update stats based on player's role in the play
-                player_stats = session['box_stats']['players'][player_key]
-                role = str(player.get('role', ''))
-                yards_gained = int(play_data.get('yards_gained', 0))
+                qb_stats = session['box_stats']['players'][qb_key]
                 
-                if role == 'rusher':
-                    player_stats['rushing_attempts'] += 1
-                    player_stats['rushing_yards'] += yards_gained
-                elif role == 'receiver':
-                    player_stats['receptions'] += 1
-                    player_stats['receiving_yards'] += yards_gained
-                elif role == 'passer':
-                    player_stats['passing_attempts'] += 1
-                    if player.get('completion', False):
-                        player_stats['passing_completions'] += 1
-                        player_stats['passing_yards'] += yards_gained
+                # Only update QB stats if they weren't already updated as a 'passer'
+                qb_already_processed = False
+                for p in play_data['players_involved']:
+                    if str(p.get('number')) == qb_key and p.get('role') == 'passer':
+                        qb_already_processed = True
+                        break
                 
-                if player.get('touchdown', False):
-                    player_stats['touchdowns'] += 1
-                if player.get('fumble', False):
-                    player_stats['fumbles'] += 1
-                if player.get('interception', False):
-                    player_stats['interceptions'] += 1
+                if not qb_already_processed:
+                    qb_stats['passing_attempts'] += 1
+                    if is_completion:
+                        qb_stats['passing_completions'] += 1
+                        qb_stats['passing_yards'] += yards_gained
+                    
+                    print(f"DEBUG: Auto-updated QB #{qb_key} passing stats - Attempt: +1, Completion: {'+1' if is_completion else '0'}, Yards: {'+' + str(yards_gained) if is_completion else '0'}")
+                    
+                    # Note: Advanced analytics for QB will be handled in the main player loop if QB is in players_involved
         
         # Mark session as modified
         session.modified = True
@@ -1645,30 +2125,399 @@ def add_box_stats_play():
             'success': True,
             'play_count': len(session['box_stats']['plays']),
             'message': 'Play added successfully',
-            'next_situation': session['box_stats'].get('next_situation', {})
+            'next_situation': session['box_stats'].get('next_situation', {}),
+            'team_stats': session['box_stats']['team_stats']
         })
         
     except Exception as e:
         return jsonify({'error': f'Error adding play: {str(e)}'}), 500
 
-def calculate_next_situation(current_play, all_plays):
-    """Calculate the next down, distance, and field position based on current play"""
+def calculate_play_efficiency(play_data, yards_gained, player_data=None):
+    """
+    Calculate if a play was efficient based on down and distance
+    - 1st Down: ≥4 yards gained = efficient
+    - 2nd Down: Yards to go cut in half or more = efficient  
+    - 3rd/4th Down: Conversion achieved = efficient
+    - NOTE: For individual players, only their own turnover negates efficiency
+    - NOTE: For team-level, any turnover on the play negates efficiency
+    """
     try:
-        # Debug logging
-        print(f"DEBUG: current_play data: {current_play}")
+        # If player_data is provided, check only that player's turnover
+        # If player_data is None, this is for team-level calculation - check all players
+        if player_data is not None:
+            # Individual player calculation - only their own turnover matters
+            if player_data.get('fumble', False) or player_data.get('interception', False):
+                return False
+        else:
+            # Team-level calculation - any turnover on the play negates efficiency
+            players_involved = play_data.get('players_involved', [])
+            for player in players_involved:
+                if player.get('fumble', False) or player.get('interception', False):
+                    return False
         
+        current_down = int(play_data.get('down', 1))
+        current_distance = int(play_data.get('distance', 10))
+        yards_gained = int(yards_gained)
+        
+        if current_down == 1:
+            # 1st down: efficient if 4+ yards gained
+            return yards_gained >= 4
+        elif current_down == 2:
+            # 2nd down: efficient if yards to go cut in half or more
+            return yards_gained >= (current_distance / 2)
+        elif current_down in [3, 4]:
+            # 3rd/4th down: efficient if converted (gained enough for first down)
+            return yards_gained >= current_distance
+        else:
+            return False
+            
+    except (ValueError, TypeError):
+        return False
+
+def calculate_play_explosiveness(role, yards_gained, player_data=None):
+    """
+    Calculate if a play was explosive
+    - Rushing plays: ≥10 yards = explosive
+    - Passing plays: ≥15 yards = explosive
+    - NOTE: If play ends with a turnover (fumble/interception), it is NOT explosive regardless of yardage
+    """
+    try:
+        # First check if this player had a turnover - if so, not explosive
+        if player_data and (player_data.get('fumble', False) or player_data.get('interception', False)):
+            return False
+            
+        yards_gained = int(yards_gained)
+        
+        if role == 'rusher':
+            return yards_gained >= 10
+        elif role in ['receiver', 'passer']:
+            return yards_gained >= 15
+        else:
+            return False
+            
+    except (ValueError, TypeError):
+        return False
+
+def calculate_play_negativeness(play_data, yards_gained, player):
+    """
+    Calculate if a play was negative (fumble, interception, or negative yards)
+    """
+    # Check for turnovers
+    if player.get('fumble', False) or player.get('interception', False):
+        return True
+    
+    # Check for negative yards
+    if yards_gained < 0:
+        return True
+    
+    return False
+
+def get_saved_games_dir():
+    """Get the directory for saved games"""
+    saved_games_dir = os.path.join(os.path.dirname(__file__), 'saved_games')
+    if not os.path.exists(saved_games_dir):
+        os.makedirs(saved_games_dir)
+    return saved_games_dir
+
+def get_user_games_dir(username):
+    """Get the directory for a specific user's saved games"""
+    user_dir = os.path.join(get_saved_games_dir(), hashlib.md5(username.encode()).hexdigest())
+    if not os.path.exists(user_dir):
+        os.makedirs(user_dir)
+    return user_dir
+
+def save_game_data(username, game_name, game_data):
+    """Save game data to file"""
+    try:
+        user_dir = get_user_games_dir(username)
+        # Create safe filename from game name
+        safe_game_name = "".join(c for c in game_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_game_name = safe_game_name.replace(' ', '_')
+        if not safe_game_name:
+            safe_game_name = f"game_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        filename = f"{safe_game_name}.json"
+        filepath = os.path.join(user_dir, filename)
+        
+        # Add metadata
+        save_data = {
+            'game_info': game_data.get('game_info', {}),
+            'plays': game_data.get('plays', []),
+            'players': game_data.get('players', {}),
+            'team_stats': game_data.get('team_stats', {}),
+            'play_call_stats': game_data.get('play_call_stats', {}),
+            'saved_at': datetime.now().isoformat(),
+            'username': username
+        }
+        
+        with open(filepath, 'w') as f:
+            json.dump(save_data, f, indent=2)
+        
+        return True, filepath
+    except Exception as e:
+        print(f"Error saving game data: {str(e)}")
+        return False, str(e)
+
+def load_game_data(username, game_filename):
+    """Load game data from file"""
+    try:
+        user_dir = get_user_games_dir(username)
+        filepath = os.path.join(user_dir, game_filename)
+        
+        if not os.path.exists(filepath):
+            return None, "Game file not found"
+        
+        with open(filepath, 'r') as f:
+            game_data = json.load(f)
+        
+        return game_data, None
+    except Exception as e:
+        print(f"Error loading game data: {str(e)}")
+        return None, str(e)
+
+def get_user_saved_games(username):
+    """Get list of saved games for a user"""
+    try:
+        user_dir = get_user_games_dir(username)
+        games = []
+        
+        for filename in os.listdir(user_dir):
+            if filename.endswith('.json'):
+                filepath = os.path.join(user_dir, filename)
+                try:
+                    with open(filepath, 'r') as f:
+                        game_data = json.load(f)
+                    
+                    games.append({
+                        'filename': filename,
+                        'game_name': game_data.get('game_info', {}).get('name', filename.replace('.json', '')),
+                        'opponent': game_data.get('game_info', {}).get('opponent', ''),
+                        'date': game_data.get('game_info', {}).get('date', ''),
+                        'saved_at': game_data.get('saved_at', ''),
+                        'total_plays': len(game_data.get('plays', [])),
+                        'total_players': len(game_data.get('players', {}))
+                    })
+                except Exception as e:
+                    print(f"Error reading game file {filename}: {str(e)}")
+                    continue
+        
+        # Sort by saved_at descending (most recent first)
+        games.sort(key=lambda x: x.get('saved_at', ''), reverse=True)
+        return games
+    except Exception as e:
+        print(f"Error getting saved games: {str(e)}")
+        return []
+
+def update_play_call_analytics(session, play_call, play_data, yards_gained, is_efficient, is_explosive, is_negative):
+    """Update analytics tracking for a specific play call"""
+    try:
+        # Initialize play call stats if not exists
+        if 'play_call_stats' not in session['box_stats']:
+            session['box_stats']['play_call_stats'] = {}
+        
+        play_call_stats = session['box_stats']['play_call_stats']
+        
+        # Initialize this play call's stats if first time seeing it
+        if play_call not in play_call_stats:
+            play_call_stats[play_call] = {
+                'total_plays': 0,
+                'total_yards': 0,
+                'efficient_plays': 0,
+                'explosive_plays': 0,
+                'negative_plays': 0,
+                'touchdowns': 0,
+                'turnovers': 0,
+                'first_downs': 0,
+                'avg_yards_per_play': 0.0,
+                'efficiency_rate': 0.0,
+                'explosive_rate': 0.0,
+                'negative_rate': 0.0,
+                'nee_score': 0.0,
+                'success_rate': 0.0,
+                'play_type_breakdown': {},
+                'down_breakdown': {1: 0, 2: 0, 3: 0, 4: 0},
+                'distance_breakdown': {'short': 0, 'medium': 0, 'long': 0}
+            }
+        
+        stats = play_call_stats[play_call]
+        
+        # Update basic stats
+        stats['total_plays'] += 1
+        stats['total_yards'] += yards_gained
+        
+        # Update advanced analytics
+        if is_efficient:
+            stats['efficient_plays'] += 1
+        if is_explosive:
+            stats['explosive_plays'] += 1
+        if is_negative:
+            stats['negative_plays'] += 1
+        
+        # Check for touchdowns and turnovers
+        for player in play_data.get('players_involved', []):
+            if player.get('touchdown', False):
+                stats['touchdowns'] += 1
+            if player.get('fumble', False) or player.get('interception', False):
+                stats['turnovers'] += 1
+        
+        # Check for first downs (simplified logic)
+        result = play_data.get('result', '').lower()
+        if 'first_down' in result or 'touchdown' in result:
+            stats['first_downs'] += 1
+        
+        # Update play type breakdown
+        play_type = play_data.get('play_type', 'unknown')
+        if play_type not in stats['play_type_breakdown']:
+            stats['play_type_breakdown'][play_type] = 0
+        stats['play_type_breakdown'][play_type] += 1
+        
+        # Update down breakdown
+        down = play_data.get('down', 1)
+        if down in stats['down_breakdown']:
+            stats['down_breakdown'][down] += 1
+        
+        # Update distance breakdown
+        distance = play_data.get('distance', 10)
+        if distance <= 3:
+            stats['distance_breakdown']['short'] += 1
+        elif distance <= 7:
+            stats['distance_breakdown']['medium'] += 1
+        else:
+            stats['distance_breakdown']['long'] += 1
+        
+        # Calculate rates
+        total_plays = stats['total_plays']
+        if total_plays > 0:
+            stats['avg_yards_per_play'] = round(stats['total_yards'] / total_plays, 1)
+            stats['efficiency_rate'] = round((stats['efficient_plays'] / total_plays) * 100, 1)
+            stats['explosive_rate'] = round((stats['explosive_plays'] / total_plays) * 100, 1)
+            stats['negative_rate'] = round((stats['negative_plays'] / total_plays) * 100, 1)
+            stats['nee_score'] = round(stats['efficiency_rate'] + stats['explosive_rate'] - stats['negative_rate'], 1)
+            
+            # Success rate: plays that result in first downs, touchdowns, or are efficient/explosive
+            successful_plays = stats['first_downs'] + stats['touchdowns'] + max(0, stats['efficient_plays'] - stats['first_downs'] - stats['touchdowns'])
+            stats['success_rate'] = round(min(100, (successful_plays / total_plays) * 100), 1)
+        
+        print(f"DEBUG: Updated play call analytics for '{play_call}' - Total: {stats['total_plays']}, Avg Yards: {stats['avg_yards_per_play']}, Success Rate: {stats['success_rate']}%")
+        
+    except Exception as e:
+        print(f"Error updating play call analytics: {str(e)}")
+
+def calculate_penalty_situation(current_play, all_plays):
+    """Calculate next down, distance, and field position for penalty plays"""
+    try:
         current_down = int(current_play.get('down', 1))
         current_distance = int(current_play.get('distance', 10))
-        current_field_pos = str(current_play.get('field_position', 'OWN 25'))
+        current_field_position = current_play.get('field_position', 'OWN 25')
+        penalty_yards = int(current_play.get('penalty_yards', 0))
+        penalty_on = current_play.get('penalty_on', 'offense')
+        
+        print(f"DEBUG PENALTY: Input - down: {current_down}, distance: {current_distance}, field_position: {current_field_position}, penalty_yards: {penalty_yards}, penalty_on: {penalty_on}")
+        
+        # Parse current field position
+        field_parts = current_field_position.strip().split()
+        if len(field_parts) >= 2:
+            side = field_parts[0]
+            try:
+                yard_line = int(field_parts[1])
+            except (ValueError, IndexError):
+                yard_line = 25
+        else:
+            side = "OWN"
+            yard_line = 25
+        
+        # Calculate field position change based on penalty
+        if penalty_on == 'offense':
+            # Offensive penalty - move ball back (negative yards for offense)
+            effective_yards = -penalty_yards
+        else:
+            # Defensive penalty - move ball forward (positive yards for offense)
+            effective_yards = penalty_yards
+        
+        print(f"DEBUG PENALTY: Effective yards for field position: {effective_yards}")
+        
+        # Calculate new field position using penalty yards
+        if side == "OWN":
+            new_yard_line = int(yard_line) + effective_yards
+            if new_yard_line >= 50:
+                new_side = "OPP"
+                new_yard_line = 100 - new_yard_line
+                new_yard_line = max(1, new_yard_line)
+            elif new_yard_line <= 0:
+                # Safety or backed up to own endzone
+                new_side = "OWN"
+                new_yard_line = max(1, new_yard_line)
+            else:
+                new_side = "OWN"
+        else:  # OPP side
+            new_yard_line = int(yard_line) - effective_yards
+            if new_yard_line <= 0:
+                # Touchdown due to penalty
+                return {
+                    'down': 1,
+                    'distance': 10,
+                    'field_position': 'OWN 25',
+                    'auto_calculated': True,
+                    'reason': 'Penalty resulted in touchdown - Reset for next drive'
+                }
+            elif new_yard_line > 50:
+                new_side = "OWN"
+                new_yard_line = 100 - new_yard_line
+            else:
+                new_side = "OPP"
+                new_yard_line = max(1, new_yard_line)
+        
+        # Ensure final yard line is valid
+        final_yard_line = max(1, abs(int(new_yard_line)))
+        new_field_position = f"{new_side} {final_yard_line}"
+        
+        # Penalty down/distance logic
+        if penalty_on == 'defense':
+            # Defensive penalty - automatic first down
+            new_down = 1
+            new_distance = 10
+            reason = f"Defensive penalty: Automatic first down at {new_field_position}"
+        else:
+            # Offensive penalty - repeat down with increased distance
+            new_down = current_down
+            new_distance = current_distance + penalty_yards
+            reason = f"Offensive penalty: Repeat {current_down} down with {penalty_yards} yard penalty"
+        
+        print(f"DEBUG PENALTY: Result - down: {new_down}, distance: {new_distance}, field_position: {new_field_position}")
+        
+        return {
+            'down': new_down,
+            'distance': new_distance,
+            'field_position': new_field_position,
+            'auto_calculated': True,
+            'reason': reason
+        }
+        
+    except Exception as e:
+        print(f"ERROR in calculate_penalty_situation: {str(e)}")
+        return {
+            'down': 1,
+            'distance': 10,
+            'field_position': 'OWN 25',
+            'auto_calculated': False,
+            'reason': f'Error calculating penalty situation: {str(e)}'
+        }
+
+def calculate_next_situation(current_play, all_plays):
+    """Calculate next down, distance, and field position based on current play"""
+    try:
+        current_down = int(current_play.get('down', 1))
+        current_distance = int(current_play.get('distance', 10))
+        current_field_position = current_play.get('field_position', 'OWN 25')
         yards_gained = int(current_play.get('yards_gained', 0))
         play_result = str(current_play.get('result', '')).lower()
         
-        print(f"DEBUG: Parsed values - down: {current_down}, distance: {current_distance}, field_pos: {current_field_pos}, yards: {yards_gained}")
+        print(f"DEBUG: Input - down: {current_down}, distance: {current_distance}, field_position: {current_field_position}, yards_gained: {yards_gained}")
         
-        # Parse current field position (e.g., "OWN 25" or "OPP 30")
-        field_parts = current_field_pos.upper().split()
+        # Parse current field position
+        field_parts = current_field_position.strip().split()
         if len(field_parts) >= 2:
-            side = field_parts[0]  # OWN or OPP
+            side = field_parts[0]
             try:
                 yard_line = int(field_parts[1])
             except (ValueError, IndexError):
@@ -1685,6 +2534,7 @@ def calculate_next_situation(current_play, all_plays):
             if new_yard_line >= 50:
                 new_side = "OPP"
                 new_yard_line = 100 - new_yard_line
+                new_yard_line = max(1, new_yard_line)
             else:
                 new_side = "OWN"
         else:  # OPP side
@@ -1695,7 +2545,7 @@ def calculate_next_situation(current_play, all_plays):
                 return {
                     'down': 1,
                     'distance': 10,
-                    'field_position': 'OWN 25',  # Assume kickoff return position
+                    'field_position': 'OWN 25',
                     'auto_calculated': True,
                     'reason': 'Touchdown - Reset for next drive'
                 }
@@ -1704,10 +2554,13 @@ def calculate_next_situation(current_play, all_plays):
                 new_yard_line = 100 - new_yard_line
             else:
                 new_side = "OPP"
+                new_yard_line = max(1, new_yard_line)
         
         print(f"DEBUG: After calculation - new_side: {new_side}, new_yard_line: {new_yard_line}")
         
-        new_field_position = f"{new_side} {abs(int(new_yard_line))}"
+        # Ensure final yard line is never 0
+        final_yard_line = max(1, abs(int(new_yard_line)))
+        new_field_position = f"{new_side} {final_yard_line}"
         
         # Determine next down and distance
         remaining_distance = int(current_distance) - int(yards_gained)
@@ -1715,29 +2568,23 @@ def calculate_next_situation(current_play, all_plays):
         
         # Check for first down
         if remaining_distance <= 0:
-            # First down achieved
             next_down = 1
             next_distance = 10
             reason = "First down achieved"
         elif int(current_down) >= 4:
-            # Fourth down - assume turnover on downs (could be punt/FG in real game)
             next_down = 1
             next_distance = 10
-            # Flip field position for turnover
             if new_side == "OWN":
                 new_field_position = f"OPP {100 - abs(int(new_yard_line))}"
             else:
                 new_field_position = f"OWN {100 - abs(int(new_yard_line))}"
             reason = "Turnover on downs"
         else:
-            # Normal down progression
             next_down = int(current_down) + 1
-            next_distance = max(1, remaining_distance)  # Ensure distance is at least 1
+            next_distance = max(1, remaining_distance)
             reason = f"Next down: {next_down} & {next_distance}"
         
-        print(f"DEBUG: Final values - next_down: {next_down}, next_distance: {next_distance}, new_field_position: {new_field_position}")
-        
-        # Handle special cases based on play result
+        # Handle special cases
         if any(keyword in play_result for keyword in ['touchdown', 'td', 'score']):
             return {
                 'down': 1,
@@ -1747,7 +2594,6 @@ def calculate_next_situation(current_play, all_plays):
                 'reason': 'Touchdown scored - Reset for next drive'
             }
         elif any(keyword in play_result for keyword in ['interception', 'int', 'fumble', 'turnover']):
-            # Turnover - flip field position
             if new_side == "OWN":
                 new_field_position = f"OPP {100 - abs(int(new_yard_line))}"
             else:
@@ -1758,14 +2604,6 @@ def calculate_next_situation(current_play, all_plays):
                 'field_position': new_field_position,
                 'auto_calculated': True,
                 'reason': 'Turnover - Opponent takes possession'
-            }
-        elif any(keyword in play_result for keyword in ['punt', 'field goal', 'fg']):
-            return {
-                'down': 1,
-                'distance': 10,
-                'field_position': 'OWN 25',  # Simplified - assume average return
-                'auto_calculated': True,
-                'reason': 'Change of possession'
             }
         
         return {
@@ -1794,21 +2632,52 @@ def get_box_stats():
         box_stats = session.get('box_stats', {
             'plays': [],
             'players': {},
-            'game_info': {}
+            'game_info': {},
+            'team_stats': {
+                'total_plays': 0,
+                'efficient_plays': 0,
+                'explosive_plays': 0,
+                'negative_plays': 0,
+                'total_yards': 0,
+                'touchdowns': 0,
+                'turnovers': 0,
+                'interceptions': 0,
+                'efficiency_rate': 0.0,
+                'explosive_rate': 0.0,
+                'negative_rate': 0.0,
+                'nee_score': 0.0,
+                'avg_yards_per_play': 0.0,
+                'success_rate': 0.0
+            }
         })
         
-        # Calculate team totals
-        team_stats = {
-            'total_plays': len(box_stats['plays']),
-            'total_yards': sum(play.get('yards_gained', 0) for play in box_stats['plays']),
-            'rushing_plays': len([p for p in box_stats['plays'] if p.get('play_type') == 'rush']),
-            'passing_plays': len([p for p in box_stats['plays'] if p.get('play_type') == 'pass']),
-            'touchdowns': sum(1 for play in box_stats['plays'] 
-                            for player in play.get('players_involved', []) 
-                            if player.get('touchdown', False))
-        }
+        # Use the stored team stats from session (which include advanced analytics)
+        # instead of recalculating basic stats
+        team_stats = box_stats.get('team_stats', {
+            'total_plays': 0,
+            'efficient_plays': 0,
+            'explosive_plays': 0,
+            'negative_plays': 0,
+            'total_yards': 0,
+            'touchdowns': 0,
+            'turnovers': 0,
+            'interceptions': 0,
+            'efficiency_rate': 0.0,
+            'explosive_rate': 0.0,
+            'negative_rate': 0.0,
+            'nee_score': 0.0,
+            'avg_yards_per_play': 0.0,
+            'success_rate': 0.0
+        })
         
-        print(f"DEBUG: Returning player stats: {box_stats.get('players', {})}")
+        # Add basic play type counts for compatibility
+        team_stats['rushing_plays'] = len([p for p in box_stats['plays'] if p.get('play_type') == 'rush'])
+        team_stats['passing_plays'] = len([p for p in box_stats['plays'] if p.get('play_type') == 'pass'])
+        
+        print(f"DEBUG GET_STATS: Returning team stats: {team_stats}")
+        print(f"DEBUG GET_STATS: Team efficiency rate: {team_stats.get('efficiency_rate', 'NOT_FOUND')}")
+        print(f"DEBUG GET_STATS: Team explosive rate: {team_stats.get('explosive_rate', 'NOT_FOUND')}")
+        print(f"DEBUG GET_STATS: Team NEE score: {team_stats.get('nee_score', 'NOT_FOUND')}")
         
         return jsonify({
             'success': True,
@@ -1846,6 +2715,230 @@ def reset_box_stats():
     except Exception as e:
         return jsonify({'error': f'Error resetting stats: {str(e)}'}), 500
 
+# Player Roster Management Routes
+@app.route('/box_stats/save_roster', methods=['POST'])
+@login_required
+def save_player_roster():
+    """Save current player profiles as a named roster (supports editing)"""
+    try:
+        data = request.get_json()
+        roster_name = data.get('roster_name', '').strip()
+        player_profiles = data.get('player_profiles', {})
+        is_edit = data.get('is_edit', False)
+        original_name = data.get('original_name', '')
+        
+        print(f"DEBUG: Save roster request - name: {roster_name}, is_edit: {is_edit}, original: {original_name}")
+        print(f"DEBUG: Player profiles count: {len(player_profiles)}")
+        
+        if not roster_name:
+            return jsonify({'error': 'Roster name is required'}), 400
+            
+        if not player_profiles:
+            return jsonify({'error': 'No player profiles to save'}), 400
+        
+        # Initialize user rosters in session if not exists
+        if 'saved_rosters' not in session:
+            session['saved_rosters'] = {}
+        
+        # Handle roster editing (rename scenario)
+        if is_edit and original_name and original_name != roster_name:
+            # Remove old roster if name changed
+            if original_name in session['saved_rosters']:
+                del session['saved_rosters'][original_name]
+                print(f"DEBUG: Removed old roster '{original_name}' due to rename")
+        
+        # Save roster with metadata
+        session['saved_rosters'][roster_name] = {
+            'name': roster_name,
+            'players': player_profiles,
+            'created_at': datetime.now().isoformat(),
+            'player_count': len(player_profiles)
+        }
+        
+        session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'message': f'Roster "{roster_name}" saved successfully with {len(player_profiles)} players'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error saving roster: {str(e)}'}), 500
+
+@app.route('/box_stats/load_roster', methods=['POST'])
+@login_required
+def load_player_roster():
+    """Load a saved player roster with optimization for large rosters"""
+    try:
+        data = request.get_json()
+        roster_name = data.get('roster_name', '').strip()
+        
+        if not roster_name:
+            return jsonify({'error': 'Roster name is required'}), 400
+        
+        saved_rosters = session.get('saved_rosters', {})
+        
+        if roster_name not in saved_rosters:
+            return jsonify({'error': f'Roster "{roster_name}" not found'}), 404
+        
+        roster = saved_rosters[roster_name]
+        player_count = len(roster.get('players', {}))
+        
+        # Add performance warning for very large rosters
+        if player_count > 200:
+            print(f"WARNING: Loading large roster '{roster_name}' with {player_count} players")
+        
+        # Optimize response for large rosters
+        response_data = {
+            'success': True,
+            'roster': roster,
+            'player_count': player_count,
+            'message': f'Roster "{roster_name}" loaded successfully'
+        }
+        
+        # Add performance hints for frontend
+        if player_count > 50:
+            response_data['performance_hint'] = 'large_roster'
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        print(f"ERROR loading roster: {str(e)}")
+        return jsonify({'error': f'Error loading roster: {str(e)}'}), 500
+
+@app.route('/box_stats/get_rosters', methods=['GET'])
+@login_required
+def get_saved_rosters():
+    """Get all saved rosters for the current user"""
+    try:
+        saved_rosters = session.get('saved_rosters', {})
+        
+        # Convert to list format for easier frontend handling
+        rosters_list = []
+        for name, roster in saved_rosters.items():
+            rosters_list.append({
+                'name': name,
+                'player_count': roster.get('player_count', 0),
+                'created_at': roster.get('created_at', ''),
+                'players': roster.get('players', {})
+            })
+        
+        # Sort by creation date (newest first)
+        rosters_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'rosters': rosters_list
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting rosters: {str(e)}'}), 500
+
+@app.route('/box_stats/delete_roster', methods=['POST'])
+@login_required
+def delete_box_stats_roster():
+    """Delete a saved roster"""
+    try:
+        data = request.get_json()
+        roster_name = data.get('roster_name')
+        
+        if not roster_name:
+            return jsonify({'success': False, 'error': 'Roster name is required'})
+        
+        # Get current rosters
+        rosters = session.get('saved_rosters', [])
+        
+        # Remove the specified roster
+        rosters = [r for r in rosters if r['name'] != roster_name]
+        session['saved_rosters'] = rosters
+        session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'message': f'Roster "{roster_name}" deleted successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error deleting roster: {str(e)}'}), 500
+
+@app.route('/box_stats/set_game_info', methods=['POST'])
+@login_required
+def set_box_stats_game_info():
+    """Set game information for the current session"""
+    try:
+        data = request.get_json()
+        
+        game_info = {
+            'name': data.get('name', ''),
+            'opponent': data.get('opponent', ''),
+            'date': data.get('date', ''),
+            'location': data.get('location', ''),
+            'created_at': data.get('created_at', datetime.now().isoformat())
+        }
+        
+        # Initialize box stats if not exists
+        if 'box_stats' not in session:
+            session['box_stats'] = {
+                'plays': [],
+                'players': {},
+                'game_info': {},
+                'team_stats': {
+                    'total_plays': 0,
+                    'efficient_plays': 0,
+                    'explosive_plays': 0,
+                    'total_yards': 0,
+                    'efficiency_rate': 0.0,
+                    'explosive_rate': 0.0,
+                    'avg_yards_per_play': 0.0,
+                    'success_rate': 0.0
+                }
+            }
+        
+        # Update game info
+        session['box_stats']['game_info'] = game_info
+        session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'message': 'Game information saved successfully',
+            'game_info': game_info
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error saving game info: {str(e)}'}), 500
+
+@app.route('/box_stats/get_game_info', methods=['GET'])
+@login_required
+def get_box_stats_game_info():
+    """Get current game information"""
+    try:
+        game_info = session.get('box_stats', {}).get('game_info', {})
+        
+        return jsonify({
+            'success': True,
+            'game_info': game_info
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error getting game info: {str(e)}'}), 500
+
+@app.route('/box_stats/clear_game_info', methods=['POST'])
+@login_required
+def clear_box_stats_game_info():
+    """Clear game information for the current session"""
+    try:
+        if 'box_stats' in session:
+            session['box_stats']['game_info'] = {}
+            session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'message': 'Game information cleared'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error clearing game info: {str(e)}'}), 500
+
 @app.route('/box_stats/export', methods=['GET'])
 @login_required
 def export_box_stats():
@@ -1877,6 +2970,420 @@ def export_box_stats():
         
     except Exception as e:
         return jsonify({'error': f'Error exporting stats: {str(e)}'}), 500
+
+@app.route('/box_stats/update_player_stats', methods=['POST'])
+@login_required
+def update_player_stats():
+    """Update player statistics with edited values"""
+    try:
+        data = request.get_json()
+        updated_players = data.get('players', {})
+        
+        if not updated_players:
+            return jsonify({'error': 'No player data provided'}), 400
+        
+        # Initialize box stats if not exists
+        if 'box_stats' not in session:
+            session['box_stats'] = {
+                'plays': [],
+                'players': {},
+                'game_info': {},
+                'team_stats': {
+                    'total_plays': 0,
+                    'efficient_plays': 0,
+                    'explosive_plays': 0,
+                    'total_yards': 0,
+                    'efficiency_rate': 0.0,
+                    'explosive_rate': 0.0,
+                    'negative_plays': 0,
+                    'negative_rate': 0.0,
+                    'nee_score': 0.0,
+                    'avg_yards_per_play': 0.0,
+                    'success_rate': 0.0
+                },
+                'play_call_stats': {},  # Track analytics by play call
+                'next_situation': {
+                    'down': 1,
+                    'distance': 10,
+                    'field_position': 'OWN 25'
+                }
+            }
+        
+        # Update player statistics
+        for player_number, stats in updated_players.items():
+            # Ensure player exists in session
+            if player_number not in session['box_stats']['players']:
+                session['box_stats']['players'][player_number] = {}
+            
+            # Update all provided stats
+            session['box_stats']['players'][player_number].update({
+                'completions': int(stats.get('completions', 0)),
+                'attempts': int(stats.get('attempts', 0)),
+                'passing_yards': int(stats.get('passing_yards', 0)),
+                'passing_tds': int(stats.get('passing_tds', 0)),
+                'interceptions': int(stats.get('interceptions', 0)),
+                'carries': int(stats.get('carries', 0)),
+                'rushing_yards': int(stats.get('rushing_yards', 0)),
+                'rushing_tds': int(stats.get('rushing_tds', 0)),
+                'receptions': int(stats.get('receptions', 0)),
+                'receiving_yards': int(stats.get('receiving_yards', 0)),
+                'receiving_tds': int(stats.get('receiving_tds', 0)),
+                'fumbles': int(stats.get('fumbles', 0)),
+                'touchdowns': int(stats.get('touchdowns', 0))
+            })
+            
+            # Calculate derived stats
+            player_stats = session['box_stats']['players'][player_number]
+            
+            # Calculate total yards
+            total_yards = (player_stats.get('passing_yards', 0) + 
+                          player_stats.get('rushing_yards', 0) + 
+                          player_stats.get('receiving_yards', 0))
+            player_stats['total_yards'] = total_yards
+            
+            # Calculate completion percentage
+            attempts = player_stats.get('attempts', 0)
+            if attempts > 0:
+                player_stats['completion_percentage'] = round((player_stats.get('completions', 0) / attempts) * 100, 1)
+            else:
+                player_stats['completion_percentage'] = 0.0
+            
+            # Calculate yards per carry
+            carries = player_stats.get('carries', 0)
+            if carries > 0:
+                player_stats['yards_per_carry'] = round(player_stats.get('rushing_yards', 0) / carries, 1)
+            else:
+                player_stats['yards_per_carry'] = 0.0
+            
+            # Calculate yards per reception
+            receptions = player_stats.get('receptions', 0)
+            if receptions > 0:
+                player_stats['yards_per_reception'] = round(player_stats.get('receiving_yards', 0) / receptions, 1)
+            else:
+                player_stats['yards_per_reception'] = 0.0
+        
+        session.modified = True
+        
+        print(f"DEBUG: Updated player stats for {len(updated_players)} players")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Updated statistics for {len(updated_players)} players',
+            'updated_players': list(updated_players.keys())
+        })
+        
+    except Exception as e:
+        print(f"ERROR: Failed to update player stats: {str(e)}")
+        return jsonify({'error': f'Error updating player statistics: {str(e)}'}), 500
+
+@app.route('/box_stats/save_game', methods=['POST'])
+@login_required
+def save_current_game():
+    """Save the current game data to file"""
+    try:
+        data = request.get_json()
+        game_name = data.get('game_name', '').strip()
+        
+        if not game_name:
+            return jsonify({'error': 'Game name is required'}), 400
+        
+        # Get current box stats data
+        box_stats = session.get('box_stats', {})
+        if not box_stats.get('plays'):
+            return jsonify({'error': 'No game data to save'}), 400
+        
+        # Get username from session
+        username = session.get('username', 'anonymous')
+        
+        # Save game data
+        success, result = save_game_data(username, game_name, box_stats)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Game "{game_name}" saved successfully',
+                'filepath': result
+            })
+        else:
+            return jsonify({'error': f'Failed to save game: {result}'}), 500
+        
+    except Exception as e:
+        return jsonify({'error': f'Error saving game: {str(e)}'}), 500
+
+@app.route('/box_stats/saved_games', methods=['GET'])
+@login_required
+def get_saved_games():
+    """Get list of saved games for the current user"""
+    try:
+        username = session.get('username', 'anonymous')
+        games = get_user_saved_games(username)
+        
+        return jsonify({
+            'success': True,
+            'games': games
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting saved games: {str(e)}'}), 500
+
+@app.route('/box_stats/load_game', methods=['POST'])
+@login_required
+def load_saved_game():
+    """Load a saved game into the current session"""
+    try:
+        data = request.get_json()
+        filename = data.get('filename', '').strip()
+        
+        if not filename:
+            return jsonify({'error': 'Filename is required'}), 400
+        
+        username = session.get('username', 'anonymous')
+        
+        # Load game data
+        game_data, error = load_game_data(username, filename)
+        
+        if error:
+            return jsonify({'error': f'Failed to load game: {error}'}), 500
+        
+        # Load data into session
+        session['box_stats'] = {
+            'plays': game_data.get('plays', []),
+            'players': game_data.get('players', {}),
+            'team_stats': game_data.get('team_stats', {}),
+            'game_info': game_data.get('game_info', {}),
+            'play_call_stats': game_data.get('play_call_stats', {}),
+            'next_situation': {
+                'down': 1,
+                'distance': 10,
+                'field_position': 'OWN 25'
+            }
+        }
+        session.modified = True
+        
+        return jsonify({
+            'success': True,
+            'message': f'Game loaded successfully',
+            'game_data': {
+                'game_info': game_data.get('game_info', {}),
+                'total_plays': len(game_data.get('plays', [])),
+                'total_players': len(game_data.get('players', {})),
+                'team_stats': game_data.get('team_stats', {})
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error loading game: {str(e)}'}), 500
+
+@app.route('/box_stats/delete_game', methods=['POST'])
+@login_required
+def delete_saved_game():
+    """Delete a saved game"""
+    try:
+        data = request.get_json()
+        filename = data.get('filename', '').strip()
+        
+        if not filename:
+            return jsonify({'error': 'Filename is required'}), 400
+        
+        username = session.get('username', 'anonymous')
+        user_dir = get_user_games_dir(username)
+        filepath = os.path.join(user_dir, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'Game file not found'}), 404
+        
+        os.remove(filepath)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Game deleted successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error deleting game: {str(e)}'}), 500
+
+@app.route('/box_stats/nee_progression/<player_number>', methods=['GET'])
+@login_required
+def get_player_nee_progression(player_number):
+    """Get NEE progression data for a specific player"""
+    try:
+        box_stats = session.get('box_stats', {})
+        players = box_stats.get('players', {})
+        
+        player_key = str(player_number)
+        if player_key not in players:
+            return jsonify({'error': f'Player #{player_number} not found'}), 404
+        
+        player_data = players[player_key]
+        nee_progression = player_data.get('nee_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'player_number': player_number,
+            'player_name': player_data.get('name', f'Player #{player_number}'),
+            'player_position': player_data.get('position', ''),
+            'nee_progression': nee_progression,
+            'current_nee': player_data.get('nee_score', 0.0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting player NEE progression: {str(e)}'}), 500
+
+@app.route('/box_stats/team_nee_progression', methods=['GET'])
+@login_required
+def get_team_nee_progression():
+    """Get NEE progression data for the team"""
+    try:
+        box_stats = session.get('box_stats', {})
+        team_stats = box_stats.get('team_stats', {})
+        
+        nee_progression = team_stats.get('nee_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'nee_progression': nee_progression,
+            'current_nee': team_stats.get('nee_score', 0.0),
+            'total_plays': team_stats.get('total_plays', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting team NEE progression: {str(e)}'}), 500
+
+@app.route('/box_stats/efficiency_progression/<player_number>', methods=['GET'])
+@login_required
+def get_player_efficiency_progression(player_number):
+    """Get efficiency progression data for a specific player"""
+    try:
+        box_stats = session.get('box_stats', {})
+        players = box_stats.get('players', {})
+        
+        player_key = str(player_number)
+        if player_key not in players:
+            return jsonify({'error': f'Player #{player_number} not found'}), 404
+        
+        player_data = players[player_key]
+        efficiency_progression = player_data.get('efficiency_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'player_number': player_number,
+            'player_name': player_data.get('name', f'Player #{player_number}'),
+            'player_position': player_data.get('position', ''),
+            'efficiency_progression': efficiency_progression,
+            'current_efficiency': player_data.get('efficiency_rate', 0.0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting player efficiency progression: {str(e)}'}), 500
+
+@app.route('/box_stats/team_efficiency_progression', methods=['GET'])
+@login_required
+def get_team_efficiency_progression():
+    """Get efficiency progression data for the team"""
+    try:
+        box_stats = session.get('box_stats', {})
+        team_stats = box_stats.get('team_stats', {})
+        
+        efficiency_progression = team_stats.get('efficiency_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'efficiency_progression': efficiency_progression,
+            'current_efficiency': team_stats.get('efficiency_rate', 0.0),
+            'total_plays': team_stats.get('total_plays', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting team efficiency progression: {str(e)}'}), 500
+
+@app.route('/box_stats/avg_yards_progression/<player_number>', methods=['GET'])
+@login_required
+def get_player_avg_yards_progression(player_number):
+    """Get average yards progression data for a specific player"""
+    try:
+        box_stats = session.get('box_stats', {})
+        players = box_stats.get('players', {})
+        
+        player_key = str(player_number)
+        if player_key not in players:
+            return jsonify({'error': f'Player #{player_number} not found'}), 404
+        
+        player_data = players[player_key]
+        avg_yards_progression = player_data.get('avg_yards_progression', [])
+        
+        # Calculate current avg yards per play for this player
+        current_avg_yards = 0.0
+        if player_data.get('total_plays', 0) > 0:
+            total_yards = (player_data.get('rushing_yards', 0) + 
+                         player_data.get('receiving_yards', 0) + 
+                         player_data.get('passing_yards', 0))
+            current_avg_yards = round(total_yards / player_data['total_plays'], 1)
+        
+        return jsonify({
+            'success': True,
+            'player_number': player_number,
+            'player_name': player_data.get('name', f'Player #{player_number}'),
+            'player_position': player_data.get('position', ''),
+            'avg_yards_progression': avg_yards_progression,
+            'current_avg_yards': current_avg_yards
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting player avg yards progression: {str(e)}'}), 500
+
+@app.route('/box_stats/team_avg_yards_progression', methods=['GET'])
+@login_required
+def get_team_avg_yards_progression():
+    """Get average yards progression data for the team"""
+    try:
+        box_stats = session.get('box_stats', {})
+        team_stats = box_stats.get('team_stats', {})
+        
+        avg_yards_progression = team_stats.get('avg_yards_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'avg_yards_progression': avg_yards_progression,
+            'current_avg_yards': team_stats.get('avg_yards_per_play', 0.0),
+            'total_plays': team_stats.get('total_plays', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting team avg yards progression: {str(e)}'}), 500
+
+@app.route('/box_stats/play_call_analytics', methods=['GET'])
+@login_required
+def get_play_call_analytics():
+    """Get analytics for all play calls in the current session"""
+    try:
+        box_stats = session.get('box_stats', {})
+        play_call_stats = box_stats.get('play_call_stats', {})
+        
+        print(f"DEBUG: Getting play call analytics - found {len(play_call_stats)} play calls")
+        print(f"DEBUG: Play call stats keys: {list(play_call_stats.keys())}")
+        
+        # Sort play calls by total plays (most used first)
+        sorted_play_calls = []
+        for play_call, stats in play_call_stats.items():
+            sorted_play_calls.append({
+                'play_call': play_call,
+                **stats
+            })
+        
+        # Sort by total plays descending
+        sorted_play_calls.sort(key=lambda x: x['total_plays'], reverse=True)
+        
+        print(f"DEBUG: Returning {len(sorted_play_calls)} sorted play calls")
+        
+        return jsonify({
+            'success': True,
+            'play_call_analytics': sorted_play_calls,
+            'total_play_calls': len(sorted_play_calls)
+        })
+        
+    except Exception as e:
+        print(f"ERROR: Failed to get play call analytics: {str(e)}")
+        return jsonify({'error': f'Error getting play call analytics: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5004))
