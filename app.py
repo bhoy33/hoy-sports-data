@@ -1581,9 +1581,38 @@ def add_box_stats_play():
                 }
             }
         
-        # Ensure team_stats exists in existing sessions (backward compatibility)
+        # Ensure phase-specific team_stats exists in existing sessions (backward compatibility)
         if 'team_stats' not in session['box_stats']:
-            session['box_stats']['team_stats'] = {
+            session['box_stats']['team_stats'] = {}
+        
+        # Initialize phase-specific team stats
+        phases = ['offense', 'defense', 'special_teams']
+        for phase in phases:
+            if phase not in session['box_stats']['team_stats']:
+                session['box_stats']['team_stats'][phase] = {
+                    'total_plays': 0,
+                    'efficient_plays': 0,
+                    'explosive_plays': 0,
+                    'negative_plays': 0,
+                    'total_yards': 0,
+                    'touchdowns': 0,
+                    'turnovers': 0,
+                    'interceptions': 0,
+                    'efficiency_rate': 0.0,
+                    'explosive_rate': 0.0,
+                    'negative_rate': 0.0,
+                    'nee_score': 0.0,
+                    'avg_yards_per_play': 0.0,
+                    'success_rate': 0.0,
+                    # Progression tracking
+                    'nee_progression': [],
+                    'efficiency_progression': [],
+                    'avg_yards_progression': []
+                }
+        
+        # Maintain overall team stats for backward compatibility
+        if 'overall' not in session['box_stats']['team_stats']:
+            session['box_stats']['team_stats']['overall'] = {
                 'total_plays': 0,
                 'efficient_plays': 0,
                 'explosive_plays': 0,
@@ -1604,15 +1633,7 @@ def add_box_stats_play():
                 'avg_yards_progression': []
             }
         
-        # Ensure interception tracking exists in existing team_stats (backward compatibility)
-        if 'interceptions' not in session['box_stats']['team_stats']:
-            session['box_stats']['team_stats']['interceptions'] = 0
-        if 'touchdowns' not in session['box_stats']['team_stats']:
-            session['box_stats']['team_stats']['touchdowns'] = 0
-        if 'turnovers' not in session['box_stats']['team_stats']:
-            session['box_stats']['team_stats']['turnovers'] = 0
-        
-        # Ensure all advanced analytics fields exist in existing team_stats (backward compatibility)
+        # Ensure all advanced analytics fields exist in all phase-specific team_stats (backward compatibility)
         required_team_fields = {
             'negative_plays': 0,
             'efficiency_rate': 0.0,
@@ -1626,9 +1647,13 @@ def add_box_stats_play():
             'avg_yards_progression': []
         }
         
-        for field, default_value in required_team_fields.items():
-            if field not in session['box_stats']['team_stats']:
-                session['box_stats']['team_stats'][field] = default_value
+        # Apply backward compatibility to all phases (including overall)
+        all_phases = ['offense', 'defense', 'special_teams', 'overall']
+        for phase in all_phases:
+            if phase in session['box_stats']['team_stats']:
+                for field, default_value in required_team_fields.items():
+                    if field not in session['box_stats']['team_stats'][phase]:
+                        session['box_stats']['team_stats'][phase][field] = default_value
         
         # Ensure play_call_stats exists in existing sessions (backward compatibility)
         if 'play_call_stats' not in session['box_stats']:
@@ -1669,17 +1694,28 @@ def add_box_stats_play():
         # Update team-level analytics (skip penalties - they don't count as offensive plays)
         if data.get('play_type') != 'penalty':
             yards_gained = int(play_data.get('yards_gained', 0))
-            team_stats = session['box_stats']['team_stats']
             
-            # Update basic team stats
-            team_stats['total_plays'] += 1
-            team_stats['total_yards'] += yards_gained
+            # Determine the phase for this play
+            current_phase = data.get('phase', 'offense').lower()
+            if current_phase not in ['offense', 'defense', 'special_teams']:
+                current_phase = 'offense'  # Default to offense if phase not specified
+            
+            # Get phase-specific team stats
+            phase_team_stats = session['box_stats']['team_stats'][current_phase]
+            overall_team_stats = session['box_stats']['team_stats']['overall']
+            
+            # Update basic team stats for both phase-specific and overall
+            phase_team_stats['total_plays'] += 1
+            phase_team_stats['total_yards'] += yards_gained
+            overall_team_stats['total_plays'] += 1
+            overall_team_stats['total_yards'] += yards_gained
             
             # Calculate team efficiency and explosiveness for this play
             # For team calculation, pass None as player_data to check all players for turnovers
             is_team_efficient = calculate_play_efficiency(play_data, yards_gained, None)
             if is_team_efficient:
-                team_stats['efficient_plays'] += 1
+                phase_team_stats['efficient_plays'] += 1
+                overall_team_stats['efficient_plays'] += 1
                 
             # For team explosive rate, check if any player had an explosive play
             # BUT if ANY player on the play has a turnover, the team play is not explosive
@@ -1705,12 +1741,16 @@ def add_box_stats_play():
                 
                 # Update team-level special stats
                 if player.get('touchdown', False):
-                    team_stats['touchdowns'] += 1
+                    phase_team_stats['touchdowns'] += 1
+                    overall_team_stats['touchdowns'] += 1
                 if player.get('interception', False):
-                    team_stats['interceptions'] += 1
-                    team_stats['turnovers'] += 1  # Interceptions count as turnovers
+                    phase_team_stats['interceptions'] += 1
+                    phase_team_stats['turnovers'] += 1  # Interceptions count as turnovers
+                    overall_team_stats['interceptions'] += 1
+                    overall_team_stats['turnovers'] += 1
                 if player.get('fumble', False):
-                    team_stats['turnovers'] += 1  # Fumbles count as turnovers
+                    phase_team_stats['turnovers'] += 1  # Fumbles count as turnovers
+                    overall_team_stats['turnovers'] += 1
             
             # Debug logging for this play's calculations
             print(f"DEBUG PLAY: Down {play_data.get('down')}, Distance {play_data.get('distance')}, Yards {yards_gained}")
@@ -1719,54 +1759,67 @@ def add_box_stats_play():
             print(f"DEBUG PLAY: Players involved: {player_roles}")
             
             if team_explosive_this_play:
-                team_stats['explosive_plays'] += 1
+                phase_team_stats['explosive_plays'] += 1
+                overall_team_stats['explosive_plays'] += 1
                 
             if team_negative_this_play:
-                team_stats['negative_plays'] += 1
+                phase_team_stats['negative_plays'] += 1
+                overall_team_stats['negative_plays'] += 1
         else:
-            # For penalties, just get team_stats reference but don't update counts
-            team_stats = session['box_stats']['team_stats']
+            # For penalties, get the current phase for consistency
+            current_phase = data.get('phase', 'offense').lower()
+            if current_phase not in ['offense', 'defense', 'special_teams']:
+                current_phase = 'offense'
+            phase_team_stats = session['box_stats']['team_stats'][current_phase]
+            overall_team_stats = session['box_stats']['team_stats']['overall']
         
-        # Update team rates
-        team_stats['efficiency_rate'] = round((team_stats['efficient_plays'] / team_stats['total_plays']) * 100, 1) if team_stats['total_plays'] > 0 else 0.0
-        team_stats['explosive_rate'] = round((team_stats['explosive_plays'] / team_stats['total_plays']) * 100, 1) if team_stats['total_plays'] > 0 else 0.0
-        team_stats['negative_rate'] = round((team_stats['negative_plays'] / team_stats['total_plays']) * 100, 1) if team_stats['total_plays'] > 0 else 0.0
-        team_stats['avg_yards_per_play'] = round(team_stats['total_yards'] / team_stats['total_plays'], 1) if team_stats['total_plays'] > 0 else 0.0
+        # Update team rates for both phase-specific and overall stats
+        def update_team_rates(stats):
+            stats['efficiency_rate'] = round((stats['efficient_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
+            stats['explosive_rate'] = round((stats['explosive_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
+            stats['negative_rate'] = round((stats['negative_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
+            stats['avg_yards_per_play'] = round(stats['total_yards'] / stats['total_plays'], 1) if stats['total_plays'] > 0 else 0.0
+            # Calculate NEE (Net Explosive Efficiency): Efficiency Rate + Explosive Rate - Negative Rate
+            stats['nee_score'] = round(stats['efficiency_rate'] + stats['explosive_rate'] - stats['negative_rate'], 1)
         
-        # Calculate NEE (Net Explosive Efficiency): Efficiency Rate + Explosive Rate - Negative Rate
-        team_stats['nee_score'] = round(team_stats['efficiency_rate'] + team_stats['explosive_rate'] - team_stats['negative_rate'], 1)
+        update_team_rates(phase_team_stats)
+        update_team_rates(overall_team_stats)
         
         # Debug logging for team advanced analytics
-        print(f"DEBUG TEAM ANALYTICS: Total plays: {team_stats['total_plays']}, Efficient plays: {team_stats['efficient_plays']}, Explosive plays: {team_stats['explosive_plays']}, Negative plays: {team_stats['negative_plays']}")
-        print(f"DEBUG TEAM ANALYTICS: Efficiency rate: {team_stats['efficiency_rate']}%, Explosive rate: {team_stats['explosive_rate']}%, Negative rate: {team_stats['negative_rate']}%, NEE: {team_stats['nee_score']}")
-        print(f"DEBUG TEAM ANALYTICS: Total yards: {team_stats['total_yards']}, Avg yards/play: {team_stats['avg_yards_per_play']}")
+        print(f"DEBUG TEAM ANALYTICS ({current_phase}): Total plays: {phase_team_stats['total_plays']}, Efficient plays: {phase_team_stats['efficient_plays']}, Explosive plays: {phase_team_stats['explosive_plays']}, Negative plays: {phase_team_stats['negative_plays']}")
+        print(f"DEBUG TEAM ANALYTICS ({current_phase}): Efficiency rate: {phase_team_stats['efficiency_rate']}%, Explosive rate: {phase_team_stats['explosive_rate']}%, Negative rate: {phase_team_stats['negative_rate']}%, NEE: {phase_team_stats['nee_score']}")
+        print(f"DEBUG TEAM ANALYTICS (OVERALL): Total plays: {overall_team_stats['total_plays']}, Efficient plays: {overall_team_stats['efficient_plays']}, Explosive plays: {overall_team_stats['explosive_plays']}, Negative plays: {overall_team_stats['negative_plays']}")
         
-        # Record team progression data (play number and various metrics)
+        # Record team progression data (play number and various metrics) for both phase-specific and overall
         current_play_number = len(session['box_stats']['plays']) + 1
         
-        # NEE progression
-        if 'nee_progression' not in team_stats:
-            team_stats['nee_progression'] = []
-        team_stats['nee_progression'].append({
-            'play': current_play_number,
-            'nee': team_stats['nee_score']
-        })
+        def update_progression(stats):
+            # NEE progression
+            if 'nee_progression' not in stats:
+                stats['nee_progression'] = []
+            stats['nee_progression'].append({
+                'play': current_play_number,
+                'nee': stats['nee_score']
+            })
+            
+            # Efficiency progression
+            if 'efficiency_progression' not in stats:
+                stats['efficiency_progression'] = []
+            stats['efficiency_progression'].append({
+                'play': current_play_number,
+                'efficiency': stats['efficiency_rate']
+            })
+            
+            # Average yards progression
+            if 'avg_yards_progression' not in stats:
+                stats['avg_yards_progression'] = []
+            stats['avg_yards_progression'].append({
+                'play': current_play_number,
+                'avg_yards': stats['avg_yards_per_play']
+            })
         
-        # Efficiency progression
-        if 'efficiency_progression' not in team_stats:
-            team_stats['efficiency_progression'] = []
-        team_stats['efficiency_progression'].append({
-            'play': current_play_number,
-            'efficiency': team_stats['efficiency_rate']
-        })
-        
-        # Average yards progression
-        if 'avg_yards_progression' not in team_stats:
-            team_stats['avg_yards_progression'] = []
-        team_stats['avg_yards_progression'].append({
-            'play': current_play_number,
-            'avg_yards': team_stats['avg_yards_per_play']
-        })
+        update_progression(phase_team_stats)
+        update_progression(overall_team_stats)
         
         # Update play call analytics if play call is provided
         play_call = play_data.get('play_call')
@@ -3190,24 +3243,46 @@ def load_saved_game():
         }
         
         # Apply backward compatibility for loaded game data
-        # Ensure all advanced analytics fields exist in loaded team_stats
+        # Convert old team_stats format to new phase-specific format if needed
         if 'team_stats' in session['box_stats']:
+            team_stats = session['box_stats']['team_stats']
+            
+            # Check if this is old format (has direct stats) vs new format (has phases)
+            if 'total_plays' in team_stats and 'offense' not in team_stats:
+                # Old format - convert to new phase-specific format
+                old_stats = dict(team_stats)  # Copy old stats
+                session['box_stats']['team_stats'] = {
+                    'offense': old_stats,
+                    'defense': {
+                        'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
+                        'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'interceptions': 0,
+                        'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
+                        'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0,
+                        'nee_progression': [], 'efficiency_progression': [], 'avg_yards_progression': []
+                    },
+                    'special_teams': {
+                        'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
+                        'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'interceptions': 0,
+                        'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
+                        'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0,
+                        'nee_progression': [], 'efficiency_progression': [], 'avg_yards_progression': []
+                    },
+                    'overall': old_stats
+                }
+            
+            # Ensure all advanced analytics fields exist in all phases
             required_team_fields = {
-                'negative_plays': 0,
-                'efficiency_rate': 0.0,
-                'explosive_rate': 0.0,
-                'negative_rate': 0.0,
-                'nee_score': 0.0,
-                'avg_yards_per_play': 0.0,
-                'success_rate': 0.0,
-                'nee_progression': [],
-                'efficiency_progression': [],
-                'avg_yards_progression': []
+                'negative_plays': 0, 'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
+                'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0,
+                'nee_progression': [], 'efficiency_progression': [], 'avg_yards_progression': []
             }
             
-            for field, default_value in required_team_fields.items():
-                if field not in session['box_stats']['team_stats']:
-                    session['box_stats']['team_stats'][field] = default_value
+            all_phases = ['offense', 'defense', 'special_teams', 'overall']
+            for phase in all_phases:
+                if phase in session['box_stats']['team_stats']:
+                    for field, default_value in required_team_fields.items():
+                        if field not in session['box_stats']['team_stats'][phase]:
+                            session['box_stats']['team_stats'][phase][field] = default_value
         
         # Ensure all advanced analytics fields exist in loaded player stats
         if 'players' in session['box_stats']:

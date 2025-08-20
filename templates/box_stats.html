@@ -113,11 +113,131 @@
             </div>
         </div>
 
-        <!-- Team Stats Overview -->
+        <!-- Phase-Specific Team Stats Overview -->
+        <div class="row">
+            <!-- Offense Stats -->
+            <div class="col-lg-4 col-md-12 mb-3">
+                <div class="team-stats-overview">
+                    <h5><i class="fas fa-football-ball me-2"></i>Offense</h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Plays:</strong><br>
+                            <span id="offenseTotalPlays" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Yards:</strong><br>
+                            <span id="offenseTotalYards" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>TDs:</strong><br>
+                            <span id="offenseTouchdowns" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Turnovers:</strong><br>
+                            <span id="offenseTurnovers" class="h6">0</span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-4 text-center">
+                            <small class="text-success">Efficiency</small><br>
+                            <span id="offenseEfficiencyRate" class="badge bg-success">0.0%</span>
+                        </div>
+                        <div class="col-4 text-center">
+                            <small class="text-warning">Explosive</small><br>
+                            <span id="offenseExplosiveRate" class="badge bg-warning">0.0%</span>
+                        </div>
+                        <div class="col-4 text-center">
+                            <small class="text-purple">NEE</small><br>
+                            <span id="offenseNeeScore" class="badge bg-primary">0.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Defense Stats -->
+            <div class="col-lg-4 col-md-12 mb-3">
+                <div class="team-stats-overview">
+                    <h5><i class="fas fa-shield-alt me-2"></i>Defense</h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Plays:</strong><br>
+                            <span id="defenseTotalPlays" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Yards:</strong><br>
+                            <span id="defenseTotalYards" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>TDs:</strong><br>
+                            <span id="defenseTouchdowns" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Turnovers:</strong><br>
+                            <span id="defenseTurnovers" class="h6">0</span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-4 text-center">
+                            <small class="text-success">Efficiency</small><br>
+                            <span id="defenseEfficiencyRate" class="badge bg-success">0.0%</span>
+                        </div>
+                        <div class="col-4 text-center">
+                            <small class="text-warning">Explosive</small><br>
+                            <span id="defenseExplosiveRate" class="badge bg-warning">0.0%</span>
+                        </div>
+                        <div class="col-4 text-center">
+                            <small class="text-purple">NEE</small><br>
+                            <span id="defenseNeeScore" class="badge bg-primary">0.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Special Teams Stats -->
+            <div class="col-lg-4 col-md-12 mb-3">
+                <div class="team-stats-overview">
+                    <h5><i class="fas fa-running me-2"></i>Special Teams</h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Plays:</strong><br>
+                            <span id="specialTeamsTotalPlays" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Yards:</strong><br>
+                            <span id="specialTeamsTotalYards" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>TDs:</strong><br>
+                            <span id="specialTeamsTouchdowns" class="h6">0</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Turnovers:</strong><br>
+                            <span id="specialTeamsTurnovers" class="h6">0</span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-4 text-center">
+                            <small class="text-success">Efficiency</small><br>
+                            <span id="specialTeamsEfficiencyRate" class="badge bg-success">0.0%</span>
+                        </div>
+                        <div class="col-4 text-center">
+                            <small class="text-warning">Explosive</small><br>
+                            <span id="specialTeamsExplosiveRate" class="badge bg-warning">0.0%</span>
+                        </div>
+                        <div class="col-4 text-center">
+                            <small class="text-purple">NEE</small><br>
+                            <span id="specialTeamsNeeScore" class="badge bg-primary">0.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Overall Team Stats -->
         <div class="row">
             <div class="col-12">
                 <div class="team-stats-overview">
-                    <h4><i class="fas fa-chart-bar me-2"></i>Game Overview</h4>
+                    <h4><i class="fas fa-chart-bar me-2"></i>Overall Game Stats</h4>
                     <!-- Basic Stats Row -->
                     <div class="row mb-3">
                         <div class="col-md-2">
@@ -1428,12 +1548,45 @@
 
         // Update team stats display
         function updateTeamStats(teamStats) {
-            document.getElementById('totalPlays').textContent = teamStats.total_plays || 0;
-            document.getElementById('totalYards').textContent = teamStats.total_yards || 0;
-            document.getElementById('rushPlays').textContent = teamStats.rushing_plays || 0;
-            document.getElementById('passPlays').textContent = teamStats.passing_plays || 0;
-            document.getElementById('totalTouchdowns').textContent = teamStats.touchdowns || 0;
-            document.getElementById('totalTurnovers').textContent = teamStats.turnovers || 0;
+            // Update phase-specific stats
+            if (teamStats.offense) {
+                document.getElementById('offenseTotalPlays').textContent = teamStats.offense.total_plays || 0;
+                document.getElementById('offenseTotalYards').textContent = teamStats.offense.total_yards || 0;
+                document.getElementById('offenseTouchdowns').textContent = teamStats.offense.touchdowns || 0;
+                document.getElementById('offenseTurnovers').textContent = teamStats.offense.turnovers || 0;
+                document.getElementById('offenseEfficiencyRate').textContent = (teamStats.offense.efficiency_rate || 0) + '%';
+                document.getElementById('offenseExplosiveRate').textContent = (teamStats.offense.explosive_rate || 0) + '%';
+                document.getElementById('offenseNeeScore').textContent = teamStats.offense.nee_score || 0;
+            }
+            
+            if (teamStats.defense) {
+                document.getElementById('defenseTotalPlays').textContent = teamStats.defense.total_plays || 0;
+                document.getElementById('defenseTotalYards').textContent = teamStats.defense.total_yards || 0;
+                document.getElementById('defenseTouchdowns').textContent = teamStats.defense.touchdowns || 0;
+                document.getElementById('defenseTurnovers').textContent = teamStats.defense.turnovers || 0;
+                document.getElementById('defenseEfficiencyRate').textContent = (teamStats.defense.efficiency_rate || 0) + '%';
+                document.getElementById('defenseExplosiveRate').textContent = (teamStats.defense.explosive_rate || 0) + '%';
+                document.getElementById('defenseNeeScore').textContent = teamStats.defense.nee_score || 0;
+            }
+            
+            if (teamStats.special_teams) {
+                document.getElementById('specialTeamsTotalPlays').textContent = teamStats.special_teams.total_plays || 0;
+                document.getElementById('specialTeamsTotalYards').textContent = teamStats.special_teams.total_yards || 0;
+                document.getElementById('specialTeamsTouchdowns').textContent = teamStats.special_teams.touchdowns || 0;
+                document.getElementById('specialTeamsTurnovers').textContent = teamStats.special_teams.turnovers || 0;
+                document.getElementById('specialTeamsEfficiencyRate').textContent = (teamStats.special_teams.efficiency_rate || 0) + '%';
+                document.getElementById('specialTeamsExplosiveRate').textContent = (teamStats.special_teams.explosive_rate || 0) + '%';
+                document.getElementById('specialTeamsNeeScore').textContent = teamStats.special_teams.nee_score || 0;
+            }
+            
+            // Update overall stats (backward compatibility)
+            const overall = teamStats.overall || teamStats; // Fallback for old format
+            document.getElementById('totalPlays').textContent = overall.total_plays || 0;
+            document.getElementById('totalYards').textContent = overall.total_yards || 0;
+            document.getElementById('rushPlays').textContent = overall.rushing_plays || 0;
+            document.getElementById('passPlays').textContent = overall.passing_plays || 0;
+            document.getElementById('totalTouchdowns').textContent = overall.touchdowns || 0;
+            document.getElementById('totalTurnovers').textContent = overall.turnovers || 0;
         }
 
         // Update player stats display
