@@ -23,6 +23,13 @@ app.secret_key = 'hoysportsdata_secret_key_2025'  # For session management
 SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25']  # Regular user passwords
 ADMIN_PASSWORD = 'Jackets21!'
 
+# User account mapping - each password maps to a specific username for cross-device data access
+PASSWORD_TO_USERNAME = {
+    'scots25': 'scots_user',
+    'hunt25': 'hunt_user', 
+    'cobble25': 'cobble_user'
+}
+
 # Maintenance mode state (stored in memory for simplicity)
 maintenance_mode = False
 
@@ -64,6 +71,7 @@ def login():
         if password == ADMIN_PASSWORD:
             session['authenticated'] = True
             session['is_admin'] = True
+            session['username'] = 'admin'  # Set admin username for data access
             return redirect(url_for('admin_dashboard'))
         
         # Check for regular user passwords
@@ -75,6 +83,8 @@ def login():
                     maintenance_mode=True)
             session['authenticated'] = True
             session['is_admin'] = False
+            # Set username based on password for cross-device data access
+            session['username'] = PASSWORD_TO_USERNAME.get(password, 'anonymous')
             return redirect(url_for('index'))
         
         else:
@@ -117,6 +127,7 @@ def logout():
     """Logout and clear session"""
     session.pop('authenticated', None)
     session.pop('is_admin', None)
+    session.pop('username', None)  # Clear username for proper session cleanup
     return redirect(url_for('login'))
 
 @app.route('/')

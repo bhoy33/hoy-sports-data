@@ -62,6 +62,12 @@
                 <i class="fas fa-chart-line me-2"></i>Hoy Sports Data
             </a>
             <div class="navbar-nav ms-auto">
+                {% if session.username and session.username != 'anonymous' %}
+                <span class="navbar-text me-3">
+                    <i class="fas fa-user me-1"></i>
+                    <small class="text-light">Account: <strong>{{ session.username }}</strong></small>
+                </span>
+                {% endif %}
                 <a class="nav-link" href="{{ url_for('index') }}">
                     <i class="fas fa-home me-1"></i>Dashboard
                 </a>
