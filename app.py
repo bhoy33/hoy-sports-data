@@ -3168,30 +3168,251 @@ def clear_box_stats_game_info():
 @app.route('/box_stats/export', methods=['GET'])
 @login_required
 def export_box_stats():
-    """Export box stats to Excel file"""
+    """Export comprehensive box stats to Excel file with multiple organized sheets"""
     try:
+        import io
+        from flask import send_file
+        
         box_stats = session.get('box_stats', {})
         
         if not box_stats.get('plays'):
             return jsonify({'error': 'No box stats data to export'}), 400
         
-        # Create DataFrames for export
-        plays_df = pd.DataFrame(box_stats['plays'])
-        players_df = pd.DataFrame.from_dict(box_stats['players'], orient='index')
+        # Get game info
+        game_info = box_stats.get('game_info', {})
+        plays = box_stats.get('plays', [])
+        players = box_stats.get('players', {})
+        team_stats = box_stats.get('team_stats', {})
         
         # Create Excel file in memory
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            plays_df.to_excel(writer, sheet_name='Plays', index=False)
-            players_df.to_excel(writer, sheet_name='Player Stats', index=False)
+            
+            # Sheet 1: Game Summary
+            game_summary_data = {
+                'Game Information': ['Date', 'Opponent', 'Location', 'Weather', 'Total Plays', 'Game Duration'],
+                'Details': [
+                    game_info.get('date', 'N/A'),
+                    game_info.get('opponent', 'N/A'), 
+                    game_info.get('location', 'N/A'),
+                    game_info.get('weather', 'N/A'),
+                    len(plays),
+                    f"{len(plays)} plays recorded"
+                ]
+            }
+            game_summary_df = pd.DataFrame(game_summary_data)
+            game_summary_df.to_excel(writer, sheet_name='Game Summary', index=False)
+            
+            # Sheet 2: Play-by-Play with Player Details
+            play_by_play_data = []
+            for i, play in enumerate(plays, 1):
+                # Get players involved in this play
+                players_involved = play.get('players_involved', [])
+                player_names = []
+                player_stats = []
+                
+                for player in players_involved:
+                    name = f"#{player.get('number', 'N/A')} {player.get('name', 'Unknown')}"
+                    player_names.append(name)
+                    
+                    # Collect player stats for this play
+                    stats = []
+                    if player.get('touchdown'): stats.append('TD')
+                    if player.get('fumble'): stats.append('FUM')
+                    if player.get('interception'): stats.append('INT')
+                    if player.get('completion'): stats.append('COMP')
+                    if player.get('reception'): stats.append('REC')
+                    if player.get('tackle'): stats.append('TACKLE')
+                    if player.get('sack'): stats.append('SACK')
+                    if player.get('interception_def'): stats.append('INT-DEF')
+                    if player.get('fumble_recovery'): stats.append('FR')
+                    if player.get('return_yards', 0) > 0: stats.append(f"RET:{player.get('return_yards')}yds")
+                    
+                    player_stats.append(', '.join(stats) if stats else 'N/A')
+                
+                play_data = {
+                    'Play #': play.get('play_number', i),
+                    'Phase': play.get('phase', 'N/A'),
+                    'Down': play.get('down', 'N/A'),
+                    'Distance': play.get('distance', 'N/A'),
+                    'Field Position': play.get('field_position', 'N/A'),
+                    'Play Type': play.get('play_type', 'N/A'),
+                    'Play Call': play.get('play_call', 'N/A'),
+                    'Result': play.get('result', 'N/A'),
+                    'Yards Gained': play.get('yards_gained', 0),
+                    'Players Involved': ' | '.join(player_names),
+                    'Player Stats': ' | '.join(player_stats),
+                    'Next Down': play.get('next_down', 'N/A'),
+                    'Next Distance': play.get('next_distance', 'N/A'),
+                    'Next Field Position': play.get('next_field_position', 'N/A'),
+                    'Timestamp': play.get('timestamp', 'N/A')
+                }
+                play_by_play_data.append(play_data)
+            
+            play_by_play_df = pd.DataFrame(play_by_play_data)
+            play_by_play_df.to_excel(writer, sheet_name='Play-by-Play', index=False)
+            
+            # Sheet 3: Team Stats by Phase
+            team_stats_data = []
+            phases = ['offense', 'defense', 'special_teams', 'overall']
+            
+            for phase in phases:
+                if phase in team_stats:
+                    stats = team_stats[phase]
+                    team_stats_data.append({
+                        'Phase': phase.replace('_', ' ').title(),
+                        'Total Plays': stats.get('total_plays', 0),
+                        'Total Yards': stats.get('total_yards', 0),
+                        'Avg Yards/Play': round(stats.get('avg_yards_per_play', 0), 1),
+                        'Efficient Plays': stats.get('efficient_plays', 0),
+                        'Efficiency Rate': f"{stats.get('efficiency_rate', 0)}%",
+                        'Explosive Plays': stats.get('explosive_plays', 0),
+                        'Explosive Rate': f"{stats.get('explosive_rate', 0)}%",
+                        'Negative Plays': stats.get('negative_plays', 0),
+                        'Negative Rate': f"{stats.get('negative_rate', 0)}%",
+                        'NEE Score': stats.get('nee_score', 0),
+                        'Touchdowns': stats.get('touchdowns', 0),
+                        'Turnovers': stats.get('turnovers', 0),
+                        'Interceptions': stats.get('interceptions', 0)
+                    })
+            
+            team_stats_df = pd.DataFrame(team_stats_data)
+            team_stats_df.to_excel(writer, sheet_name='Team Stats by Phase', index=False)
+            
+            # Sheet 4: Individual Player Box Stats
+            player_box_stats = []
+            for player_id, player_data in players.items():
+                player_stats = {
+                    'Player': f"#{player_data.get('number', 'N/A')} {player_data.get('name', 'Unknown')}",
+                    'Position': player_data.get('position', 'N/A'),
+                    
+                    # Offensive Stats
+                    'Rush Att': player_data.get('rushing_attempts', 0),
+                    'Rush Yds': player_data.get('rushing_yards', 0),
+                    'Receptions': player_data.get('receptions', 0),
+                    'Rec Yds': player_data.get('receiving_yards', 0),
+                    'Pass Att': player_data.get('passing_attempts', 0),
+                    'Pass Comp': player_data.get('passing_completions', 0),
+                    'Pass Yds': player_data.get('passing_yards', 0),
+                    'Touchdowns': player_data.get('touchdowns', 0),
+                    'Fumbles': player_data.get('fumbles', 0),
+                    'Interceptions': player_data.get('interceptions', 0),
+                    
+                    # Defensive Stats
+                    'Tackles': player_data.get('tackles_total', 0),
+                    'Solo Tackles': player_data.get('tackles_solo', 0),
+                    'Sacks': player_data.get('sacks', 0),
+                    'INT (Def)': player_data.get('interceptions_def', 0),
+                    'Pass Breakups': player_data.get('pass_breakups', 0),
+                    'Fumble Recoveries': player_data.get('fumble_recoveries', 0),
+                    'Forced Fumbles': player_data.get('forced_fumbles', 0),
+                    'TFL': player_data.get('tackles_for_loss', 0),
+                    'Def TDs': player_data.get('defensive_tds', 0),
+                    'Return Yards': player_data.get('return_yards', 0),
+                    
+                    # Special Teams Stats
+                    'FG Made': player_data.get('field_goals_made', 0),
+                    'FG Att': player_data.get('field_goals_attempted', 0),
+                    'XP Made': player_data.get('extra_points_made', 0),
+                    'XP Att': player_data.get('extra_points_attempted', 0),
+                    'Punts': player_data.get('punts', 0),
+                    'Punt Yds': player_data.get('punt_yards', 0),
+                    'KR': player_data.get('kickoff_returns', 0),
+                    'KR Yds': player_data.get('kickoff_return_yards', 0),
+                    'PR': player_data.get('punt_returns', 0),
+                    'PR Yds': player_data.get('punt_return_yards', 0),
+                    'Coverage Tackles': player_data.get('coverage_tackles', 0),
+                    'Blocked Kicks': player_data.get('blocked_kicks', 0),
+                    
+                    # Advanced Analytics (only for offensive players)
+                    'Total Plays': player_data.get('total_plays', 0),
+                    'Efficiency Rate': f"{player_data.get('efficiency_rate', 0)}%" if player_data.get('total_plays', 0) > 0 else 'N/A',
+                    'Explosive Rate': f"{player_data.get('explosive_rate', 0)}%" if player_data.get('total_plays', 0) > 0 else 'N/A',
+                    'Negative Rate': f"{player_data.get('negative_rate', 0)}%" if player_data.get('total_plays', 0) > 0 else 'N/A',
+                    'NEE Score': player_data.get('nee_score', 0) if player_data.get('total_plays', 0) > 0 else 'N/A'
+                }
+                player_box_stats.append(player_stats)
+            
+            player_box_stats_df = pd.DataFrame(player_box_stats)
+            player_box_stats_df.to_excel(writer, sheet_name='Player Box Stats', index=False)
+            
+            # Sheet 5: Offensive Players Only (Detailed)
+            offensive_players = []
+            for player_id, player_data in players.items():
+                if (player_data.get('rushing_attempts', 0) > 0 or 
+                    player_data.get('receptions', 0) > 0 or 
+                    player_data.get('passing_attempts', 0) > 0):
+                    
+                    offensive_stats = {
+                        'Player': f"#{player_data.get('number', 'N/A')} {player_data.get('name', 'Unknown')}",
+                        'Position': player_data.get('position', 'N/A'),
+                        'Rush Att': player_data.get('rushing_attempts', 0),
+                        'Rush Yds': player_data.get('rushing_yards', 0),
+                        'Rush Avg': round(player_data.get('rushing_yards', 0) / max(player_data.get('rushing_attempts', 1), 1), 1),
+                        'Receptions': player_data.get('receptions', 0),
+                        'Rec Yds': player_data.get('receiving_yards', 0),
+                        'Rec Avg': round(player_data.get('receiving_yards', 0) / max(player_data.get('receptions', 1), 1), 1),
+                        'Pass Comp': player_data.get('passing_completions', 0),
+                        'Pass Att': player_data.get('passing_attempts', 0),
+                        'Pass Yds': player_data.get('passing_yards', 0),
+                        'Comp %': round((player_data.get('passing_completions', 0) / max(player_data.get('passing_attempts', 1), 1)) * 100, 1),
+                        'Touchdowns': player_data.get('touchdowns', 0),
+                        'Fumbles': player_data.get('fumbles', 0),
+                        'Interceptions': player_data.get('interceptions', 0),
+                        'Total Plays': player_data.get('total_plays', 0),
+                        'Efficiency Rate': f"{player_data.get('efficiency_rate', 0)}%",
+                        'Explosive Rate': f"{player_data.get('explosive_rate', 0)}%",
+                        'NEE Score': player_data.get('nee_score', 0)
+                    }
+                    offensive_players.append(offensive_stats)
+            
+            if offensive_players:
+                offensive_df = pd.DataFrame(offensive_players)
+                offensive_df.to_excel(writer, sheet_name='Offensive Players', index=False)
+            
+            # Sheet 6: Defensive Players Only (Detailed)
+            defensive_players = []
+            for player_id, player_data in players.items():
+                if (player_data.get('tackles_total', 0) > 0 or 
+                    player_data.get('sacks', 0) > 0 or 
+                    player_data.get('interceptions_def', 0) > 0 or
+                    player_data.get('pass_breakups', 0) > 0):
+                    
+                    defensive_stats = {
+                        'Player': f"#{player_data.get('number', 'N/A')} {player_data.get('name', 'Unknown')}",
+                        'Position': player_data.get('position', 'N/A'),
+                        'Total Tackles': player_data.get('tackles_total', 0),
+                        'Solo Tackles': player_data.get('tackles_solo', 0),
+                        'Assisted Tackles': player_data.get('tackles_assisted', 0),
+                        'Sacks': player_data.get('sacks', 0),
+                        'TFL': player_data.get('tackles_for_loss', 0),
+                        'QB Hits': player_data.get('qb_hits', 0),
+                        'Interceptions': player_data.get('interceptions_def', 0),
+                        'Pass Breakups': player_data.get('pass_breakups', 0),
+                        'Fumble Recoveries': player_data.get('fumble_recoveries', 0),
+                        'Forced Fumbles': player_data.get('forced_fumbles', 0),
+                        'Defensive TDs': player_data.get('defensive_tds', 0),
+                        'Return Yards': player_data.get('return_yards', 0),
+                        'Coverage Tackles': player_data.get('coverage_tackles', 0)
+                    }
+                    defensive_players.append(defensive_stats)
+            
+            if defensive_players:
+                defensive_df = pd.DataFrame(defensive_players)
+                defensive_df.to_excel(writer, sheet_name='Defensive Players', index=False)
         
         output.seek(0)
+        
+        # Generate filename with game info
+        opponent = game_info.get('opponent', 'Game')
+        date = game_info.get('date', 'Unknown')
+        filename = f"Box_Stats_{opponent}_{date}.xlsx".replace(' ', '_').replace('/', '-')
         
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name='box_stats_export.xlsx'
+            download_name=filename
         )
         
     except Exception as e:
