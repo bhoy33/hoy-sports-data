@@ -20,14 +20,15 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = 'hoysportsdata_secret_key_2025'  # For session management
 
 # Password protection configuration
-SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25']  # Regular user passwords
+SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25', 'eagleton25']  # Regular user passwords
 ADMIN_PASSWORD = 'Jackets21!'
 
 # User account mapping - each password maps to a specific username for cross-device data access
 PASSWORD_TO_USERNAME = {
     'scots25': 'scots_user',
     'hunt25': 'hunt_user', 
-    'cobble25': 'cobble_user'
+    'cobble25': 'cobble_user',
+    'eagleton25': 'eagleton_user'
 }
 
 # Maintenance mode state (stored in memory for simplicity)
