@@ -3175,6 +3175,12 @@ def export_box_stats():
         
         box_stats = session.get('box_stats', {})
         
+        # Debug: Print session data structure
+        print("DEBUG: Session box_stats keys:", list(box_stats.keys()))
+        print("DEBUG: Plays count:", len(box_stats.get('plays', [])))
+        print("DEBUG: Players count:", len(box_stats.get('players', {})))
+        print("DEBUG: Team stats keys:", list(box_stats.get('team_stats', {}).keys()))
+        
         if not box_stats.get('plays'):
             return jsonify({'error': 'No box stats data to export'}), 400
         
@@ -3183,6 +3189,9 @@ def export_box_stats():
         plays = box_stats.get('plays', [])
         players = box_stats.get('players', {})
         team_stats = box_stats.get('team_stats', {})
+        
+        print("DEBUG: Sample play data:", plays[0] if plays else "No plays")
+        print("DEBUG: Sample player data:", list(players.values())[0] if players else "No players")
         
         # Create Excel file in memory
         output = io.BytesIO()
@@ -3211,6 +3220,8 @@ def export_box_stats():
                 player_names = []
                 player_stats = []
                 
+                print(f"DEBUG: Processing play {i}, players_involved: {players_involved}")
+                
                 for player in players_involved:
                     name = f"#{player.get('number', 'N/A')} {player.get('name', 'Unknown')}"
                     player_names.append(name)
@@ -3226,7 +3237,18 @@ def export_box_stats():
                     if player.get('sack'): stats.append('SACK')
                     if player.get('interception_def'): stats.append('INT-DEF')
                     if player.get('fumble_recovery'): stats.append('FR')
+                    if player.get('forced_fumble'): stats.append('FF')
+                    if player.get('tackle_for_loss'): stats.append('TFL')
+                    if player.get('pass_breakup'): stats.append('PBU')
+                    if player.get('defensive_td'): stats.append('DEF-TD')
                     if player.get('return_yards', 0) > 0: stats.append(f"RET:{player.get('return_yards')}yds")
+                    if player.get('field_goal_made'): stats.append('FG')
+                    if player.get('extra_point_made'): stats.append('XP')
+                    if player.get('punt_return'): stats.append('PR')
+                    if player.get('kickoff_return'): stats.append('KR')
+                    if player.get('coverage_tackle'): stats.append('COV')
+                    if player.get('blocked_kick'): stats.append('BLK')
+                    if player.get('special_teams_td'): stats.append('ST-TD')
                     
                     player_stats.append(', '.join(stats) if stats else 'N/A')
                 
@@ -3240,17 +3262,23 @@ def export_box_stats():
                     'Play Call': play.get('play_call', 'N/A'),
                     'Result': play.get('result', 'N/A'),
                     'Yards Gained': play.get('yards_gained', 0),
-                    'Players Involved': ' | '.join(player_names),
-                    'Player Stats': ' | '.join(player_stats),
-                    'Next Down': play.get('next_down', 'N/A'),
-                    'Next Distance': play.get('next_distance', 'N/A'),
-                    'Next Field Position': play.get('next_field_position', 'N/A'),
+                    'Players Involved': ' | '.join(player_names) if player_names else 'N/A',
+                    'Player Stats': ' | '.join(player_stats) if player_stats else 'N/A',
+                    'Penalty Type': play.get('penalty_type', 'N/A') if play.get('play_type') == 'penalty' else 'N/A',
+                    'Penalty Yards': play.get('penalty_yards', 0) if play.get('play_type') == 'penalty' else 'N/A',
                     'Timestamp': play.get('timestamp', 'N/A')
                 }
                 play_by_play_data.append(play_data)
+                
+            print(f"DEBUG: Created {len(play_by_play_data)} play-by-play entries")
             
-            play_by_play_df = pd.DataFrame(play_by_play_data)
-            play_by_play_df.to_excel(writer, sheet_name='Play-by-Play', index=False)
+            if play_by_play_data:
+                play_by_play_df = pd.DataFrame(play_by_play_data)
+                play_by_play_df.to_excel(writer, sheet_name='Play-by-Play', index=False)
+            else:
+                # Create empty sheet with headers
+                empty_df = pd.DataFrame(columns=['Play #', 'Phase', 'Down', 'Distance', 'Field Position', 'Play Type', 'Play Call', 'Result', 'Yards Gained', 'Players Involved', 'Player Stats', 'Penalty Type', 'Penalty Yards', 'Timestamp'])
+                empty_df.to_excel(writer, sheet_name='Play-by-Play', index=False)
             
             # Sheet 3: Team Stats by Phase
             team_stats_data = []
@@ -3276,8 +3304,13 @@ def export_box_stats():
                         'Interceptions': stats.get('interceptions', 0)
                     })
             
-            team_stats_df = pd.DataFrame(team_stats_data)
-            team_stats_df.to_excel(writer, sheet_name='Team Stats by Phase', index=False)
+            if team_stats_data:
+                team_stats_df = pd.DataFrame(team_stats_data)
+                team_stats_df.to_excel(writer, sheet_name='Team Stats by Phase', index=False)
+            else:
+                # Create empty sheet with headers
+                empty_team_df = pd.DataFrame(columns=['Phase', 'Total Plays', 'Total Yards', 'Avg Yards/Play', 'Efficient Plays', 'Efficiency Rate', 'Explosive Plays', 'Explosive Rate', 'Negative Plays', 'Negative Rate', 'NEE Score', 'Touchdowns', 'Turnovers', 'Interceptions'])
+                empty_team_df.to_excel(writer, sheet_name='Team Stats by Phase', index=False)
             
             # Sheet 4: Individual Player Box Stats
             player_box_stats = []
@@ -3333,8 +3366,15 @@ def export_box_stats():
                 }
                 player_box_stats.append(player_stats)
             
-            player_box_stats_df = pd.DataFrame(player_box_stats)
-            player_box_stats_df.to_excel(writer, sheet_name='Player Box Stats', index=False)
+            if player_box_stats:
+                player_box_stats_df = pd.DataFrame(player_box_stats)
+                player_box_stats_df.to_excel(writer, sheet_name='Player Box Stats', index=False)
+                print(f"DEBUG: Created Player Box Stats sheet with {len(player_box_stats)} players")
+            else:
+                # Create empty sheet with headers
+                empty_player_df = pd.DataFrame(columns=['Player', 'Position', 'Rush Att', 'Rush Yds', 'Receptions', 'Rec Yds', 'Pass Att', 'Pass Comp', 'Pass Yds', 'Touchdowns', 'Fumbles', 'Interceptions', 'Tackles', 'Solo Tackles', 'Sacks', 'INT (Def)', 'Pass Breakups', 'Fumble Recoveries', 'Forced Fumbles', 'TFL', 'Def TDs', 'Return Yards'])
+                empty_player_df.to_excel(writer, sheet_name='Player Box Stats', index=False)
+                print("DEBUG: Created empty Player Box Stats sheet")
             
             # Sheet 5: Offensive Players Only (Detailed)
             offensive_players = []
