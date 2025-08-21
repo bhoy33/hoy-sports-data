@@ -1186,8 +1186,13 @@
         }
 
         function addSelectedPlayer() {
+            console.log('DEBUG: addSelectedPlayer() called');
             const playerId = document.getElementById('playerSelect').value;
+            console.log('DEBUG: Selected player ID:', playerId);
+            console.log('DEBUG: Available player profiles:', Object.keys(playerProfiles));
+            
             if (!playerId) {
+                console.log('DEBUG: No player selected');
                 showAlert('Please select a player', 'warning');
                 return;
             }
@@ -1386,7 +1391,8 @@
 
         // Collect player data from selected players
         function collectPlayerData() {
-            console.log('Collecting player data from selectedPlayersForPlay:', selectedPlayersForPlay);
+            console.log('DEBUG: Collecting player data from selectedPlayersForPlay:', selectedPlayersForPlay);
+            console.log('DEBUG: selectedPlayersForPlay length:', selectedPlayersForPlay.length);
             const collectedData = selectedPlayersForPlay.map(player => ({
                 id: player.id,
                 number: player.number,

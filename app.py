@@ -1684,6 +1684,11 @@ def add_box_stats_play():
             'timestamp': data.get('timestamp')
         }
         
+        # DEBUG: Log the incoming data to diagnose player selection issue
+        print(f"DEBUG PLAY SUBMISSION: Received data: {data}")
+        print(f"DEBUG PLAY SUBMISSION: Players involved count: {len(play_data['players_involved'])}")
+        print(f"DEBUG PLAY SUBMISSION: Players involved data: {play_data['players_involved']}")
+        
         # Add penalty-specific data if this is a penalty
         if data.get('play_type') == 'penalty':
             play_data.update({
