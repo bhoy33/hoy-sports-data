@@ -3662,4 +3662,5 @@ def get_play_call_analytics():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5004))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
