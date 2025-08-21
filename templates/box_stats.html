@@ -1910,6 +1910,7 @@
                 play_type: playType,
                 play_call: document.getElementById('playCall').value.trim() || null,
                 result: document.getElementById('result').value,
+                phase: getCurrentPhase(),
                 timestamp: new Date().toISOString()
             };
             

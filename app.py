@@ -1722,13 +1722,23 @@ def add_box_stats_play():
             
             # Update basic team stats for both phase-specific and overall
             phase_team_stats['total_plays'] += 1
-            phase_team_stats['total_yards'] += yards_gained
+            if current_phase == 'defense':
+                # For defense, negative yards by offense are positive for defense
+                phase_team_stats['total_yards'] += (-yards_gained)
+            else:
+                phase_team_stats['total_yards'] += yards_gained
             overall_team_stats['total_plays'] += 1
             overall_team_stats['total_yards'] += yards_gained
             
             # Calculate team efficiency and explosiveness for this play
             # For team calculation, pass None as player_data to check all players for turnovers
-            is_team_efficient = calculate_play_efficiency(play_data, yards_gained, None)
+            if current_phase == 'defense':
+                # For defense, efficiency is inverted - stopping offensive efficiency is defensive efficiency
+                is_team_efficient = not calculate_play_efficiency(play_data, yards_gained, None)
+            else:
+                # For offense and special teams, use normal efficiency calculation
+                is_team_efficient = calculate_play_efficiency(play_data, yards_gained, None)
+                
             if is_team_efficient:
                 phase_team_stats['efficient_plays'] += 1
                 overall_team_stats['efficient_plays'] += 1
@@ -1749,11 +1759,25 @@ def add_box_stats_play():
                 role = str(player.get('role', ''))
                 
                 # For team explosive calculation, don't count as explosive if ANY player on play has turnover
-                if not play_has_turnover and calculate_play_explosiveness(role, yards_gained, player):
-                    team_explosive_this_play = True
+                if not play_has_turnover:
+                    if current_phase == 'defense':
+                        # For defense, preventing explosive plays is defensive explosive
+                        if not calculate_play_explosiveness(role, yards_gained, player):
+                            team_explosive_this_play = True
+                    else:
+                        # For offense and special teams, use normal explosive calculation
+                        if calculate_play_explosiveness(role, yards_gained, player):
+                            team_explosive_this_play = True
                     
-                if calculate_play_negativeness(play_data, yards_gained, player):
-                    team_negative_this_play = True
+                if current_phase == 'defense':
+                    # For defense, forcing negative plays on offense is good (reduces defensive negative rate)
+                    # Only count as negative for defense if offense had a big positive play
+                    if yards_gained >= 10:  # If offense gained 10+ yards, that's negative for defense
+                        team_negative_this_play = True
+                else:
+                    # For offense and special teams, use normal negative calculation
+                    if calculate_play_negativeness(play_data, yards_gained, player):
+                        team_negative_this_play = True
                 
                 # Update team-level special stats
                 if player.get('touchdown', False):
