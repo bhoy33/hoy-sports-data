@@ -80,12 +80,16 @@ def login():
             # Check if maintenance mode is active
             if maintenance_mode:
                 return render_template('login.html', 
-                    error='Our team is currently working on fixing bugs and/or adding features to make the app better for you! If you need immediate access contact your representative for Hoy Sports Data.',
+                    error='Site is currently under maintenance. Please try again later.',
                     maintenance_mode=True)
             session['authenticated'] = True
             session['is_admin'] = False
-            # Set username based on password for cross-device data access
-            session['username'] = PASSWORD_TO_USERNAME.get(password, 'anonymous')
+            # Set username based on password for cross-device data access - NO FALLBACK TO ANONYMOUS
+            if password in PASSWORD_TO_USERNAME:
+                session['username'] = PASSWORD_TO_USERNAME[password]
+            else:
+                # This should never happen if SITE_PASSWORDS and PASSWORD_TO_USERNAME are in sync
+                return render_template('login.html', error='Authentication error. Please contact administrator.')
             return redirect(url_for('index'))
         
         else:
@@ -2359,21 +2363,34 @@ def get_user_rosters_dir(username):
 def save_roster_data(username, roster_name, roster_data):
     """Save roster data to file for a specific user"""
     try:
+        # Security check: prevent saving to anonymous or invalid usernames
+        if not username or username == 'anonymous' or len(username.strip()) == 0:
+            print(f"WARNING: Blocked roster save for invalid username: '{username}'")
+            return False, "Access denied"
+        
         user_dir = get_user_rosters_dir(username)
+        
+        # Additional security: verify the directory belongs to this user
+        expected_hash = hashlib.md5(username.encode()).hexdigest()
+        if expected_hash not in user_dir:
+            print(f"WARNING: Directory hash mismatch during save for user {username}")
+            return False, "Access denied"
         
         # Create safe filename
         safe_filename = "".join(c for c in roster_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        safe_filename = safe_filename.replace(' ', '_')
+        if not safe_filename:
+            safe_filename = f"roster_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
         filename = f"{safe_filename}.json"
         filepath = os.path.join(user_dir, filename)
         
-        # Add metadata
+        # Add metadata to roster data
         roster_data_with_meta = {
             'roster_name': roster_name,
-            'players': roster_data.get('players', {}),
-            'created_at': roster_data.get('created_at', datetime.now().isoformat()),
-            'player_count': len(roster_data.get('players', {})),
-            'username': username
+            'player_count': len(roster_data.get('players', [])),
+            'created_at': datetime.now().isoformat(),
+            'username': username,  # Track which user created this
+            **roster_data
         }
         
         with open(filepath, 'w') as f:
@@ -2387,11 +2404,22 @@ def save_roster_data(username, roster_name, roster_data):
 def load_roster_data(username, roster_filename):
     """Load roster data from file for a specific user"""
     try:
+        # Security check: prevent access to anonymous or invalid usernames
+        if not username or username == 'anonymous' or len(username.strip()) == 0:
+            print(f"WARNING: Blocked roster load for invalid username: '{username}'")
+            return None, "Access denied"
+        
         user_dir = get_user_rosters_dir(username)
         filepath = os.path.join(user_dir, roster_filename)
         
+        # Additional security: verify the directory belongs to this user
+        expected_hash = hashlib.md5(username.encode()).hexdigest()
+        if expected_hash not in user_dir:
+            print(f"WARNING: Directory hash mismatch during load for user {username}")
+            return None, "Access denied"
+        
         if not os.path.exists(filepath):
-            return None, "Roster file not found"
+            return None, f"Roster file not found: {roster_filename}"
         
         with open(filepath, 'r') as f:
             roster_data = json.load(f)
@@ -2404,8 +2432,19 @@ def load_roster_data(username, roster_filename):
 def get_user_saved_rosters(username):
     """Get list of saved rosters for a specific user"""
     try:
+        # Security check: prevent access to anonymous or invalid usernames
+        if not username or username == 'anonymous' or len(username.strip()) == 0:
+            print(f"WARNING: Blocked roster access for invalid username: '{username}'")
+            return []
+        
         user_dir = get_user_rosters_dir(username)
         rosters = []
+        
+        # Additional security: verify the directory belongs to this user
+        expected_hash = hashlib.md5(username.encode()).hexdigest()
+        if expected_hash not in user_dir:
+            print(f"WARNING: Directory hash mismatch for user {username}")
+            return []
         
         for filename in os.listdir(user_dir):
             if filename.endswith('.json'):
@@ -2432,16 +2471,28 @@ def get_user_saved_rosters(username):
 def delete_roster_data(username, roster_filename):
     """Delete a roster file for a specific user"""
     try:
+        # Security check: prevent deletion from anonymous or invalid usernames
+        if not username or username == 'anonymous' or len(username.strip()) == 0:
+            print(f"WARNING: Blocked roster delete for invalid username: '{username}'")
+            return False, "Access denied"
+        
         user_dir = get_user_rosters_dir(username)
+        
+        # Additional security: verify the directory belongs to this user
+        expected_hash = hashlib.md5(username.encode()).hexdigest()
+        if expected_hash not in user_dir:
+            print(f"WARNING: Directory hash mismatch during delete for user {username}")
+            return False, "Access denied"
+        
         filepath = os.path.join(user_dir, roster_filename)
         
         if os.path.exists(filepath):
             os.remove(filepath)
-            return True, "Roster deleted successfully"
+            return True, f"Roster {roster_filename} deleted successfully"
         else:
-            return False, "Roster file not found"
+            return False, f"Roster file not found: {roster_filename}"
     except Exception as e:
-        print(f"Error deleting roster: {e}")
+        print(f"Error deleting roster data: {e}")
         return False, str(e)
 
 def save_game_data(username, game_name, game_data):
