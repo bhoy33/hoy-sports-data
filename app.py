@@ -1843,8 +1843,12 @@ def add_box_stats_play():
         # Success rate: percentage of plays that are either efficient OR explosive
         # We need to track this properly by checking each play individually
         # For now, use a simplified calculation: (efficient + explosive) / total, capped at 100%
-        success_percentage = min(100.0, team_stats['efficiency_rate'] + team_stats['explosive_rate'])
-        team_stats['success_rate'] = round(success_percentage, 1)
+        success_percentage = min(100.0, phase_team_stats['efficiency_rate'] + phase_team_stats['explosive_rate'])
+        phase_team_stats['success_rate'] = round(success_percentage, 1)
+        
+        # Also update overall team stats success rate
+        overall_success_percentage = min(100.0, overall_team_stats['efficiency_rate'] + overall_team_stats['explosive_rate'])
+        overall_team_stats['success_rate'] = round(overall_success_percentage, 1)
         
         # Mark session as modified
         session.modified = True
@@ -3502,13 +3506,15 @@ def get_team_nee_progression():
         box_stats = session.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
-        nee_progression = team_stats.get('nee_progression', [])
+        # Use overall team stats for progression (combines all phases)
+        overall_stats = team_stats.get('overall', {})
+        nee_progression = overall_stats.get('nee_progression', [])
         
         return jsonify({
             'success': True,
             'nee_progression': nee_progression,
-            'current_nee': team_stats.get('nee_score', 0.0),
-            'total_plays': team_stats.get('total_plays', 0)
+            'current_nee': overall_stats.get('nee_score', 0.0),
+            'total_plays': overall_stats.get('total_plays', 0)
         })
         
     except Exception as e:
@@ -3549,13 +3555,15 @@ def get_team_efficiency_progression():
         box_stats = session.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
-        efficiency_progression = team_stats.get('efficiency_progression', [])
+        # Use overall team stats for progression (combines all phases)
+        overall_stats = team_stats.get('overall', {})
+        efficiency_progression = overall_stats.get('efficiency_progression', [])
         
         return jsonify({
             'success': True,
             'efficiency_progression': efficiency_progression,
-            'current_efficiency': team_stats.get('efficiency_rate', 0.0),
-            'total_plays': team_stats.get('total_plays', 0)
+            'current_efficiency': overall_stats.get('efficiency_rate', 0.0),
+            'total_plays': overall_stats.get('total_plays', 0)
         })
         
     except Exception as e:
@@ -3604,13 +3612,15 @@ def get_team_avg_yards_progression():
         box_stats = session.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
-        avg_yards_progression = team_stats.get('avg_yards_progression', [])
+        # Use overall team stats for progression (combines all phases)
+        overall_stats = team_stats.get('overall', {})
+        avg_yards_progression = overall_stats.get('avg_yards_progression', [])
         
         return jsonify({
             'success': True,
             'avg_yards_progression': avg_yards_progression,
-            'current_avg_yards': team_stats.get('avg_yards_per_play', 0.0),
-            'total_plays': team_stats.get('total_plays', 0)
+            'current_avg_yards': overall_stats.get('avg_yards_per_play', 0.0),
+            'total_plays': overall_stats.get('total_plays', 0)
         })
         
     except Exception as e:
