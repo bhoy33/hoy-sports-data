@@ -1699,9 +1699,27 @@
                 return;
             }
             
-            // Show last 10 plays
-            const recentPlays = plays.slice(-10).reverse();
+            // Show configurable number of recent plays with option to show more
+            const defaultDisplayCount = 15; // Increased from 10
+            const maxDisplayCount = window.recentPlaysDisplayCount || defaultDisplayCount;
+            const recentPlays = plays.slice(-maxDisplayCount).reverse();
             let html = '';
+            
+            // Add controls for showing more/fewer plays
+            if (plays.length > defaultDisplayCount) {
+                const showingCount = Math.min(maxDisplayCount, plays.length);
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">Showing ${showingCount} of ${plays.length} plays</span>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(15)" ${maxDisplayCount === 15 ? 'disabled' : ''}>15</button>
+                            <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(25)" ${maxDisplayCount === 25 ? 'disabled' : ''}>25</button>
+                            <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(50)" ${maxDisplayCount === 50 ? 'disabled' : ''}>50</button>
+                            <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(${plays.length})" ${maxDisplayCount >= plays.length ? 'disabled' : ''}>All</button>
+                        </div>
+                    </div>
+                `;
+            }
             
             recentPlays.forEach(play => {
                 const playerNames = play.players_involved.map(p => `#${p.number}`).join(', ');
@@ -1717,6 +1735,21 @@
             });
             
             container.innerHTML = html;
+        }
+
+        function adjustRecentPlaysDisplay(count) {
+            window.recentPlaysDisplayCount = count;
+            // Refresh the display with current data
+            fetch('/box_stats/get_stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.plays) {
+                        updateRecentPlays(data.plays);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing plays display:', error);
+                });
         }
 
         // Helper function for ordinal numbers

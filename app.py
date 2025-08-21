@@ -19,6 +19,12 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = 'hoysportsdata_secret_key_2025'  # For session management
 
+# Configure session to handle larger data sets
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+
 # Password protection configuration
 SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25', 'eagleton25']  # Regular user passwords
 ADMIN_PASSWORD = 'Jackets21!'
@@ -1702,8 +1708,15 @@ def add_box_stats_play():
                 'penalty_on': data.get('penalty_on', 'offense')
             })
         
-        # Add play to session
+        # Add play to session with size monitoring
         session['box_stats']['plays'].append(play_data)
+        
+        # Monitor session size and warn if getting large
+        play_count = len(session['box_stats']['plays'])
+        if play_count % 50 == 0:  # Check every 50 plays
+            print(f"INFO: Session now contains {play_count} plays")
+            if play_count > 200:
+                print(f"WARNING: Large session detected with {play_count} plays - consider implementing data archiving")
         
         # Calculate next play situation based on play type
         if data.get('play_type') == 'penalty':
