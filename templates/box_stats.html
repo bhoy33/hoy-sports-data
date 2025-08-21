@@ -3076,6 +3076,9 @@
         
         // Helper function to update performance color based on thresholds
         function updatePerformanceColor(element, value, goodClass, okClass, poorClass, goodThreshold, okThreshold) {
+            // Check if element exists before manipulating classList
+            if (!element) return;
+            
             // Remove all color classes
             element.classList.remove('text-success', 'text-warning', 'text-danger', 'text-info', 'text-secondary');
             
