@@ -1826,6 +1826,14 @@ def add_box_stats_play():
                 'efficiency': stats['efficiency_rate']
             })
             
+            # Explosive progression
+            if 'explosive_progression' not in stats:
+                stats['explosive_progression'] = []
+            stats['explosive_progression'].append({
+                'play': current_play_number,
+                'explosive': stats['explosive_rate']
+            })
+            
             # Average yards progression
             if 'avg_yards_progression' not in stats:
                 stats['avg_yards_progression'] = []
@@ -1921,7 +1929,8 @@ def add_box_stats_play():
                             'interceptions': 0,
                             # Defensive stats
                             'tackles_solo': 0,
-                            'tackles_assisted': 0,
+                            'defensive_td': 0,
+                            'return_yards': 0,
                             'tackles_total': 0,
                             'sacks': 0,
                             'qb_hits': 0,
@@ -2074,10 +2083,12 @@ def add_box_stats_play():
                         player_stats['tackles_for_loss'] += 1
                     if player.get('interception_def', False):
                         player_stats['interceptions_def'] += 1
-                    if player.get('pass_breakup', False):
-                        player_stats['pass_breakups'] += 1
+                        player_stats['return_yards'] += player.get('return_yards', 0)
                     if player.get('fumble_recovery', False):
                         player_stats['fumble_recoveries'] += 1
+                        player_stats['return_yards'] += player.get('return_yards', 0)
+                    if player.get('pass_breakup', False):
+                        player_stats['pass_breakups'] += 1
                     if player.get('forced_fumble', False):
                         player_stats['forced_fumbles'] += 1
                     if player.get('tackle_for_loss', False):
@@ -3573,6 +3584,94 @@ def get_team_efficiency_progression():
         
     except Exception as e:
         return jsonify({'error': f'Error getting team efficiency progression: {str(e)}'}), 500
+
+@app.route('/box_stats/team_explosive_progression', methods=['GET'])
+@login_required
+def get_team_explosive_progression():
+    """Get explosive rate progression data for the team"""
+    try:
+        box_stats = session.get('box_stats', {})
+        team_stats = box_stats.get('team_stats', {})
+        
+        # Use overall team stats for progression (combines all phases)
+        overall_stats = team_stats.get('overall', {})
+        explosive_progression = overall_stats.get('explosive_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'explosive_progression': explosive_progression,
+            'current_explosive_rate': overall_stats.get('explosive_rate', 0.0),
+            'total_plays': overall_stats.get('total_plays', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting team explosive progression: {str(e)}'}), 500
+
+@app.route('/box_stats/phase_nee_progression/<phase>', methods=['GET'])
+@login_required
+def get_phase_nee_progression(phase):
+    """Get NEE progression data for a specific phase"""
+    try:
+        box_stats = session.get('box_stats', {})
+        team_stats = box_stats.get('team_stats', {})
+        
+        # Get phase-specific stats
+        phase_stats = team_stats.get(phase, {})
+        nee_progression = phase_stats.get('nee_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'nee_progression': nee_progression,
+            'current_nee': phase_stats.get('nee_score', 0.0),
+            'total_plays': phase_stats.get('total_plays', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting {phase} NEE progression: {str(e)}'}), 500
+
+@app.route('/box_stats/phase_efficiency_progression/<phase>', methods=['GET'])
+@login_required
+def get_phase_efficiency_progression(phase):
+    """Get efficiency progression data for a specific phase"""
+    try:
+        box_stats = session.get('box_stats', {})
+        team_stats = box_stats.get('team_stats', {})
+        
+        # Get phase-specific stats
+        phase_stats = team_stats.get(phase, {})
+        efficiency_progression = phase_stats.get('efficiency_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'efficiency_progression': efficiency_progression,
+            'current_efficiency': phase_stats.get('efficiency_rate', 0.0),
+            'total_plays': phase_stats.get('total_plays', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting {phase} efficiency progression: {str(e)}'}), 500
+
+@app.route('/box_stats/phase_explosive_progression/<phase>', methods=['GET'])
+@login_required
+def get_phase_explosive_progression(phase):
+    """Get explosive rate progression data for a specific phase"""
+    try:
+        box_stats = session.get('box_stats', {})
+        team_stats = box_stats.get('team_stats', {})
+        
+        # Get phase-specific stats
+        phase_stats = team_stats.get(phase, {})
+        explosive_progression = phase_stats.get('explosive_progression', [])
+        
+        return jsonify({
+            'success': True,
+            'explosive_progression': explosive_progression,
+            'current_explosive_rate': phase_stats.get('explosive_rate', 0.0),
+            'total_plays': phase_stats.get('total_plays', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting {phase} explosive progression: {str(e)}'}), 500
 
 @app.route('/box_stats/avg_yards_progression/<player_number>', methods=['GET'])
 @login_required

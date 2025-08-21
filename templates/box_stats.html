@@ -239,6 +239,62 @@
             </div>
         </div>
         
+        <!-- Team Progression Graphs -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Team Progression Analytics</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Offense Progression -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h6 class="text-primary"><i class="fas fa-football-ball me-2"></i>Offense Progression</h6>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-primary w-100" onclick="showPhaseNeeGraph('offense')">
+                                    <i class="fas fa-chart-area me-2"></i>NEE Progression
+                                </button>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-success w-100" onclick="showPhaseEfficiencyGraph('offense')">
+                                    <i class="fas fa-chart-line me-2"></i>Efficiency Progression
+                                </button>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-warning w-100" onclick="showPhaseExplosiveGraph('offense')">
+                                    <i class="fas fa-chart-bar me-2"></i>Explosive Progression
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Defense Progression -->
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="text-danger"><i class="fas fa-shield-alt me-2"></i>Defense Progression</h6>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-primary w-100" onclick="showPhaseNeeGraph('defense')">
+                                    <i class="fas fa-chart-area me-2"></i>NEE Progression
+                                </button>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-success w-100" onclick="showPhaseEfficiencyGraph('defense')">
+                                    <i class="fas fa-chart-line me-2"></i>Efficiency Progression
+                                </button>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <button class="btn btn-outline-warning w-100" onclick="showPhaseExplosiveGraph('defense')">
+                                    <i class="fas fa-chart-bar me-2"></i>Explosive Progression
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Game Management Actions -->
         <div class="row mb-4">
             <div class="col-12">
@@ -1230,6 +1286,7 @@
                 forced_fumble: false,
                 tackle_for_loss: false,
                 defensive_td: false,
+                return_yards: 0,
                 // Special teams stats
                 field_goal_made: false,
                 extra_point_made: false,
@@ -1303,6 +1360,11 @@
 
         function updatePlayerEvent(index, event, checked) {
             selectedPlayersForPlay[index][event] = checked;
+            
+            // Refresh player stats display if interception or fumble recovery changed
+            if (event === 'interception_def' || event === 'fumble_recovery') {
+                displaySelectedPlayers();
+            }
         }
 
         function removeSelectedPlayer(index) {
@@ -1413,6 +1475,7 @@
                 forced_fumble: player.forced_fumble,
                 tackle_for_loss: player.tackle_for_loss,
                 defensive_td: player.defensive_td,
+                return_yards: player.return_yards,
                 // Special teams stats
                 field_goal_made: player.field_goal_made,
                 extra_point_made: player.extra_point_made,
@@ -1565,9 +1628,9 @@
                                 <!-- Defensive Stats -->
                                 ${(player.tackles_total || 0) > 0 ? `<span class="stat-badge text-primary">Tackles: ${player.tackles_solo || 0}+${player.tackles_assisted || 0}=${player.tackles_total}</span>` : ''}
                                 ${(player.sacks || 0) > 0 ? `<span class="stat-badge text-primary">Sacks: ${player.sacks}</span>` : ''}
-                                ${(player.interceptions_def || 0) > 0 ? `<span class="stat-badge text-primary">INT: ${player.interceptions_def}</span>` : ''}
+                                ${(player.interceptions_def || 0) > 0 ? `<span class="stat-badge text-primary">INT: ${player.interceptions_def}${(player.return_yards || 0) > 0 ? `, ${player.return_yards} ret yds` : ''}</span>` : ''}
                                 ${(player.pass_breakups || 0) > 0 ? `<span class="stat-badge text-primary">PBU: ${player.pass_breakups}</span>` : ''}
-                                ${(player.fumble_recoveries || 0) > 0 ? `<span class="stat-badge text-primary">FR: ${player.fumble_recoveries}</span>` : ''}
+                                ${(player.fumble_recoveries || 0) > 0 ? `<span class="stat-badge text-primary">FR: ${player.fumble_recoveries}${(player.return_yards || 0) > 0 && (player.interceptions_def || 0) === 0 ? `, ${player.return_yards} ret yds` : ''}</span>` : ''}
                                 ${(player.forced_fumbles || 0) > 0 ? `<span class="stat-badge text-primary">FF: ${player.forced_fumbles}</span>` : ''}
                                 ${(player.tackles_for_loss || 0) > 0 ? `<span class="stat-badge text-primary">TFL: ${player.tackles_for_loss}</span>` : ''}
                                 ${(player.defensive_tds || 0) > 0 ? `<span class="stat-badge text-success">Def TD: ${player.defensive_tds}</span>` : ''}
@@ -1581,6 +1644,7 @@
                                 ${(player.coverage_tackles || 0) > 0 ? `<span class="stat-badge text-info">Coverage: ${player.coverage_tackles} tackles</span>` : ''}
                                 ${(player.blocked_kicks || 0) > 0 ? `<span class="stat-badge text-info">Blocks: ${player.blocked_kicks}</span>` : ''}
                             </div>
+                            ${(player.rushing_attempts > 0 || player.receptions > 0 || player.passing_attempts > 0) ? `
                             <div class="mt-2 pt-2 border-top">
                                 <small class="text-primary"><strong>Advanced Analytics:</strong></small><br>
                                 <span class="stat-badge text-success" title="Efficiency Rate: 1st down ≥4yds, 2nd down ≥50% distance, 3rd/4th down converted">
@@ -1599,6 +1663,7 @@
                                     <i class="fas fa-play"></i> Plays: ${player.total_plays || 0}
                                 </span>
                             </div>
+                            ` : ''}
                             <div class="mt-2 text-center">
                                 <button class="btn btn-outline-primary btn-sm mb-1" onclick="showPlayerNeeGraph('${player.id || player.number}')" title="View NEE Progression Graph">
                                     <i class="fas fa-chart-line me-1"></i>NEE
@@ -3390,6 +3455,20 @@
                         </div>
                     `;
                     
+                    // Add return yards field if player has interception or fumble recovery
+                    if (player.interception_def || player.fumble_recovery) {
+                        html += `
+                        <div class="mt-2">
+                            <label class="form-label">Return Yards:</label>
+                            <input type="number" class="form-control form-control-sm" style="width: 80px; display: inline-block;" 
+                                   value="${player.return_yards || 0}" min="0" 
+                                   onchange="updatePlayerEvent(${index}, 'return_yards', parseInt(this.value) || 0)">
+                        </div>
+                        `;
+                    }
+                    
+                    return html;
+                    
                 case 'special_teams':
                     return `
                         <div class="form-check form-check-inline">
@@ -3969,9 +4048,11 @@
                 });
         }
 
-        function showTeamEfficiencyGraph() {
+        // Phase-specific progression graphs
+        function showPhaseNeeGraph(phase) {
             const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
-            document.getElementById('neeGraphModalTitle').textContent = 'Team Efficiency Progression';
+            const phaseTitle = phase.charAt(0).toUpperCase() + phase.slice(1);
+            document.getElementById('neeGraphModalTitle').textContent = `${phaseTitle} NEE Progression`;
             
             // Show loading
             document.getElementById('neeGraphLoading').style.display = 'block';
@@ -3979,20 +4060,78 @@
             
             modal.show();
             
-            // Fetch team efficiency progression data
-            fetch('/box_stats/team_efficiency_progression')
+            // Fetch phase NEE progression data
+            fetch(`/box_stats/phase_nee_progression/${phase}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        displayProgressionGraph(data.efficiency_progression, 'Team Efficiency', data.current_efficiency, 'efficiency', '%', 'rgb(40, 167, 69)');
+                        displayProgressionGraph(data.nee_progression, `${phaseTitle} NEE`, data.current_nee, 'nee', '', 'rgb(54, 162, 235)');
                     } else {
-                        showAlert('Error loading team efficiency data: ' + data.error, 'danger');
+                        showAlert(`Error loading ${phase} NEE data: ` + data.error, 'danger');
                         modal.hide();
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showAlert('Error loading team efficiency data: ' + error.message, 'danger');
+                    showAlert(`Error loading ${phase} NEE data: ` + error.message, 'danger');
+                    modal.hide();
+                });
+        }
+
+        function showPhaseEfficiencyGraph(phase) {
+            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const phaseTitle = phase.charAt(0).toUpperCase() + phase.slice(1);
+            document.getElementById('neeGraphModalTitle').textContent = `${phaseTitle} Efficiency Progression`;
+            
+            // Show loading
+            document.getElementById('neeGraphLoading').style.display = 'block';
+            document.getElementById('neeGraphContainer').style.display = 'none';
+            
+            modal.show();
+            
+            // Fetch phase efficiency progression data
+            fetch(`/box_stats/phase_efficiency_progression/${phase}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayProgressionGraph(data.efficiency_progression, `${phaseTitle} Efficiency`, data.current_efficiency, 'efficiency', '%', 'rgb(40, 167, 69)');
+                    } else {
+                        showAlert(`Error loading ${phase} efficiency data: ` + data.error, 'danger');
+                        modal.hide();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert(`Error loading ${phase} efficiency data: ` + error.message, 'danger');
+                    modal.hide();
+                });
+        }
+
+        function showPhaseExplosiveGraph(phase) {
+            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const phaseTitle = phase.charAt(0).toUpperCase() + phase.slice(1);
+            document.getElementById('neeGraphModalTitle').textContent = `${phaseTitle} Explosive Rate Progression`;
+            
+            // Show loading
+            document.getElementById('neeGraphLoading').style.display = 'block';
+            document.getElementById('neeGraphContainer').style.display = 'none';
+            
+            modal.show();
+            
+            // Fetch phase explosive rate progression data
+            fetch(`/box_stats/phase_explosive_progression/${phase}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayProgressionGraph(data.explosive_progression, `${phaseTitle} Explosive Rate`, data.current_explosive_rate, 'explosive', '%', 'rgb(255, 193, 7)');
+                    } else {
+                        showAlert(`Error loading ${phase} explosive rate data: ` + data.error, 'danger');
+                        modal.hide();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert(`Error loading ${phase} explosive rate data: ` + error.message, 'danger');
                     modal.hide();
                 });
         }
