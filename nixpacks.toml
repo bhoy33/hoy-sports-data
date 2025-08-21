@@ -1,14 +1,13 @@
-[phases.setup]
-nixPkgs = ['python310', 'python310Packages.pip', 'python310Packages.virtualenv']
+[providers]
+nixpkgs = ['python310', 'python310Packages.pip']
 
 [phases.install]
 cmds = [
-  'python -m venv /tmp/venv',
-  'source /tmp/venv/bin/activate && pip install -r requirements.txt'
+  'pip install --user -r requirements.txt'
 ]
 
 [phases.build]
 cmds = ['echo "Build phase complete"']
 
 [start]
-cmd = 'source /tmp/venv/bin/activate && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --preload'
+cmd = 'python app.py'

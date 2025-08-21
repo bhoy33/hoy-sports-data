@@ -24,6 +24,7 @@ app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HT
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request size
 
 # Password protection configuration
 SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25', 'eagleton25']  # Regular user passwords
@@ -1585,6 +1586,9 @@ def add_box_stats_play():
     try:
         data = request.get_json()
         
+        # Make session permanent to ensure data persistence
+        session.permanent = True
+        
         # Initialize box stats in session if not exists
         if 'box_stats' not in session:
             session['box_stats'] = {
@@ -1711,9 +1715,13 @@ def add_box_stats_play():
         # Add play to session with size monitoring
         session['box_stats']['plays'].append(play_data)
         
+        # Force session modification flag to ensure persistence
+        session.modified = True
+        
         # Monitor session size and warn if getting large
         play_count = len(session['box_stats']['plays'])
-        if play_count % 50 == 0:  # Check every 50 plays
+        print(f"DEBUG: Added play #{play_count}. Total plays in session: {play_count}")
+        if play_count % 10 == 0:  # Check every 10 plays for debugging
             print(f"INFO: Session now contains {play_count} plays")
             if play_count > 200:
                 print(f"WARNING: Large session detected with {play_count} plays - consider implementing data archiving")
@@ -1737,6 +1745,9 @@ def add_box_stats_play():
             # Get phase-specific team stats
             phase_team_stats = session['box_stats']['team_stats'][current_phase]
             overall_team_stats = session['box_stats']['team_stats']['overall']
+            
+            # Force session modification flag for team stats updates
+            session.modified = True
             
             # Update basic team stats for both phase-specific and overall
             phase_team_stats['total_plays'] += 1
@@ -1989,6 +2000,9 @@ def add_box_stats_play():
                     
                     # Update stats based on player's role in the play
                     player_stats = session['box_stats']['players'][player_key]
+                    
+                    # Force session modification flag for player stats updates
+                    session.modified = True
                     
                     # Ensure all advanced analytics fields exist in existing player stats (backward compatibility)
                     required_player_fields = {
@@ -4094,4 +4108,9 @@ def get_play_call_analytics():
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5004))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    print(f"Starting Flask app on port {port}")
+    try:
+        app.run(debug=False, host='0.0.0.0', port=port)
+    except Exception as e:
+        print(f"Error starting Flask app: {e}")
+        raise
