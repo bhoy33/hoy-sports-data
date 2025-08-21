@@ -2320,6 +2320,108 @@ def get_user_games_dir(username):
         os.makedirs(user_dir)
     return user_dir
 
+def get_saved_rosters_dir():
+    """Get the directory for saved rosters"""
+    saved_rosters_dir = os.path.join(os.path.dirname(__file__), 'saved_rosters')
+    if not os.path.exists(saved_rosters_dir):
+        os.makedirs(saved_rosters_dir)
+    return saved_rosters_dir
+
+def get_user_rosters_dir(username):
+    """Get the directory for a specific user's saved rosters"""
+    user_dir = os.path.join(get_saved_rosters_dir(), hashlib.md5(username.encode()).hexdigest())
+    if not os.path.exists(user_dir):
+        os.makedirs(user_dir)
+    return user_dir
+
+def save_roster_data(username, roster_name, roster_data):
+    """Save roster data to file for a specific user"""
+    try:
+        user_dir = get_user_rosters_dir(username)
+        
+        # Create safe filename
+        safe_filename = "".join(c for c in roster_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_filename = safe_filename.replace(' ', '_')
+        filename = f"{safe_filename}.json"
+        filepath = os.path.join(user_dir, filename)
+        
+        # Add metadata
+        roster_data_with_meta = {
+            'roster_name': roster_name,
+            'players': roster_data.get('players', {}),
+            'created_at': roster_data.get('created_at', datetime.now().isoformat()),
+            'player_count': len(roster_data.get('players', {})),
+            'username': username
+        }
+        
+        with open(filepath, 'w') as f:
+            json.dump(roster_data_with_meta, f, indent=2)
+        
+        return True, filename
+    except Exception as e:
+        print(f"Error saving roster data: {e}")
+        return False, str(e)
+
+def load_roster_data(username, roster_filename):
+    """Load roster data from file for a specific user"""
+    try:
+        user_dir = get_user_rosters_dir(username)
+        filepath = os.path.join(user_dir, roster_filename)
+        
+        if not os.path.exists(filepath):
+            return None, "Roster file not found"
+        
+        with open(filepath, 'r') as f:
+            roster_data = json.load(f)
+        
+        return roster_data, None
+    except Exception as e:
+        print(f"Error loading roster data: {e}")
+        return None, str(e)
+
+def get_user_saved_rosters(username):
+    """Get list of saved rosters for a specific user"""
+    try:
+        user_dir = get_user_rosters_dir(username)
+        rosters = []
+        
+        for filename in os.listdir(user_dir):
+            if filename.endswith('.json'):
+                try:
+                    roster_data, error = load_roster_data(username, filename)
+                    if roster_data and not error:
+                        rosters.append({
+                            'filename': filename,
+                            'name': roster_data.get('roster_name', filename[:-5]),
+                            'player_count': roster_data.get('player_count', 0),
+                            'created_at': roster_data.get('created_at', ''),
+                        })
+                except Exception as e:
+                    print(f"Error reading roster file {filename}: {e}")
+                    continue
+        
+        # Sort by creation date (newest first)
+        rosters.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return rosters
+    except Exception as e:
+        print(f"Error getting saved rosters: {e}")
+        return []
+
+def delete_roster_data(username, roster_filename):
+    """Delete a roster file for a specific user"""
+    try:
+        user_dir = get_user_rosters_dir(username)
+        filepath = os.path.join(user_dir, roster_filename)
+        
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            return True, "Roster deleted successfully"
+        else:
+            return False, "Roster file not found"
+    except Exception as e:
+        print(f"Error deleting roster: {e}")
+        return False, str(e)
+
 def save_game_data(username, game_name, game_data):
     """Save game data to file"""
     try:
@@ -2830,31 +2932,34 @@ def save_player_roster():
         if not player_profiles:
             return jsonify({'error': 'No player profiles to save'}), 400
         
-        # Initialize user rosters in session if not exists
-        if 'saved_rosters' not in session:
-            session['saved_rosters'] = {}
+        # Get username from session
+        username = session.get('username', 'anonymous')
         
         # Handle roster editing (rename scenario)
         if is_edit and original_name and original_name != roster_name:
-            # Remove old roster if name changed
-            if original_name in session['saved_rosters']:
-                del session['saved_rosters'][original_name]
+            # Delete old roster file if name changed
+            old_filename = "".join(c for c in original_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+            old_filename = old_filename.replace(' ', '_') + '.json'
+            delete_success, delete_msg = delete_roster_data(username, old_filename)
+            if delete_success:
                 print(f"DEBUG: Removed old roster '{original_name}' due to rename")
         
-        # Save roster with metadata
-        session['saved_rosters'][roster_name] = {
-            'name': roster_name,
+        # Prepare roster data
+        roster_data = {
             'players': player_profiles,
-            'created_at': datetime.now().isoformat(),
-            'player_count': len(player_profiles)
+            'created_at': datetime.now().isoformat()
         }
         
-        session.modified = True
+        # Save roster to file
+        success, result = save_roster_data(username, roster_name, roster_data)
         
-        return jsonify({
-            'success': True,
-            'message': f'Roster "{roster_name}" saved successfully with {len(player_profiles)} players'
-        })
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Roster "{roster_name}" saved successfully with {len(player_profiles)} players'
+            })
+        else:
+            return jsonify({'error': f'Failed to save roster: {result}'}), 500
         
     except Exception as e:
         return jsonify({'error': f'Error saving roster: {str(e)}'}), 500
@@ -2870,13 +2975,20 @@ def load_player_roster():
         if not roster_name:
             return jsonify({'error': 'Roster name is required'}), 400
         
-        saved_rosters = session.get('saved_rosters', {})
+        # Get username from session
+        username = session.get('username', 'anonymous')
         
-        if roster_name not in saved_rosters:
+        # Create filename from roster name
+        safe_filename = "".join(c for c in roster_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_filename = safe_filename.replace(' ', '_') + '.json'
+        
+        # Load roster from file
+        roster_data, error = load_roster_data(username, safe_filename)
+        
+        if error or not roster_data:
             return jsonify({'error': f'Roster "{roster_name}" not found'}), 404
         
-        roster = saved_rosters[roster_name]
-        player_count = len(roster.get('players', {}))
+        player_count = len(roster_data.get('players', {}))
         
         # Add performance warning for very large rosters
         if player_count > 200:
@@ -2885,7 +2997,7 @@ def load_player_roster():
         # Optimize response for large rosters
         response_data = {
             'success': True,
-            'roster': roster,
+            'roster': roster_data,
             'player_count': player_count,
             'message': f'Roster "{roster_name}" loaded successfully'
         }
@@ -2905,20 +3017,19 @@ def load_player_roster():
 def get_saved_rosters():
     """Get all saved rosters for the current user"""
     try:
-        saved_rosters = session.get('saved_rosters', {})
+        # Get username from session
+        username = session.get('username', 'anonymous')
         
-        # Convert to list format for easier frontend handling
-        rosters_list = []
-        for name, roster in saved_rosters.items():
-            rosters_list.append({
-                'name': name,
-                'player_count': roster.get('player_count', 0),
-                'created_at': roster.get('created_at', ''),
-                'players': roster.get('players', {})
-            })
+        # Get rosters from file storage
+        rosters_list = get_user_saved_rosters(username)
         
-        # Sort by creation date (newest first)
-        rosters_list.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        # Add players data to each roster for frontend compatibility
+        for roster in rosters_list:
+            roster_data, error = load_roster_data(username, roster['filename'])
+            if roster_data and not error:
+                roster['players'] = roster_data.get('players', {})
+            else:
+                roster['players'] = {}
         
         return jsonify({
             'success': True,
