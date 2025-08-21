@@ -1708,23 +1708,25 @@
                 return;
             }
             
-            // Show configurable number of recent plays with option to show more
-            const defaultDisplayCount = 15; // Increased from 10
+            // Show ALL plays by default - NO LIMITS
+            const defaultDisplayCount = plays.length; // Show all plays
             const maxDisplayCount = window.recentPlaysDisplayCount || defaultDisplayCount;
-            const recentPlays = plays.slice(-maxDisplayCount).reverse();
+            // If user specifically requested a limited count, honor it, otherwise show all
+            const recentPlays = (window.recentPlaysDisplayCount && window.recentPlaysDisplayCount < plays.length) 
+                ? plays.slice(-window.recentPlaysDisplayCount).reverse() 
+                : plays.slice().reverse(); // Show ALL plays by default
             let html = '';
             
-            // Add controls for showing more/fewer plays
-            if (plays.length > defaultDisplayCount) {
-                const showingCount = Math.min(maxDisplayCount, plays.length);
+            // Add controls for showing fewer plays if user wants (but default to ALL)
+            if (plays.length > 15) {
                 html += `
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="text-muted">Showing ${showingCount} of ${plays.length} plays</span>
+                        <span class="text-muted">Showing ${recentPlays.length} of ${plays.length} plays</span>
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(15)" ${maxDisplayCount === 15 ? 'disabled' : ''}>15</button>
                             <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(25)" ${maxDisplayCount === 25 ? 'disabled' : ''}>25</button>
                             <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(50)" ${maxDisplayCount === 50 ? 'disabled' : ''}>50</button>
-                            <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(${plays.length})" ${maxDisplayCount >= plays.length ? 'disabled' : ''}>All</button>
+                            <button class="btn btn-outline-secondary" onclick="adjustRecentPlaysDisplay(${plays.length})" ${maxDisplayCount >= plays.length ? 'disabled' : 'active'}>All</button>
                         </div>
                     </div>
                 `;
@@ -1747,13 +1749,14 @@
         }
 
         function adjustRecentPlaysDisplay(count) {
-            window.recentPlaysDisplayCount = count;
-            // Refresh the display with current data
+            // If count equals total plays, show all plays (unlimited)
             fetch('/box_stats/get_stats')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success && data.plays) {
-                        updateRecentPlays(data.plays);
+                    if (data.success && data.box_stats && data.box_stats.plays) {
+                        const totalPlays = data.box_stats.plays.length;
+                        window.recentPlaysDisplayCount = (count >= totalPlays) ? totalPlays : count;
+                        updateRecentPlays(data.box_stats.plays);
                     }
                 })
                 .catch(error => {
