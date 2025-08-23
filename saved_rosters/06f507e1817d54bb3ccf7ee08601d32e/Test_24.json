@@ -1,0 +1,38 @@
+{
+  "roster_name": "Test '24",
+  "player_count": 5,
+  "created_at": "2025-08-21T11:50:00.000000",
+  "username": "admin",
+  "players": {
+    "player_1": {
+      "id": "player_1",
+      "number": 10,
+      "name": "Test QB",
+      "position": "QB"
+    },
+    "player_2": {
+      "id": "player_2",
+      "number": 20,
+      "name": "Test RB",
+      "position": "RB"
+    },
+    "player_3": {
+      "id": "player_3",
+      "number": 80,
+      "name": "Test WR",
+      "position": "WR"
+    },
+    "player_4": {
+      "id": "player_4",
+      "number": 50,
+      "name": "Test LB",
+      "position": "LB"
+    },
+    "player_5": {
+      "id": "player_5",
+      "number": 25,
+      "name": "Test DB",
+      "position": "DB"
+    }
+  }
+}

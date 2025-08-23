@@ -1,0 +1,182 @@
+{
+  "roster_name": "Test '24",
+  "player_count": 29,
+  "created_at": "2025-08-21T11:26:58.486225",
+  "username": "scots_user",
+  "players": {
+    "player_115": {
+      "id": "player_115",
+      "number": 9,
+      "name": "Ford",
+      "position": "WR"
+    },
+    "player_116": {
+      "id": "player_116",
+      "number": 10,
+      "name": "Rollins",
+      "position": "QB"
+    },
+    "player_117": {
+      "id": "player_117",
+      "number": 14,
+      "name": "White",
+      "position": "ILB"
+    },
+    "player_118": {
+      "id": "player_118",
+      "number": 16,
+      "name": "Jones",
+      "position": "TE"
+    },
+    "player_119": {
+      "id": "player_119",
+      "number": 19,
+      "name": "Cummings",
+      "position": "QB"
+    },
+    "player_120": {
+      "id": "player_120",
+      "number": 20,
+      "name": "Abner",
+      "position": "RB"
+    },
+    "player_121": {
+      "id": "player_121",
+      "number": 22,
+      "name": "Swinea",
+      "position": "RB"
+    },
+    "player_122": {
+      "id": "player_122",
+      "number": 24,
+      "name": "Hensley",
+      "position": "WR"
+    },
+    "player_123": {
+      "id": "player_123",
+      "number": 25,
+      "name": "Brown",
+      "position": "RB"
+    },
+    "player_124": {
+      "id": "player_124",
+      "number": 28,
+      "name": "Elliot",
+      "position": "RB"
+    },
+    "player_125": {
+      "id": "player_125",
+      "number": 1,
+      "name": "Carter Jr.",
+      "position": "WR"
+    },
+    "player_126": {
+      "id": "player_126",
+      "number": 34,
+      "name": "Marlin",
+      "position": "TE"
+    },
+    "player_127": {
+      "id": "player_127",
+      "number": 54,
+      "name": "Bost",
+      "position": "MLB"
+    },
+    "player_128": {
+      "id": "player_128",
+      "number": 80,
+      "name": "Evans",
+      "position": "WR"
+    },
+    "player_129": {
+      "id": "player_129",
+      "number": 82,
+      "name": "Page",
+      "position": "WR"
+    },
+    "player_130": {
+      "id": "player_130",
+      "number": 83,
+      "name": "Sanz",
+      "position": "WR"
+    },
+    "player_131": {
+      "id": "player_131",
+      "number": 84,
+      "name": "Skelton",
+      "position": "WR"
+    },
+    "player_132": {
+      "id": "player_132",
+      "number": 85,
+      "name": "Bolton",
+      "position": "WR"
+    },
+    "player_133": {
+      "id": "player_133",
+      "number": 86,
+      "name": "Messenger",
+      "position": "WR"
+    },
+    "player_134": {
+      "id": "player_134",
+      "number": 87,
+      "name": "McCullough",
+      "position": "TE"
+    },
+    "player_135": {
+      "id": "player_135",
+      "number": 14,
+      "name": "Whaley",
+      "position": "WR"
+    },
+    "player_136": {
+      "id": "player_136",
+      "number": 2,
+      "name": "Orton",
+      "position": "WR"
+    },
+    "player_137": {
+      "id": "player_137",
+      "number": 14,
+      "name": "Whaley",
+      "position": "WR"
+    },
+    "player_138": {
+      "id": "player_138",
+      "number": 3,
+      "name": "McCovery IV",
+      "position": "RB"
+    },
+    "player_139": {
+      "id": "player_139",
+      "number": 4,
+      "name": "Richardson",
+      "position": "WR"
+    },
+    "player_140": {
+      "id": "player_140",
+      "number": 5,
+      "name": "Redd",
+      "position": "WR"
+    },
+    "player_141": {
+      "id": "player_141",
+      "number": 6,
+      "name": "Dagel",
+      "position": "WR"
+    },
+    "player_142": {
+      "id": "player_142",
+      "number": 7,
+      "name": "Claiborne",
+      "position": "RB"
+    },
+    "player_143": {
+      "id": "player_143",
+      "number": 8,
+      "name": "Edmundson",
+      "position": "WR"
+    }
+  }
+}

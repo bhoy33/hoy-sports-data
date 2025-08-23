@@ -1,18 +1,95 @@
-from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
 import pandas as pd
-import altair as alt
-import json
-import io
-import base64
-from werkzeug.utils import secure_filename
 import os
+import json
+from datetime import datetime, timedelta
+import hashlib
+import uuid
+import altair as alt
 from functools import wraps
+import pickle
 from datetime import datetime
 import hashlib
 
 # Configure Altair to use inline data for web serving
 alt.data_transformers.disable_max_rows()
 alt.data_transformers.enable('default')
+
+class ServerSideSession:
+    """Server-side session storage to bypass cookie size limits"""
+    
+    def __init__(self, base_dir='server_sessions'):
+        self.base_dir = base_dir
+        if not os.path.exists(base_dir):
+            os.makedirs(base_dir)
+    
+    def get_session_file_path(self, session_id):
+        """Get the file path for a session ID"""
+        # Use first 2 chars of session_id for subdirectory to avoid too many files in one dir
+        subdir = os.path.join(self.base_dir, session_id[:2])
+        if not os.path.exists(subdir):
+            os.makedirs(subdir)
+        return os.path.join(subdir, f"{session_id}.pkl")
+    
+    def load_session_data(self, session_id):
+        """Load session data from file"""
+        if not session_id:
+            return {}
+        
+        file_path = self.get_session_file_path(session_id)
+        if not os.path.exists(file_path):
+            return {}
+        
+        try:
+            with open(file_path, 'rb') as f:
+                data = pickle.load(f)
+                # Check if data is expired (optional - 24 hour expiry)
+                if 'last_accessed' in data:
+                    last_accessed = datetime.fromisoformat(data['last_accessed'])
+                    if datetime.now() - last_accessed > timedelta(hours=24):
+                        os.remove(file_path)
+                        return {}
+                return data.get('session_data', {})
+        except Exception as e:
+            print(f"Error loading session {session_id}: {e}")
+            return {}
+    
+    def save_session_data(self, session_id, data):
+        """Save session data to file"""
+        if not session_id:
+            return False
+        
+        file_path = self.get_session_file_path(session_id)
+        try:
+            session_wrapper = {
+                'session_data': data,
+                'last_accessed': datetime.now().isoformat(),
+                'created_at': datetime.now().isoformat()
+            }
+            
+            with open(file_path, 'wb') as f:
+                pickle.dump(session_wrapper, f)
+            return True
+        except Exception as e:
+            print(f"Error saving session {session_id}: {e}")
+            return False
+    
+    def delete_session(self, session_id):
+        """Delete a session file"""
+        if not session_id:
+            return False
+        
+        file_path = self.get_session_file_path(session_id)
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return True
+        except Exception as e:
+            print(f"Error deleting session {session_id}: {e}")
+            return False
+
+# Initialize server-side session storage
+server_session = ServerSideSession()
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -1586,12 +1663,19 @@ def add_box_stats_play():
     try:
         data = request.get_json()
         
-        # Make session permanent to ensure data persistence
-        session.permanent = True
+        # Get or create server-side session ID
+        if 'server_session_id' not in session:
+            session['server_session_id'] = str(uuid.uuid4())
+            session.permanent = True
         
-        # Initialize box stats in session if not exists
-        if 'box_stats' not in session:
-            session['box_stats'] = {
+        session_id = session['server_session_id']
+        
+        # Load box stats from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        
+        # Initialize box stats if not exists
+        if 'box_stats' not in box_stats_data:
+            box_stats_data['box_stats'] = {
                 'plays': [],
                 'players': {},
                 'game_info': {},
@@ -1607,15 +1691,18 @@ def add_box_stats_play():
                 }
             }
         
+        # Get reference to box_stats for easier access
+        box_stats = box_stats_data['box_stats']
+        
         # Ensure phase-specific team_stats exists in existing sessions (backward compatibility)
-        if 'team_stats' not in session['box_stats']:
-            session['box_stats']['team_stats'] = {}
+        if 'team_stats' not in box_stats:
+            box_stats['team_stats'] = {}
         
         # Initialize phase-specific team stats
         phases = ['offense', 'defense', 'special_teams']
         for phase in phases:
-            if phase not in session['box_stats']['team_stats']:
-                session['box_stats']['team_stats'][phase] = {
+            if phase not in box_stats['team_stats']:
+                box_stats['team_stats'][phase] = {
                     'total_plays': 0,
                     'efficient_plays': 0,
                     'explosive_plays': 0,
@@ -1637,8 +1724,8 @@ def add_box_stats_play():
                 }
         
         # Maintain overall team stats for backward compatibility
-        if 'overall' not in session['box_stats']['team_stats']:
-            session['box_stats']['team_stats']['overall'] = {
+        if 'overall' not in box_stats['team_stats']:
+            box_stats['team_stats']['overall'] = {
                 'total_plays': 0,
                 'efficient_plays': 0,
                 'explosive_plays': 0,
@@ -1676,14 +1763,14 @@ def add_box_stats_play():
         # Apply backward compatibility to all phases (including overall)
         all_phases = ['offense', 'defense', 'special_teams', 'overall']
         for phase in all_phases:
-            if phase in session['box_stats']['team_stats']:
+            if phase in box_stats['team_stats']:
                 for field, default_value in required_team_fields.items():
-                    if field not in session['box_stats']['team_stats'][phase]:
-                        session['box_stats']['team_stats'][phase][field] = default_value
+                    if field not in box_stats['team_stats'][phase]:
+                        box_stats['team_stats'][phase][field] = default_value
         
         # Ensure play_call_stats exists in existing sessions (backward compatibility)
-        if 'play_call_stats' not in session['box_stats']:
-            session['box_stats']['play_call_stats'] = {}
+        if 'play_call_stats' not in box_stats:
+            box_stats['play_call_stats'] = {}
         
         # Extract play data
         play_data = {
@@ -1712,14 +1799,14 @@ def add_box_stats_play():
                 'penalty_on': data.get('penalty_on', 'offense')
             })
         
-        # Add play to session with size monitoring
-        session['box_stats']['plays'].append(play_data)
+        # Add play to server-side storage with size monitoring
+        box_stats['plays'].append(play_data)
         
-        # Force session modification flag to ensure persistence
-        session.modified = True
+        # Save to server-side storage
+        server_session.save_session_data(session_id, box_stats_data)
         
         # Monitor session size and warn if getting large
-        play_count = len(session['box_stats']['plays'])
+        play_count = len(box_stats['plays'])
         print(f"DEBUG: Added play #{play_count}. Total plays in session: {play_count}")
         if play_count % 10 == 0:  # Check every 10 plays for debugging
             print(f"INFO: Session now contains {play_count} plays")
@@ -1728,10 +1815,10 @@ def add_box_stats_play():
         
         # Calculate next play situation based on play type
         if data.get('play_type') == 'penalty':
-            next_situation = calculate_penalty_situation(play_data, session['box_stats']['plays'])
+            next_situation = calculate_penalty_situation(play_data, box_stats['plays'])
         else:
-            next_situation = calculate_next_situation(play_data, session['box_stats']['plays'])
-        session['box_stats']['next_situation'] = next_situation
+            next_situation = calculate_next_situation(play_data, box_stats['plays'])
+        box_stats['next_situation'] = next_situation
         
         # Update team-level analytics (skip penalties - they don't count as offensive plays)
         if data.get('play_type') != 'penalty':
@@ -1743,11 +1830,8 @@ def add_box_stats_play():
                 current_phase = 'offense'  # Default to offense if phase not specified
             
             # Get phase-specific team stats
-            phase_team_stats = session['box_stats']['team_stats'][current_phase]
-            overall_team_stats = session['box_stats']['team_stats']['overall']
-            
-            # Force session modification flag for team stats updates
-            session.modified = True
+            phase_team_stats = box_stats['team_stats'][current_phase]
+            overall_team_stats = box_stats['team_stats']['overall']
             
             # Update basic team stats for both phase-specific and overall
             phase_team_stats['total_plays'] += 1
@@ -1816,8 +1900,8 @@ def add_box_stats_play():
             current_phase = data.get('phase', 'offense').lower()
             if current_phase not in ['offense', 'defense', 'special_teams']:
                 current_phase = 'offense'
-            phase_team_stats = session['box_stats']['team_stats'][current_phase]
-            overall_team_stats = session['box_stats']['team_stats']['overall']
+            phase_team_stats = box_stats['team_stats'][current_phase]
+            overall_team_stats = box_stats['team_stats']['overall']
         
         # Update team rates for both phase-specific and overall stats
         def update_team_rates(stats):
@@ -1837,7 +1921,7 @@ def add_box_stats_play():
         print(f"DEBUG TEAM ANALYTICS (OVERALL): Total plays: {overall_team_stats['total_plays']}, Efficient plays: {overall_team_stats['efficient_plays']}, Explosive plays: {overall_team_stats['explosive_plays']}, Negative plays: {overall_team_stats['negative_plays']}")
         
         # Record team progression data (play number and various metrics) for both phase-specific and overall
-        current_play_number = len(session['box_stats']['plays']) + 1
+        current_play_number = len(box_stats['plays']) + 1
         
         def update_progression(stats):
             # NEE progression
@@ -1861,7 +1945,7 @@ def add_box_stats_play():
                 stats['explosive_progression'] = []
             stats['explosive_progression'].append({
                 'play': current_play_number,
-                'explosive': stats['explosive_rate']
+                'explosive_rate': stats['explosive_rate']
             })
             
             # Average yards progression
@@ -1875,11 +1959,20 @@ def add_box_stats_play():
         update_progression(phase_team_stats)
         update_progression(overall_team_stats)
         
+        # Debug: Check progression data was added
+        print(f"DEBUG PROGRESSION: Phase {current_phase} NEE progression length: {len(phase_team_stats.get('nee_progression', []))}")
+        print(f"DEBUG PROGRESSION: Overall NEE progression length: {len(overall_team_stats.get('nee_progression', []))}")
+        print(f"DEBUG PROGRESSION: Overall explosive progression length: {len(overall_team_stats.get('explosive_progression', []))}")
+        if overall_team_stats.get('nee_progression'):
+            print(f"DEBUG PROGRESSION: Latest overall NEE entry: {overall_team_stats['nee_progression'][-1]}")
+        if overall_team_stats.get('explosive_progression'):
+            print(f"DEBUG PROGRESSION: Latest overall explosive entry: {overall_team_stats['explosive_progression'][-1]}")
+        
         # Update play call analytics if play call is provided
         play_call = play_data.get('play_call')
         if play_call and play_call.strip():
             print(f"DEBUG: Processing play call '{play_call}' for analytics")
-            update_play_call_analytics(session, play_call, play_data, yards_gained, is_team_efficient, team_explosive_this_play, team_negative_this_play)
+            update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is_team_efficient, team_explosive_this_play, team_negative_this_play)
         else:
             print(f"DEBUG: No play call provided or empty play call: '{play_call}'")
         
@@ -1941,8 +2034,8 @@ def add_box_stats_play():
                     # Ensure player_num is a string for consistent session storage
                     player_key = str(player_num)
                     print(f"DEBUG: Player key: {player_key}, Player number: {player_num}")
-                    if player_key not in session['box_stats']['players']:
-                        session['box_stats']['players'][player_key] = {
+                    if player_key not in box_stats['players']:
+                        box_stats['players'][player_key] = {
                             'number': int(player_num),  # Store as int for display
                             'name': str(player.get('name', f'Player #{player_num}')),
                             'position': str(player.get('position', '')),
@@ -1999,10 +2092,7 @@ def add_box_stats_play():
                         }
                     
                     # Update stats based on player's role in the play
-                    player_stats = session['box_stats']['players'][player_key]
-                    
-                    # Force session modification flag for player stats updates
-                    session.modified = True
+                    player_stats = box_stats['players'][player_key]
                     
                     # Ensure all advanced analytics fields exist in existing player stats (backward compatibility)
                     required_player_fields = {
@@ -2181,7 +2271,7 @@ def add_box_stats_play():
                     player_stats['nee_score'] = round(player_stats['efficiency_rate'] + player_stats['explosive_rate'] - player_stats['negative_rate'], 1)
                     
                     # Record progression data (play number and various metrics)
-                    current_play_number = len(session['box_stats']['plays']) + 1
+                    current_play_number = len(box_stats['plays']) + 1
                     
                     # NEE progression
                     if 'nee_progression' not in player_stats:
@@ -2207,11 +2297,12 @@ def add_box_stats_play():
                                      player_stats.get('passing_yards', 0))
                         player_avg_yards = round(total_yards / player_stats['total_plays'], 1)
                     
-                    if 'avg_yards_progression' not in player_stats:
-                        player_stats['avg_yards_progression'] = []
-                    player_stats['avg_yards_progression'].append({
+                    # Explosive progression
+                    if 'explosive_progression' not in player_stats:
+                        player_stats['explosive_progression'] = []
+                    player_stats['explosive_progression'].append({
                         'play': current_play_number,
-                        'avg_yards': player_avg_yards
+                        'explosive_rate': player_stats['explosive_rate']
                     })
                     
                     print(f"DEBUG: Updated advanced analytics for player #{player_key} - Total plays: {player_stats['total_plays']}, Efficiency: {player_stats['efficiency_rate']}%, Explosive: {player_stats['explosive_rate']}%, NEE: {player_stats['nee_score']}")
@@ -2221,8 +2312,8 @@ def add_box_stats_play():
                 qb_key = str(qb_player.get('number'))
                 
                 # Ensure QB exists in stats
-                if qb_key not in session['box_stats']['players']:
-                    session['box_stats']['players'][qb_key] = {
+                if qb_key not in box_stats['players']:
+                    box_stats['players'][qb_key] = {
                         'number': int(qb_player.get('number')),
                         'name': str(qb_player.get('name', f'Player #{qb_player.get("number")}')),
                         'position': str(qb_player.get('position', 'QB')),
@@ -2246,7 +2337,7 @@ def add_box_stats_play():
                         'nee_score': 0.0
                     }
                 
-                qb_stats = session['box_stats']['players'][qb_key]
+                qb_stats = box_stats['players'][qb_key]
                 
                 # Only update QB stats if they weren't already updated as a 'passer'
                 qb_already_processed = False
@@ -2265,15 +2356,21 @@ def add_box_stats_play():
                     
                     # Note: Advanced analytics for QB will be handled in the main player loop if QB is in players_involved
         
-        # Mark session as modified
-        session.modified = True
+        # Save updated data to server-side storage before returning
+        server_session.save_session_data(session_id, box_stats_data)
+        
+        # Debug: Verify progression data was saved
+        test_load = server_session.load_session_data(session_id)
+        test_overall = test_load.get('box_stats', {}).get('team_stats', {}).get('overall', {})
+        print(f"DEBUG POST-SAVE: Overall NEE progression length: {len(test_overall.get('nee_progression', []))}")
+        print(f"DEBUG POST-SAVE: Overall explosive progression length: {len(test_overall.get('explosive_progression', []))}")
         
         return jsonify({
             'success': True,
-            'play_count': len(session['box_stats']['plays']),
+            'play_count': len(box_stats['plays']),
             'message': 'Play added successfully',
-            'next_situation': session['box_stats'].get('next_situation', {}),
-            'team_stats': session['box_stats']['team_stats']
+            'next_situation': box_stats.get('next_situation', {}),
+            'team_stats': box_stats['team_stats']
         })
         
     except Exception as e:
@@ -2604,14 +2701,14 @@ def get_user_saved_games(username):
         print(f"Error getting saved games: {str(e)}")
         return []
 
-def update_play_call_analytics(session, play_call, play_data, yards_gained, is_efficient, is_explosive, is_negative):
+def update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is_efficient, is_explosive, is_negative):
     """Update analytics tracking for a specific play call"""
     try:
         # Initialize play call stats if not exists
-        if 'play_call_stats' not in session['box_stats']:
-            session['box_stats']['play_call_stats'] = {}
+        if 'play_call_stats' not in box_stats:
+            box_stats['play_call_stats'] = {}
         
-        play_call_stats = session['box_stats']['play_call_stats']
+        play_call_stats = box_stats['play_call_stats']
         
         # Initialize this play call's stats if first time seeing it
         if play_call not in play_call_stats:
@@ -2925,27 +3022,55 @@ def calculate_next_situation(current_play, all_plays):
 def get_box_stats():
     """Get current box stats data"""
     try:
-        box_stats = session.get('box_stats', {
-            'plays': [],
-            'players': {},
-            'game_info': {},
-            'team_stats': {
-                'total_plays': 0,
-                'efficient_plays': 0,
-                'explosive_plays': 0,
-                'negative_plays': 0,
-                'total_yards': 0,
-                'touchdowns': 0,
-                'turnovers': 0,
-                'interceptions': 0,
-                'efficiency_rate': 0.0,
-                'explosive_rate': 0.0,
-                'negative_rate': 0.0,
-                'nee_score': 0.0,
-                'avg_yards_per_play': 0.0,
-                'success_rate': 0.0
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            # No session yet, return empty data
+            box_stats = {
+                'plays': [],
+                'players': {},
+                'game_info': {},
+                'team_stats': {
+                    'total_plays': 0,
+                    'efficient_plays': 0,
+                    'explosive_plays': 0,
+                    'negative_plays': 0,
+                    'total_yards': 0,
+                    'touchdowns': 0,
+                    'turnovers': 0,
+                    'interceptions': 0,
+                    'efficiency_rate': 0.0,
+                    'explosive_rate': 0.0,
+                    'negative_rate': 0.0,
+                    'nee_score': 0.0,
+                    'avg_yards_per_play': 0.0,
+                    'success_rate': 0.0
+                }
             }
-        })
+        else:
+            # Load from server-side storage
+            box_stats_data = server_session.load_session_data(session_id)
+            box_stats = box_stats_data.get('box_stats', {
+                'plays': [],
+                'players': {},
+                'game_info': {},
+                'team_stats': {
+                    'total_plays': 0,
+                    'efficient_plays': 0,
+                    'explosive_plays': 0,
+                    'negative_plays': 0,
+                    'total_yards': 0,
+                    'touchdowns': 0,
+                    'turnovers': 0,
+                    'interceptions': 0,
+                    'efficiency_rate': 0.0,
+                    'explosive_rate': 0.0,
+                    'negative_rate': 0.0,
+                    'nee_score': 0.0,
+                    'avg_yards_per_play': 0.0,
+                    'success_rate': 0.0
+                }
+            })
         
         # Use the stored team stats from session (which include advanced analytics)
         # instead of recalculating basic stats
@@ -3833,7 +3958,14 @@ def delete_saved_game():
 def get_player_nee_progression(player_number):
     """Get NEE progression data for a specific player"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         players = box_stats.get('players', {})
         
         player_key = str(player_number)
@@ -3860,12 +3992,23 @@ def get_player_nee_progression(player_number):
 def get_team_nee_progression():
     """Get NEE progression data for the team"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
         # Use overall team stats for progression (combines all phases)
         overall_stats = team_stats.get('overall', {})
         nee_progression = overall_stats.get('nee_progression', [])
+        
+        print(f"DEBUG TEAM NEE ENDPOINT: Found {len(nee_progression)} NEE progression entries")
+        print(f"DEBUG TEAM NEE ENDPOINT: Overall stats keys: {list(overall_stats.keys())}")
+        print(f"DEBUG TEAM NEE ENDPOINT: Current NEE: {overall_stats.get('nee_score', 'NOT_FOUND')}")
         
         return jsonify({
             'success': True,
@@ -3882,7 +4025,14 @@ def get_team_nee_progression():
 def get_player_efficiency_progression(player_number):
     """Get efficiency progression data for a specific player"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         players = box_stats.get('players', {})
         
         player_key = str(player_number)
@@ -3909,7 +4059,14 @@ def get_player_efficiency_progression(player_number):
 def get_team_efficiency_progression():
     """Get efficiency progression data for the team"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
         # Use overall team stats for progression (combines all phases)
@@ -3931,7 +4088,14 @@ def get_team_efficiency_progression():
 def get_team_explosive_progression():
     """Get explosive rate progression data for the team"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
         # Use overall team stats for progression (combines all phases)
@@ -3953,7 +4117,14 @@ def get_team_explosive_progression():
 def get_phase_nee_progression(phase):
     """Get NEE progression data for a specific phase"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
         # Get phase-specific stats
@@ -3975,7 +4146,14 @@ def get_phase_nee_progression(phase):
 def get_phase_efficiency_progression(phase):
     """Get efficiency progression data for a specific phase"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
         # Get phase-specific stats
@@ -3997,7 +4175,14 @@ def get_phase_efficiency_progression(phase):
 def get_phase_explosive_progression(phase):
     """Get explosive rate progression data for a specific phase"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
         # Get phase-specific stats
@@ -4014,12 +4199,19 @@ def get_phase_explosive_progression(phase):
     except Exception as e:
         return jsonify({'error': f'Error getting {phase} explosive progression: {str(e)}'}), 500
 
-@app.route('/box_stats/avg_yards_progression/<player_number>', methods=['GET'])
+@app.route('/box_stats/explosive_progression/<player_number>', methods=['GET'])
 @login_required
-def get_player_avg_yards_progression(player_number):
-    """Get average yards progression data for a specific player"""
+def get_player_explosive_progression(player_number):
+    """Get explosive progression data for a specific player"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         players = box_stats.get('players', {})
         
         player_key = str(player_number)
@@ -4027,34 +4219,33 @@ def get_player_avg_yards_progression(player_number):
             return jsonify({'error': f'Player #{player_number} not found'}), 404
         
         player_data = players[player_key]
-        avg_yards_progression = player_data.get('avg_yards_progression', [])
-        
-        # Calculate current avg yards per play for this player
-        current_avg_yards = 0.0
-        if player_data.get('total_plays', 0) > 0:
-            total_yards = (player_data.get('rushing_yards', 0) + 
-                         player_data.get('receiving_yards', 0) + 
-                         player_data.get('passing_yards', 0))
-            current_avg_yards = round(total_yards / player_data['total_plays'], 1)
+        explosive_progression = player_data.get('explosive_progression', [])
         
         return jsonify({
             'success': True,
             'player_number': player_number,
             'player_name': player_data.get('name', f'Player #{player_number}'),
             'player_position': player_data.get('position', ''),
-            'avg_yards_progression': avg_yards_progression,
-            'current_avg_yards': current_avg_yards
+            'explosive_progression': explosive_progression,
+            'current_explosive_rate': player_data.get('explosive_rate', 0.0)
         })
         
     except Exception as e:
-        return jsonify({'error': f'Error getting player avg yards progression: {str(e)}'}), 500
+        return jsonify({'error': f'Error getting player explosive progression: {str(e)}'}), 500
 
 @app.route('/box_stats/team_avg_yards_progression', methods=['GET'])
 @login_required
 def get_team_avg_yards_progression():
     """Get average yards progression data for the team"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         team_stats = box_stats.get('team_stats', {})
         
         # Use overall team stats for progression (combines all phases)
@@ -4071,12 +4262,57 @@ def get_team_avg_yards_progression():
     except Exception as e:
         return jsonify({'error': f'Error getting team avg yards progression: {str(e)}'}), 500
 
+@app.route('/box_stats/debug_team_data', methods=['GET'])
+@login_required
+def debug_team_data():
+    """Debug endpoint to check team progression data structure"""
+    try:
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session'}), 404
+        
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
+        team_stats = box_stats.get('team_stats', {})
+        
+        debug_info = {
+            'session_id': session_id,
+            'team_stats_keys': list(team_stats.keys()),
+            'overall_keys': list(team_stats.get('overall', {}).keys()),
+            'overall_nee_progression_length': len(team_stats.get('overall', {}).get('nee_progression', [])),
+            'overall_explosive_progression_length': len(team_stats.get('overall', {}).get('explosive_progression', [])),
+            'overall_efficiency_progression_length': len(team_stats.get('overall', {}).get('efficiency_progression', [])),
+            'total_plays': len(box_stats.get('plays', [])),
+            'sample_nee_data': team_stats.get('overall', {}).get('nee_progression', [])[:3],
+            'sample_explosive_data': team_stats.get('overall', {}).get('explosive_progression', [])[:3]
+        }
+        
+        return jsonify({
+            'success': True,
+            'debug_info': debug_info
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Debug error: {str(e)}'}), 500
+
 @app.route('/box_stats/play_call_analytics', methods=['GET'])
 @login_required
 def get_play_call_analytics():
     """Get analytics for all play calls in the current session"""
     try:
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            # No session yet, return empty data
+            return jsonify({
+                'success': True,
+                'play_call_analytics': [],
+                'total_play_calls': 0
+            })
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
         play_call_stats = box_stats.get('play_call_stats', {})
         
         print(f"DEBUG: Getting play call analytics - found {len(play_call_stats)} play calls")
@@ -4107,10 +4343,10 @@ def get_play_call_analytics():
 
 if __name__ == '__main__':
     import os
-    port = int(os.environ.get('PORT', 5004))
-    print(f"Starting Flask app on port {port}")
-    try:
-        app.run(debug=False, host='0.0.0.0', port=port)
-    except Exception as e:
-        print(f"Error starting Flask app: {e}")
-        raise
+    port = int(os.environ.get('PORT', 5008))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    
+    if debug:
+        print(f"Starting Flask app on port {port}")
+    
+    app.run(debug=debug, host='0.0.0.0', port=port)

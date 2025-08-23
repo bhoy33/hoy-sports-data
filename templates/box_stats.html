@@ -1680,8 +1680,8 @@
                                 <button class="btn btn-outline-success btn-sm mb-1" onclick="showPlayerEfficiencyGraph('${player.id || player.number}')" title="View Efficiency Progression Graph">
                                     <i class="fas fa-chart-line me-1"></i>Efficiency
                                 </button>
-                                <button class="btn btn-outline-warning btn-sm" onclick="showPlayerAvgYardsGraph('${player.id || player.number}')" title="View Average Yards Progression Graph">
-                                    <i class="fas fa-chart-line me-1"></i>Avg Yards
+                                <button class="btn btn-outline-danger btn-sm" onclick="showPlayerExplosiveGraph('${player.id || player.number}')" title="View Explosive Rate Progression Graph">
+                                    <i class="fas fa-chart-line me-1"></i>Explosive
                                 </button>
                             </div>
                         </div>
@@ -1896,6 +1896,26 @@
                 const field = document.getElementById(fieldId);
                 field.classList.remove('border-success');
                 field.style.backgroundColor = '';
+            });
+        }
+
+        // Filter players by position
+        function filterPlayersByPosition() {
+            const positionFilter = document.getElementById('positionFilter');
+            const selectedPosition = positionFilter.value;
+            const playerCheckboxes = document.querySelectorAll('#playersInvolved .form-check');
+            
+            playerCheckboxes.forEach(checkbox => {
+                const playerData = checkbox.querySelector('input[type="checkbox"]').dataset;
+                const playerPosition = playerData.position || '';
+                
+                if (!selectedPosition || playerPosition === selectedPosition) {
+                    checkbox.style.display = 'block';
+                } else {
+                    checkbox.style.display = 'none';
+                    // Uncheck hidden players
+                    checkbox.querySelector('input[type="checkbox"]').checked = false;
+                }
             });
         }
 
@@ -4241,8 +4261,8 @@
                 });
         }
 
-        // Player Average Yards Graph
-        function showPlayerAvgYardsGraph(playerNumber) {
+        // Player Explosive Rate Graph
+        function showPlayerExplosiveGraph(playerNumber) {
             const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
             
             // Show loading
@@ -4251,22 +4271,22 @@
             
             modal.show();
             
-            // Fetch player avg yards progression data
-            fetch(`/box_stats/avg_yards_progression/${playerNumber}`)
+            // Fetch player explosive progression data
+            fetch(`/box_stats/explosive_progression/${playerNumber}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        const title = `Player #${data.player_number} ${data.player_name} (${data.player_position}) Avg Yards Progression`;
+                        const title = `Player #${data.player_number} ${data.player_name} (${data.player_position}) Explosive Rate Progression`;
                         document.getElementById('neeGraphModalTitle').textContent = title;
-                        displayProgressionGraph(data.avg_yards_progression, `#${data.player_number} ${data.player_name} Avg Yards`, data.current_avg_yards, 'avg_yards', ' yds', 'rgb(255, 193, 7)');
+                        displayProgressionGraph(data.explosive_progression, `#${data.player_number} ${data.player_name} Explosive Rate`, data.current_explosive_rate, 'explosive_rate', '%', 'rgb(255, 99, 132)');
                     } else {
-                        showAlert('Error loading player avg yards data: ' + data.error, 'danger');
+                        showAlert('Error loading player explosive data: ' + data.error, 'danger');
                         modal.hide();
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showAlert('Error loading player avg yards data: ' + error.message, 'danger');
+                    showAlert('Error loading player explosive data: ' + error.message, 'danger');
                     modal.hide();
                 });
         }
