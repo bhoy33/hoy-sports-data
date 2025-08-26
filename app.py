@@ -3875,44 +3875,52 @@ def load_saved_game():
         if error:
             return jsonify({'error': f'Failed to load game: {error}'}), 500
         
-        # Load data into session
-        session['box_stats'] = {
-            'plays': game_data.get('plays', []),
-            'players': game_data.get('players', {}),
-            'team_stats': game_data.get('team_stats', {}),
-            'game_info': game_data.get('game_info', {}),
-            'play_call_stats': game_data.get('play_call_stats', {}),
-            'next_situation': {
-                'down': 1,
-                'distance': 10,
-                'field_position': 'OWN 25'
+        # Get or create server-side session
+        session_id = session.get('server_session_id')
+        if not session_id:
+            session_id = server_session.create_session()
+            session['server_session_id'] = session_id
+        
+        # Load data into server-side session storage
+        box_stats_data = {
+            'box_stats': {
+                'plays': game_data.get('plays', []),
+                'players': game_data.get('players', {}),
+                'team_stats': game_data.get('team_stats', {}),
+                'game_info': game_data.get('game_info', {}),
+                'play_call_stats': game_data.get('play_call_stats', {}),
+                'next_situation': {
+                    'down': 1,
+                    'distance': 10,
+                    'field_position': 'OWN 25'
+                }
             }
         }
         
         # Apply backward compatibility for loaded game data
         # Convert old team_stats format to new phase-specific format if needed
-        if 'team_stats' in session['box_stats']:
-            team_stats = session['box_stats']['team_stats']
+        if 'team_stats' in box_stats_data['box_stats']:
+            team_stats = box_stats_data['box_stats']['team_stats']
             
             # Check if this is old format (has direct stats) vs new format (has phases)
             if 'total_plays' in team_stats and 'offense' not in team_stats:
                 # Old format - convert to new phase-specific format
                 old_stats = dict(team_stats)  # Copy old stats
-                session['box_stats']['team_stats'] = {
+                box_stats_data['box_stats']['team_stats'] = {
                     'offense': old_stats,
                     'defense': {
                         'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
                         'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'interceptions': 0,
                         'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
                         'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0,
-                        'nee_progression': [], 'efficiency_progression': [], 'avg_yards_progression': []
+                        'nee_progression': [], 'efficiency_progression': [], 'explosive_progression': []
                     },
                     'special_teams': {
                         'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
                         'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'interceptions': 0,
                         'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
                         'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0,
-                        'nee_progression': [], 'efficiency_progression': [], 'avg_yards_progression': []
+                        'nee_progression': [], 'efficiency_progression': [], 'explosive_progression': []
                     },
                     'overall': old_stats
                 }
@@ -3926,13 +3934,13 @@ def load_saved_game():
             
             all_phases = ['offense', 'defense', 'special_teams', 'overall']
             for phase in all_phases:
-                if phase in session['box_stats']['team_stats']:
+                if phase in box_stats_data['box_stats']['team_stats']:
                     for field, default_value in required_team_fields.items():
-                        if field not in session['box_stats']['team_stats'][phase]:
-                            session['box_stats']['team_stats'][phase][field] = default_value
+                        if field not in box_stats_data['box_stats']['team_stats'][phase]:
+                            box_stats_data['box_stats']['team_stats'][phase][field] = default_value
         
         # Ensure all advanced analytics fields exist in loaded player stats
-        if 'players' in session['box_stats']:
+        if 'players' in box_stats_data['box_stats']:
             required_player_fields = {
                 'negative_plays': 0,
                 'efficiency_rate': 0.0,
@@ -3941,14 +3949,16 @@ def load_saved_game():
                 'nee_score': 0.0,
                 'nee_progression': [],
                 'efficiency_progression': [],
-                'avg_yards_progression': []
+                'explosive_progression': []
             }
             
-            for player_key, player_data in session['box_stats']['players'].items():
+            for player_key, player_data in box_stats_data['box_stats']['players'].items():
                 for field, default_value in required_player_fields.items():
                     if field not in player_data:
                         player_data[field] = default_value
-        session.modified = True
+        
+        # Save the loaded game data to server-side session
+        server_session.save_session_data(session_id, box_stats_data)
         
         return jsonify({
             'success': True,
