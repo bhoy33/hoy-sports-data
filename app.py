@@ -74,6 +74,11 @@ class ServerSideSession:
             print(f"Error saving session {session_id}: {e}")
             return False
     
+    def create_session(self):
+        """Create a new session ID"""
+        import uuid
+        return str(uuid.uuid4())
+    
     def delete_session(self, session_id):
         """Delete a session file"""
         if not session_id:
