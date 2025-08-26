@@ -3309,27 +3309,36 @@ def set_box_stats_game_info():
             'created_at': data.get('created_at', datetime.now().isoformat())
         }
         
-        # Initialize box stats if not exists
-        if 'box_stats' not in session:
-            session['box_stats'] = {
-                'plays': [],
-                'players': {},
-                'game_info': {},
-                'team_stats': {
-                    'total_plays': 0,
-                    'efficient_plays': 0,
-                    'explosive_plays': 0,
-                    'total_yards': 0,
-                    'efficiency_rate': 0.0,
-                    'explosive_rate': 0.0,
-                    'avg_yards_per_play': 0.0,
-                    'success_rate': 0.0
-                }
+        # Get or create server-side session
+        session_id = session.get('server_session_id')
+        if not session_id:
+            session_id = server_session.create_session()
+            session['server_session_id'] = session_id
+        
+        # Load existing session data
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {
+            'plays': [],
+            'players': {},
+            'game_info': {},
+            'team_stats': {
+                'total_plays': 0,
+                'efficient_plays': 0,
+                'explosive_plays': 0,
+                'negative_plays': 0,
+                'efficiency_rate': 0.0,
+                'explosive_rate': 0.0,
+                'avg_yards_per_play': 0.0,
+                'success_rate': 0.0
             }
+        })
         
         # Update game info
-        session['box_stats']['game_info'] = game_info
-        session.modified = True
+        box_stats['game_info'] = game_info
+        
+        # Save back to server-side session
+        box_stats_data['box_stats'] = box_stats
+        server_session.save_session_data(session_id, box_stats_data)
         
         return jsonify({
             'success': True,
@@ -3360,9 +3369,19 @@ def get_box_stats_game_info():
 def clear_box_stats_game_info():
     """Clear game information for the current session"""
     try:
-        if 'box_stats' in session:
-            session['box_stats']['game_info'] = {}
-            session.modified = True
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if session_id:
+            # Load existing session data
+            box_stats_data = server_session.load_session_data(session_id)
+            box_stats = box_stats_data.get('box_stats', {})
+            
+            # Clear game info
+            box_stats['game_info'] = {}
+            
+            # Save back to server-side session
+            box_stats_data['box_stats'] = box_stats
+            server_session.save_session_data(session_id, box_stats_data)
         
         return jsonify({
             'success': True,
@@ -3781,13 +3800,30 @@ def save_current_game():
         if not game_name:
             return jsonify({'error': 'Game name is required'}), 400
         
-        # Get current box stats data
-        box_stats = session.get('box_stats', {})
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'error': 'No active session found'}), 400
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
+        
         if not box_stats.get('plays'):
             return jsonify({'error': 'No game data to save'}), 400
         
         # Get username from session
         username = session.get('username', 'anonymous')
+        
+        # Use existing game info if available, otherwise create basic info
+        game_info = box_stats.get('game_info', {})
+        if not game_info.get('name'):
+            game_info['name'] = game_name
+        if not game_info.get('created_at'):
+            game_info['created_at'] = datetime.now().isoformat()
+        
+        # Update box_stats with the game info
+        box_stats['game_info'] = game_info
         
         # Save game data
         success, result = save_game_data(username, game_name, box_stats)
