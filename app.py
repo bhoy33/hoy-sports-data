@@ -2478,11 +2478,20 @@ def get_saved_rosters_dir():
     return saved_rosters_dir
 
 def get_user_rosters_dir(username):
-    """Get the directory for a specific user's saved rosters"""
-    user_dir = os.path.join(get_saved_rosters_dir(), hashlib.md5(username.encode()).hexdigest())
+    """Get the rosters directory for a specific user"""
+    user_hash = hashlib.md5(username.encode()).hexdigest()
+    user_dir = os.path.join('user_data', f'rosters_{user_hash}')
     if not os.path.exists(user_dir):
         os.makedirs(user_dir)
     return user_dir
+
+def create_safe_roster_filename(roster_name):
+    """Create a safe filename from roster name with consistent logic"""
+    safe_filename = "".join(c for c in roster_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+    safe_filename = safe_filename.replace(' ', '_')
+    if not safe_filename:
+        safe_filename = f"roster_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    return f"{safe_filename}.json"
 
 def save_roster_data(username, roster_name, roster_data):
     """Save roster data to file for a specific user"""
@@ -2500,12 +2509,8 @@ def save_roster_data(username, roster_name, roster_data):
             print(f"WARNING: Directory hash mismatch during save for user {username}")
             return False, "Access denied"
         
-        # Create safe filename
-        safe_filename = "".join(c for c in roster_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        if not safe_filename:
-            safe_filename = f"roster_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        filename = f"{safe_filename}.json"
+        # Create safe filename using consistent helper function
+        filename = create_safe_roster_filename(roster_name)
         filepath = os.path.join(user_dir, filename)
         
         # Add metadata to roster data
@@ -3162,9 +3167,8 @@ def save_player_roster():
         
         # Handle roster editing (rename scenario)
         if is_edit and original_name and original_name != roster_name:
-            # Delete old roster file if name changed
-            old_filename = "".join(c for c in original_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
-            old_filename = old_filename.replace(' ', '_') + '.json'
+            # Delete old roster file if name changed (use consistent filename logic)
+            old_filename = create_safe_roster_filename(original_name)
             delete_success, delete_msg = delete_roster_data(username, old_filename)
             if delete_success:
                 print(f"DEBUG: Removed old roster '{original_name}' due to rename")
@@ -3203,12 +3207,11 @@ def load_player_roster():
         # Get username from session
         username = session.get('username', 'anonymous')
         
-        # Create filename from roster name
-        safe_filename = "".join(c for c in roster_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        safe_filename = safe_filename.replace(' ', '_') + '.json'
+        # Create filename using consistent helper function
+        filename = create_safe_roster_filename(roster_name)
         
         # Load roster from file
-        roster_data, error = load_roster_data(username, safe_filename)
+        roster_data, error = load_roster_data(username, filename)
         
         if error or not roster_data:
             return jsonify({'error': f'Roster "{roster_name}" not found'}), 404
