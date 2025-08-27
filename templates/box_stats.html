@@ -1569,7 +1569,12 @@
                 const offenseNeeScore = document.getElementById('offenseNeeScore');
                 
                 if (offenseTotalPlays) offenseTotalPlays.textContent = teamStats.offense.total_plays || 0;
-                if (offenseTotalYards) offenseTotalYards.textContent = teamStats.offense.total_yards || 0;
+                if (offenseTotalYards) {
+                    const totalYards = teamStats.offense.total_yards || 0;
+                    const passingYards = teamStats.offense.passing_yards || 0;
+                    const rushingYards = teamStats.offense.rushing_yards || 0;
+                    offenseTotalYards.innerHTML = `${totalYards} <small class="text-muted">(${passingYards}P/${rushingYards}R)</small>`;
+                }
                 if (offenseTouchdowns) offenseTouchdowns.textContent = teamStats.offense.touchdowns || 0;
                 if (offenseTurnovers) offenseTurnovers.textContent = teamStats.offense.turnovers || 0;
                 if (offenseEfficiencyRate) offenseEfficiencyRate.textContent = (teamStats.offense.efficiency_rate || 0) + '%';
@@ -1587,7 +1592,12 @@
                 const defenseNeeScore = document.getElementById('defenseNeeScore');
                 
                 if (defenseTotalPlays) defenseTotalPlays.textContent = teamStats.defense.total_plays || 0;
-                if (defenseTotalYards) defenseTotalYards.textContent = teamStats.defense.total_yards || 0;
+                if (defenseTotalYards) {
+                    const totalYards = teamStats.defense.total_yards || 0;
+                    const passingYards = teamStats.defense.passing_yards || 0;
+                    const rushingYards = teamStats.defense.rushing_yards || 0;
+                    defenseTotalYards.innerHTML = `${totalYards} <small class="text-muted">(${passingYards}P/${rushingYards}R)</small>`;
+                }
                 if (defenseTouchdowns) defenseTouchdowns.textContent = teamStats.defense.touchdowns || 0;
                 if (defenseTurnovers) defenseTurnovers.textContent = teamStats.defense.turnovers || 0;
                 if (defenseEfficiencyRate) defenseEfficiencyRate.textContent = (teamStats.defense.efficiency_rate || 0) + '%';
@@ -1605,7 +1615,12 @@
                 const specialTeamsNeeScore = document.getElementById('specialTeamsNeeScore');
                 
                 if (specialTeamsTotalPlays) specialTeamsTotalPlays.textContent = teamStats.special_teams.total_plays || 0;
-                if (specialTeamsTotalYards) specialTeamsTotalYards.textContent = teamStats.special_teams.total_yards || 0;
+                if (specialTeamsTotalYards) {
+                    const totalYards = teamStats.special_teams.total_yards || 0;
+                    const passingYards = teamStats.special_teams.passing_yards || 0;
+                    const rushingYards = teamStats.special_teams.rushing_yards || 0;
+                    specialTeamsTotalYards.innerHTML = `${totalYards} <small class="text-muted">(${passingYards}P/${rushingYards}R)</small>`;
+                }
                 if (specialTeamsTouchdowns) specialTeamsTouchdowns.textContent = teamStats.special_teams.touchdowns || 0;
                 if (specialTeamsTurnovers) specialTeamsTurnovers.textContent = teamStats.special_teams.turnovers || 0;
                 if (specialTeamsEfficiencyRate) specialTeamsEfficiencyRate.textContent = (teamStats.special_teams.efficiency_rate || 0) + '%';
@@ -3565,7 +3580,8 @@
                     break;
                 case 'defense':
                     options += `
-                        <option value="defensive_play">Defensive Play</option>
+                        <option value="pass">Pass Defense</option>
+                        <option value="rush">Rush Defense</option>
                         <option value="interception_return">Interception Return</option>
                         <option value="fumble_return">Fumble Return</option>
                         <option value="safety">Safety</option>

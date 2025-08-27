@@ -1747,6 +1747,16 @@ def add_box_stats_play():
                     'explosive_plays': 0,
                     'negative_plays': 0,
                     'total_yards': 0,
+                    'passing_yards': 0,
+                    'rushing_yards': 0,
+                    'passing_plays': 0,
+                    'rushing_plays': 0,
+                    'passing_efficient_plays': 0,
+                    'rushing_efficient_plays': 0,
+                    'passing_explosive_plays': 0,
+                    'rushing_explosive_plays': 0,
+                    'passing_negative_plays': 0,
+                    'rushing_negative_plays': 0,
                     'touchdowns': 0,
                     'turnovers': 0,
                     'interceptions': 0,
@@ -1770,6 +1780,16 @@ def add_box_stats_play():
                 'explosive_plays': 0,
                 'negative_plays': 0,
                 'total_yards': 0,
+                'passing_yards': 0,
+                'rushing_yards': 0,
+                'passing_plays': 0,
+                'rushing_plays': 0,
+                'passing_efficient_plays': 0,
+                'rushing_efficient_plays': 0,
+                'passing_explosive_plays': 0,
+                'rushing_explosive_plays': 0,
+                'passing_negative_plays': 0,
+                'rushing_negative_plays': 0,
                 'touchdowns': 0,
                 'turnovers': 0,
                 'interceptions': 0,
@@ -1787,6 +1807,17 @@ def add_box_stats_play():
         
         # Ensure all advanced analytics fields exist in all phase-specific team_stats (backward compatibility)
         required_team_fields = {
+            'total_yards': 0,
+            'passing_yards': 0,
+            'rushing_yards': 0,
+            'passing_plays': 0,
+            'rushing_plays': 0,
+            'passing_efficient_plays': 0,
+            'rushing_efficient_plays': 0,
+            'passing_explosive_plays': 0,
+            'rushing_explosive_plays': 0,
+            'passing_negative_plays': 0,
+            'rushing_negative_plays': 0,
             'negative_plays': 0,
             'efficiency_rate': 0.0,
             'explosive_rate': 0.0,
@@ -1881,6 +1912,30 @@ def add_box_stats_play():
             # Calculate team efficiency and explosiveness for this play
             # For team calculation, pass None as player_data to check all players for turnovers
             is_team_efficient = calculate_play_efficiency(play_data, yards_gained, None)
+            
+            # Track passing vs rushing yards and advanced analytics
+            play_type = data.get('play_type', '').lower()
+            if play_type == 'pass':
+                phase_team_stats['passing_yards'] = phase_team_stats.get('passing_yards', 0) + yards_gained
+                phase_team_stats['passing_plays'] = phase_team_stats.get('passing_plays', 0) + 1
+                overall_team_stats['passing_yards'] = overall_team_stats.get('passing_yards', 0) + yards_gained
+                overall_team_stats['passing_plays'] = overall_team_stats.get('passing_plays', 0) + 1
+                
+                # Track passing efficiency
+                if is_team_efficient:
+                    phase_team_stats['passing_efficient_plays'] = phase_team_stats.get('passing_efficient_plays', 0) + 1
+                    overall_team_stats['passing_efficient_plays'] = overall_team_stats.get('passing_efficient_plays', 0) + 1
+                    
+            elif play_type == 'rush':
+                phase_team_stats['rushing_yards'] = phase_team_stats.get('rushing_yards', 0) + yards_gained
+                phase_team_stats['rushing_plays'] = phase_team_stats.get('rushing_plays', 0) + 1
+                overall_team_stats['rushing_yards'] = overall_team_stats.get('rushing_yards', 0) + yards_gained
+                overall_team_stats['rushing_plays'] = overall_team_stats.get('rushing_plays', 0) + 1
+                
+                # Track rushing efficiency
+                if is_team_efficient:
+                    phase_team_stats['rushing_efficient_plays'] = phase_team_stats.get('rushing_efficient_plays', 0) + 1
+                    overall_team_stats['rushing_efficient_plays'] = overall_team_stats.get('rushing_efficient_plays', 0) + 1
                 
             if is_team_efficient:
                 phase_team_stats['efficient_plays'] += 1
@@ -1931,9 +1986,25 @@ def add_box_stats_play():
                 phase_team_stats['explosive_plays'] += 1
                 overall_team_stats['explosive_plays'] += 1
                 
+                # Track explosive plays by type
+                if play_type == 'pass':
+                    phase_team_stats['passing_explosive_plays'] = phase_team_stats.get('passing_explosive_plays', 0) + 1
+                    overall_team_stats['passing_explosive_plays'] = overall_team_stats.get('passing_explosive_plays', 0) + 1
+                elif play_type == 'rush':
+                    phase_team_stats['rushing_explosive_plays'] = phase_team_stats.get('rushing_explosive_plays', 0) + 1
+                    overall_team_stats['rushing_explosive_plays'] = overall_team_stats.get('rushing_explosive_plays', 0) + 1
+                
             if team_negative_this_play:
                 phase_team_stats['negative_plays'] += 1
                 overall_team_stats['negative_plays'] += 1
+                
+                # Track negative plays by type
+                if play_type == 'pass':
+                    phase_team_stats['passing_negative_plays'] = phase_team_stats.get('passing_negative_plays', 0) + 1
+                    overall_team_stats['passing_negative_plays'] = overall_team_stats.get('passing_negative_plays', 0) + 1
+                elif play_type == 'rush':
+                    phase_team_stats['rushing_negative_plays'] = phase_team_stats.get('rushing_negative_plays', 0) + 1
+                    overall_team_stats['rushing_negative_plays'] = overall_team_stats.get('rushing_negative_plays', 0) + 1
         else:
             # For penalties, get the current phase for consistency
             current_phase = data.get('phase', 'offense').lower()
@@ -1950,6 +2021,37 @@ def add_box_stats_play():
             stats['avg_yards_per_play'] = round(stats['total_yards'] / stats['total_plays'], 1) if stats['total_plays'] > 0 else 0.0
             # Calculate NEE (Net Explosive Efficiency): Efficiency Rate + Explosive Rate - Negative Rate
             stats['nee_score'] = round(stats['efficiency_rate'] + stats['explosive_rate'] - stats['negative_rate'], 1)
+            
+            # Calculate pass vs rush advanced analytics
+            # Passing analytics
+            passing_plays = stats.get('passing_plays', 0)
+            if passing_plays > 0:
+                stats['passing_efficiency_rate'] = round((stats.get('passing_efficient_plays', 0) / passing_plays) * 100, 1)
+                stats['passing_explosive_rate'] = round((stats.get('passing_explosive_plays', 0) / passing_plays) * 100, 1)
+                stats['passing_negative_rate'] = round((stats.get('passing_negative_plays', 0) / passing_plays) * 100, 1)
+                stats['passing_avg_yards'] = round(stats.get('passing_yards', 0) / passing_plays, 1)
+                stats['passing_nee_score'] = round(stats['passing_efficiency_rate'] + stats['passing_explosive_rate'] - stats['passing_negative_rate'], 1)
+            else:
+                stats['passing_efficiency_rate'] = 0.0
+                stats['passing_explosive_rate'] = 0.0
+                stats['passing_negative_rate'] = 0.0
+                stats['passing_avg_yards'] = 0.0
+                stats['passing_nee_score'] = 0.0
+            
+            # Rushing analytics
+            rushing_plays = stats.get('rushing_plays', 0)
+            if rushing_plays > 0:
+                stats['rushing_efficiency_rate'] = round((stats.get('rushing_efficient_plays', 0) / rushing_plays) * 100, 1)
+                stats['rushing_explosive_rate'] = round((stats.get('rushing_explosive_plays', 0) / rushing_plays) * 100, 1)
+                stats['rushing_negative_rate'] = round((stats.get('rushing_negative_plays', 0) / rushing_plays) * 100, 1)
+                stats['rushing_avg_yards'] = round(stats.get('rushing_yards', 0) / rushing_plays, 1)
+                stats['rushing_nee_score'] = round(stats['rushing_efficiency_rate'] + stats['rushing_explosive_rate'] - stats['rushing_negative_rate'], 1)
+            else:
+                stats['rushing_efficiency_rate'] = 0.0
+                stats['rushing_explosive_rate'] = 0.0
+                stats['rushing_negative_rate'] = 0.0
+                stats['rushing_avg_yards'] = 0.0
+                stats['rushing_nee_score'] = 0.0
         
         update_team_rates(phase_team_stats)
         update_team_rates(overall_team_stats)
@@ -3246,6 +3348,17 @@ def reset_box_stats():
                         'efficient_plays': 0,
                         'explosive_plays': 0,
                         'negative_plays': 0,
+                        'total_yards': 0,
+                        'passing_yards': 0,
+                        'rushing_yards': 0,
+                        'passing_plays': 0,
+                        'rushing_plays': 0,
+                        'passing_efficient_plays': 0,
+                        'rushing_efficient_plays': 0,
+                        'passing_explosive_plays': 0,
+                        'rushing_explosive_plays': 0,
+                        'passing_negative_plays': 0,
+                        'rushing_negative_plays': 0,
                         'efficiency_rate': 0.0,
                         'explosive_rate': 0.0,
                         'avg_yards_per_play': 0.0,
@@ -3256,6 +3369,17 @@ def reset_box_stats():
                         'efficient_plays': 0,
                         'explosive_plays': 0,
                         'negative_plays': 0,
+                        'total_yards': 0,
+                        'passing_yards': 0,
+                        'rushing_yards': 0,
+                        'passing_plays': 0,
+                        'rushing_plays': 0,
+                        'passing_efficient_plays': 0,
+                        'rushing_efficient_plays': 0,
+                        'passing_explosive_plays': 0,
+                        'rushing_explosive_plays': 0,
+                        'passing_negative_plays': 0,
+                        'rushing_negative_plays': 0,
                         'efficiency_rate': 0.0,
                         'explosive_rate': 0.0,
                         'avg_yards_per_play': 0.0,
@@ -3266,6 +3390,17 @@ def reset_box_stats():
                         'efficient_plays': 0,
                         'explosive_plays': 0,
                         'negative_plays': 0,
+                        'total_yards': 0,
+                        'passing_yards': 0,
+                        'rushing_yards': 0,
+                        'passing_plays': 0,
+                        'rushing_plays': 0,
+                        'passing_efficient_plays': 0,
+                        'rushing_efficient_plays': 0,
+                        'passing_explosive_plays': 0,
+                        'rushing_explosive_plays': 0,
+                        'passing_negative_plays': 0,
+                        'rushing_negative_plays': 0,
                         'efficiency_rate': 0.0,
                         'explosive_rate': 0.0,
                         'avg_yards_per_play': 0.0,
@@ -4714,6 +4849,10 @@ class PDFExporter:
                             ['Metric', 'Value'],
                             ['Total Plays', str(phase_stats.get('total_plays', 0))],
                             ['Total Yards', str(phase_stats.get('total_yards', 0))],
+                            ['Passing Yards', str(phase_stats.get('passing_yards', 0))],
+                            ['Rushing Yards', str(phase_stats.get('rushing_yards', 0))],
+                            ['Passing Plays', str(phase_stats.get('passing_plays', 0))],
+                            ['Rushing Plays', str(phase_stats.get('rushing_plays', 0))],
                             ['Efficient Plays', str(phase_stats.get('efficient_plays', 0))],
                             ['Explosive Plays', str(phase_stats.get('explosive_plays', 0))],
                             ['Negative Plays', str(phase_stats.get('negative_plays', 0))],
@@ -4874,6 +5013,11 @@ class PDFExporter:
                 
                 metrics = [
                     ('Total Plays', phase_stats.get('total_plays', 0)),
+                    ('Total Yards', phase_stats.get('total_yards', 0)),
+                    ('Passing Yards', phase_stats.get('passing_yards', 0)),
+                    ('Rushing Yards', phase_stats.get('rushing_yards', 0)),
+                    ('Passing Plays', phase_stats.get('passing_plays', 0)),
+                    ('Rushing Plays', phase_stats.get('rushing_plays', 0)),
                     ('Efficient Plays', phase_stats.get('efficient_plays', 0)),
                     ('Explosive Plays', phase_stats.get('explosive_plays', 0)),
                     ('Negative Plays', phase_stats.get('negative_plays', 0)),
