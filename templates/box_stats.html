@@ -323,7 +323,10 @@
                                         <i class="fas fa-list me-2"></i>Play-by-Play Log
                                     </a></li>
                                     <li><a class="dropdown-item" href="#" onclick="exportPDF('analytics')">
-                                        <i class="fas fa-chart-bar me-2"></i>Advanced Analytics
+                                        <i class="fas fa-chart-bar me-2"></i>Team Advanced Analytics
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="exportPDF('play_call_analytics')">
+                                        <i class="fas fa-play me-2"></i>Play Call Analytics
                                     </a></li>
                                 </ul>
                             </div>
@@ -1690,14 +1693,32 @@
                             </div>
                             ` : ''}
                             <div class="mt-2 text-center">
-                                <button class="btn btn-outline-primary btn-sm mb-1" onclick="showPlayerNeeGraph('${player.id || player.number}')" title="View NEE Progression Graph">
-                                    <i class="fas fa-chart-line me-1"></i>NEE
-                                </button>
-                                <button class="btn btn-outline-success btn-sm mb-1" onclick="showPlayerEfficiencyGraph('${player.id || player.number}')" title="View Efficiency Progression Graph">
-                                    <i class="fas fa-chart-line me-1"></i>Efficiency
-                                </button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="showPlayerExplosiveGraph('${player.id || player.number}')" title="View Explosive Rate Progression Graph">
-                                    <i class="fas fa-chart-line me-1"></i>Explosive
+                                <div class="btn-group mb-1" role="group">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="showPlayerNeeGraph('${player.id || player.number}')" title="View NEE Progression Graph">
+                                        <i class="fas fa-chart-line me-1"></i>NEE
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="downloadPlayerChart('${player.id || player.number}', 'nee')" title="Download NEE Chart">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                                <div class="btn-group mb-1" role="group">
+                                    <button class="btn btn-outline-success btn-sm" onclick="showPlayerEfficiencyGraph('${player.id || player.number}')" title="View Efficiency Progression Graph">
+                                        <i class="fas fa-chart-line me-1"></i>Efficiency
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm" onclick="downloadPlayerChart('${player.id || player.number}', 'efficiency')" title="Download Efficiency Chart">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                                <div class="btn-group mb-1" role="group">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="showPlayerExplosiveGraph('${player.id || player.number}')" title="View Explosive Rate Progression Graph">
+                                        <i class="fas fa-chart-line me-1"></i>Explosive
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="downloadPlayerChart('${player.id || player.number}', 'explosive')" title="Download Explosive Chart">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="exportPlayerPDF('${player.id || player.number}')" title="Download Player Analytics PDF">
+                                    <i class="fas fa-file-pdf me-1"></i>PDF
                                 </button>
                             </div>
                         </div>
@@ -1789,39 +1810,134 @@
 
         // Export PDF functions
         function exportPDF(exportType) {
-            // Check if there's game data to export
-            if (!currentGameData || !currentGameData.plays || currentGameData.plays.length === 0) {
-                showAlert('No game data to export. Please add some plays first.', 'warning');
-                return;
-            }
-            
             // Show loading indicator
             showAlert('Generating PDF export...', 'info');
             
-            // Create a form and submit it to trigger download
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/box_stats/export_pdf/${exportType}`;
-            form.style.display = 'none';
+            // Use fetch to handle the PDF download properly
+            fetch(`/box_stats/export_pdf/${exportType}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin' // Include session cookies
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 302) {
+                        throw new Error('Please log in to export PDFs');
+                    }
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Export failed');
+                    });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `${exportType}_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showAlert(`${exportType.replace('_', ' ').toUpperCase()} PDF exported successfully!`, 'success');
+            })
+            .catch(error => {
+                console.error('Export error:', error);
+                showAlert(`Export failed: ${error.message}`, 'danger');
+            });
+        }
+
+        // Export individual player PDF
+        function exportPlayerPDF(playerKey) {
+            // Show loading indicator
+            showAlert('Generating player PDF...', 'info');
             
-            // Add CSRF token if available
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-            if (csrfToken) {
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrf_token';
-                csrfInput.value = csrfToken.getAttribute('content');
-                form.appendChild(csrfInput);
-            }
+            // Use fetch to handle the PDF download properly
+            fetch(`/box_stats/export_player_pdf/${playerKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin' // Include session cookies
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 302) {
+                        throw new Error('Please log in to export PDFs');
+                    }
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Export failed');
+                    });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `player_${playerKey}_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showAlert('Player PDF exported successfully!', 'success');
+            })
+            .catch(error => {
+                console.error('Player export error:', error);
+                showAlert(`Player export failed: ${error.message}`, 'danger');
+            });
+        }
+
+        // Download individual player chart
+        function downloadPlayerChart(playerKey, chartType) {
+            // Show loading indicator
+            showAlert(`Generating ${chartType} chart...`, 'info');
             
-            document.body.appendChild(form);
-            form.submit();
-            document.body.removeChild(form);
-            
-            // Clear loading message after a delay
-            setTimeout(() => {
-                showAlert(`${exportType.replace('_', ' ').toUpperCase()} PDF export completed!`, 'success');
-            }, 2000);
+            // Use fetch to handle the chart download properly
+            fetch(`/box_stats/export_player_chart/${playerKey}/${chartType}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin' // Include session cookies
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 302) {
+                        throw new Error('Please log in to download charts');
+                    }
+                    return response.json().then(err => {
+                        throw new Error(err.error || 'Chart download failed');
+                    });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `player_${playerKey}_${chartType}_chart_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.png`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showAlert(`${chartType.toUpperCase()} chart downloaded successfully!`, 'success');
+            })
+            .catch(error => {
+                console.error('Chart download error:', error);
+                showAlert(`Chart download failed: ${error.message}`, 'danger');
+            });
         }
 
         // Reset stats

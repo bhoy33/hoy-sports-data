@@ -4565,24 +4565,41 @@ class PDFExporter:
             story.append(Paragraph("Player Statistics", self.heading_style))
             
             # Create player stats table
-            headers = ['Player', 'Position', 'Comp/Att', 'Pass Yds', 'Pass TDs', 'INTs', 
-                      'Carries', 'Rush Yds', 'Rush TDs', 'Receptions', 'Rec Yds', 'Rec TDs']
+            headers = ['Player', 'Position', 'Passing', 'Rushing', 'Receiving', 'TDs', 'Analytics']
             data = [headers]
             
-            for player_num, stats in players.items():
+            for player_key, stats in players.items():
+                # Get passing stats
+                passing_comp = stats.get('passing_completions', 0)
+                passing_att = stats.get('passing_attempts', 0)
+                passing_yds = stats.get('passing_yards', 0)
+                passing_str = f"{passing_comp}/{passing_att} - {passing_yds} yds" if passing_att > 0 else "0/0 - 0 yds"
+                
+                # Get rushing stats
+                rushing_att = stats.get('rushing_attempts', 0)
+                rushing_yds = stats.get('rushing_yards', 0)
+                rushing_str = f"{rushing_att} att - {rushing_yds} yds" if rushing_att > 0 else "0 att - 0 yds"
+                
+                # Get receiving stats
+                receptions = stats.get('receptions', 0)
+                receiving_yds = stats.get('receiving_yards', 0)
+                receiving_str = f"{receptions} rec - {receiving_yds} yds" if receptions > 0 else "0 rec - 0 yds"
+                
+                # Get touchdowns
+                total_tds = stats.get('touchdowns', 0)
+                
+                # Get analytics
+                nee_score = stats.get('nee_score', 0)
+                efficiency = stats.get('efficiency_rate', 0)
+                
                 row = [
-                    f"#{player_num} {stats.get('name', 'Unknown')}",
-                    stats.get('position', 'N/A'),
-                    f"{stats.get('completions', 0)}/{stats.get('attempts', 0)}",
-                    str(stats.get('passing_yards', 0)),
-                    str(stats.get('passing_tds', 0)),
-                    str(stats.get('interceptions', 0)),
-                    str(stats.get('carries', 0)),
-                    str(stats.get('rushing_yards', 0)),
-                    str(stats.get('rushing_tds', 0)),
-                    str(stats.get('receptions', 0)),
-                    str(stats.get('receiving_yards', 0)),
-                    str(stats.get('receiving_tds', 0))
+                    stats.get('name', 'Unknown'),
+                    stats.get('position', 'Unknown'),
+                    passing_str,
+                    rushing_str,
+                    receiving_str,
+                    str(total_tds),
+                    f"NEE: {nee_score:.1f}, Eff: {efficiency:.1f}%"
                 ]
                 data.append(row)
             
@@ -4703,18 +4720,41 @@ class PDFExporter:
             story.append(Paragraph(f"Total Plays: {len(plays)}", self.heading_style))
             
             # Create play log table
-            headers = ['Play #', 'Down & Distance', 'Field Position', 'Play Call', 'Player', 'Result', 'Yards']
+            headers = ['Play #', 'Down', 'Distance', 'Field Position', 'Play Call', 'Players', 'Result', 'Yards']
             data = [headers]
             
             for i, play in enumerate(plays, 1):
+                # Get players involved
+                players_involved = play.get('players_involved', [])
+                player_names = []
+                for player in players_involved:
+                    if isinstance(player, dict):
+                        name = player.get('name', f"#{player.get('number', 'Unknown')}")
+                        player_names.append(name)
+                    else:
+                        player_names.append(str(player))
+                players_str = ", ".join(player_names) if player_names else "N/A"
+                
+                # Get result with more detail
+                result = play.get('result', 'N/A')
+                if play.get('is_penalty', False):
+                    penalty_type = play.get('penalty_type', 'Penalty')
+                    penalty_yards = play.get('penalty_yards', 0)
+                    result = f"{penalty_type} - {penalty_yards} yds"
+                elif play.get('is_touchdown', False):
+                    result = "TOUCHDOWN"
+                elif play.get('is_turnover', False):
+                    result = "TURNOVER"
+                
                 row = [
                     str(i),
-                    f"{play.get('down', 'N/A')} & {play.get('distance', 'N/A')}",
+                    f"{play.get('down', 'N/A')}",
+                    f"{play.get('distance', 'N/A')}",
                     play.get('field_position', 'N/A'),
                     play.get('play_call', 'N/A'),
-                    play.get('player_name', 'N/A'),
-                    play.get('result', 'N/A'),
-                    str(play.get('yards', 0))
+                    players_str,
+                    result,
+                    str(play.get('yards_gained', play.get('yards', 0)))
                 ]
                 data.append(row)
             
@@ -4737,35 +4777,193 @@ class PDFExporter:
         return buffer
     
     def export_analytics(self, username, box_stats):
-        """Export advanced analytics to PDF"""
+        """Export team advanced analytics to PDF with charts and data"""
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         story = []
         
         # Title
         game_info = box_stats.get('game_info', {})
-        title = f"Advanced Analytics - {game_info.get('name', 'Game Report')}"
+        title = f"Team Advanced Analytics - {game_info.get('name', 'Game Report')}"
+        story.append(Paragraph(title, self.title_style))
+        story.append(Spacer(1, 12))
+        
+        # Team stats overview - split by phases
+        team_stats = box_stats.get('team_stats', {})
+        print(f"DEBUG: Team stats keys: {list(team_stats.keys())}")
+        
+        # Check for phase-specific stats
+        phases = ['offense', 'defense', 'special_teams']
+        phase_names = {'offense': 'Offensive Statistics', 'defense': 'Defensive Statistics', 'special_teams': 'Special Teams Statistics'}
+        
+        has_data = False
+        for phase in phases:
+            if phase in team_stats and team_stats[phase].get('total_plays', 0) > 0:
+                has_data = True
+                phase_stats = team_stats[phase]
+                
+                story.append(Paragraph(phase_names[phase], self.heading_style))
+                
+                # Phase metrics table
+                headers = ['Metric', 'Value']
+                data = [headers]
+                
+                metrics = [
+                    ('Total Plays', phase_stats.get('total_plays', 0)),
+                    ('Efficient Plays', phase_stats.get('efficient_plays', 0)),
+                    ('Explosive Plays', phase_stats.get('explosive_plays', 0)),
+                    ('Negative Plays', phase_stats.get('negative_plays', 0)),
+                    ('Efficiency Rate', f"{phase_stats.get('efficiency_rate', 0):.1f}%"),
+                    ('Explosive Rate', f"{phase_stats.get('explosive_rate', 0):.1f}%"),
+                    ('Avg Yards/Play', f"{phase_stats.get('avg_yards_per_play', 0):.1f}"),
+                    ('NEE Score', f"{phase_stats.get('nee_score', 0):.1f}")
+                ]
+                
+                for metric, value in metrics:
+                    data.append([metric, str(value)])
+                
+                phase_table = Table(data)
+                phase_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                story.append(phase_table)
+                story.append(Spacer(1, 15))
+        
+        # If no phase-specific data, try overall stats
+        if not has_data:
+            overall_stats = team_stats.get('overall', team_stats if 'total_plays' in team_stats else None)
+            if overall_stats and overall_stats.get('total_plays', 0) > 0:
+                story.append(Paragraph("Team Performance Overview", self.heading_style))
+                
+                headers = ['Metric', 'Value']
+                data = [headers]
+                
+                metrics = [
+                    ('Total Plays', overall_stats.get('total_plays', 0)),
+                    ('Efficient Plays', overall_stats.get('efficient_plays', 0)),
+                    ('Explosive Plays', overall_stats.get('explosive_plays', 0)),
+                    ('Negative Plays', overall_stats.get('negative_plays', 0)),
+                    ('Efficiency Rate', f"{overall_stats.get('efficiency_rate', 0):.1f}%"),
+                    ('Explosive Rate', f"{overall_stats.get('explosive_rate', 0):.1f}%"),
+                    ('Avg Yards/Play', f"{overall_stats.get('avg_yards_per_play', 0):.1f}"),
+                    ('NEE Score', f"{overall_stats.get('nee_score', 0):.1f}")
+                ]
+                
+                for metric, value in metrics:
+                    data.append([metric, str(value)])
+                
+                team_table = Table(data)
+                team_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                story.append(team_table)
+                story.append(Spacer(1, 20))
+            else:
+                story.append(Paragraph("No team statistics available", self.normal_style))
+                story.append(Spacer(1, 20))
+                print("DEBUG: No team stats found or total_plays is 0")
+        
+        # Player performance summary
+        players = box_stats.get('players', {})
+        if players:
+            story.append(Paragraph("Player Performance Summary", self.heading_style))
+            
+            # Top performers table
+            headers = ['Player', 'Position', 'NEE Score', 'Efficiency Rate', 'Total Yards']
+            data = [headers]
+            
+            # Sort players by NEE score
+            sorted_players = sorted(players.items(), 
+                                  key=lambda x: x[1].get('nee_score', 0), reverse=True)
+            
+            for player_key, player_data in sorted_players[:10]:  # Top 10 players
+                row = [
+                    player_data.get('name', 'Unknown'),
+                    player_data.get('position', 'Unknown'),
+                    f"{player_data.get('nee_score', 0):.1f}",
+                    f"{player_data.get('efficiency_rate', 0):.1f}%",
+                    str(player_data.get('total_yards', 0))
+                ]
+                data.append(row)
+            
+            players_table = Table(data)
+            players_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(players_table)
+        
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
+    def export_play_call_analytics(self, username, box_stats):
+        """Export play call analytics to PDF"""
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        story = []
+        
+        # Title
+        game_info = box_stats.get('game_info', {})
+        title = f"Play Call Analytics - {game_info.get('name', 'Game Report')}"
         story.append(Paragraph(title, self.title_style))
         story.append(Spacer(1, 12))
         
         # Play call analytics
         play_call_stats = box_stats.get('play_call_stats', {})
         if play_call_stats:
-            story.append(Paragraph("Play Call Analytics", self.heading_style))
+            story.append(Paragraph("Play Call Performance", self.heading_style))
             
-            headers = ['Play Call', 'Count', 'Total Yards', 'Avg Yards', 'Success Rate']
+            headers = ['Play Call', 'Count', 'Total Yards', 'Avg Yards', 'Efficiency %', 'Explosive %', 'NEE Score', 'TDs']
             data = [headers]
             
             for play_call, stats in play_call_stats.items():
-                avg_yards = stats['total_yards'] / stats['count'] if stats['count'] > 0 else 0
-                success_rate = (stats['successful_plays'] / stats['count'] * 100) if stats['count'] > 0 else 0
+                # Handle both old and new data structures
+                count = stats.get('count', stats.get('total_plays', 0))
+                total_yards = stats.get('total_yards', 0)
+                efficient_plays = stats.get('efficient_plays', 0)
+                explosive_plays = stats.get('explosive_plays', 0)
+                negative_plays = stats.get('negative_plays', 0)
+                touchdowns = stats.get('touchdowns', 0)
+                
+                avg_yards = total_yards / count if count > 0 else 0
+                efficiency_rate = (efficient_plays / count * 100) if count > 0 else 0
+                explosive_rate = (explosive_plays / count * 100) if count > 0 else 0
+                negative_rate = (negative_plays / count * 100) if count > 0 else 0
+                nee_score = efficiency_rate + explosive_rate - negative_rate
                 
                 row = [
                     play_call,
-                    str(stats['count']),
-                    str(stats['total_yards']),
+                    str(count),
+                    str(total_yards),
                     f"{avg_yards:.1f}",
-                    f"{success_rate:.1f}%"
+                    f"{efficiency_rate:.1f}%",
+                    f"{explosive_rate:.1f}%",
+                    f"{nee_score:.1f}",
+                    str(touchdowns)
                 ]
                 data.append(row)
             
@@ -4782,10 +4980,211 @@ class PDFExporter:
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             story.append(analytics_table)
+        else:
+            story.append(Paragraph("No play call data available", self.normal_style))
         
         doc.build(story)
         buffer.seek(0)
         return buffer
+    
+    def export_player_chart(self, username, player_data, chart_type):
+        """Export individual player chart to PDF with actual graphs"""
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        story = []
+        
+        # Title
+        player_name = player_data.get('name', 'Unknown Player')
+        title = f"Player Analytics - {player_name} ({chart_type})"
+        story.append(Paragraph(title, self.title_style))
+        story.append(Spacer(1, 12))
+        
+        # Player stats table
+        story.append(Paragraph("Player Statistics", self.heading_style))
+        
+        headers = ['Metric', 'Value']
+        data = [headers]
+        
+        # Enhanced metrics including all stats
+        metrics = [
+            ('Name', player_data.get('name', 'Unknown')),
+            ('Position', player_data.get('position', 'Unknown')),
+            ('Number', str(player_data.get('number', 0))),
+            ('NEE Score', f"{player_data.get('nee_score', 0):.1f}"),
+            ('Efficiency Rate', f"{player_data.get('efficiency_rate', 0):.1f}%"),
+            ('Explosive Rate', f"{player_data.get('explosive_rate', 0):.1f}%"),
+            ('Negative Rate', f"{player_data.get('negative_rate', 0):.1f}%"),
+            ('Total Yards', str(player_data.get('total_yards', 0))),
+            ('Total Plays', str(player_data.get('total_plays', 0))),
+            ('Passing', f"{player_data.get('passing_completions', 0)}/{player_data.get('passing_attempts', 0)} - {player_data.get('passing_yards', 0)} yds"),
+            ('Rushing', f"{player_data.get('rushing_attempts', 0)} att - {player_data.get('rushing_yards', 0)} yds"),
+            ('Receiving', f"{player_data.get('receptions', 0)} rec - {player_data.get('receiving_yards', 0)} yds"),
+            ('Touchdowns', str(player_data.get('touchdowns', 0)))
+        ]
+        
+        for metric, value in metrics:
+            data.append([metric, str(value)])
+        
+        player_table = Table(data)
+        player_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(player_table)
+        story.append(Spacer(1, 20))
+        
+        # Add progression charts
+        player_id = player_data.get('id', player_data.get('number'))
+        if player_id:
+            try:
+                # Generate and add NEE progression chart
+                nee_chart_buffer = self.generate_player_chart(player_id, 'nee')
+                if nee_chart_buffer:
+                    story.append(Paragraph("NEE Score Progression", self.heading_style))
+                    from reportlab.platypus import Image
+                    nee_img = Image(nee_chart_buffer, width=400, height=200)
+                    story.append(nee_img)
+                    story.append(Spacer(1, 12))
+                
+                # Generate and add Efficiency progression chart
+                eff_chart_buffer = self.generate_player_chart(player_id, 'efficiency')
+                if eff_chart_buffer:
+                    story.append(Paragraph("Efficiency Rate Progression", self.heading_style))
+                    eff_img = Image(eff_chart_buffer, width=400, height=200)
+                    story.append(eff_img)
+                    story.append(Spacer(1, 12))
+                
+                # Generate and add Explosive progression chart
+                exp_chart_buffer = self.generate_player_chart(player_id, 'explosive')
+                if exp_chart_buffer:
+                    story.append(Paragraph("Explosive Rate Progression", self.heading_style))
+                    exp_img = Image(exp_chart_buffer, width=400, height=200)
+                    story.append(exp_img)
+                    
+            except Exception as e:
+                print(f"Warning: Could not generate charts for player {player_id}: {e}")
+                story.append(Paragraph("Note: Charts could not be generated for this export.", self.normal_style))
+        
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
+    def generate_player_chart(self, player_id, chart_type, session_id=None):
+        """Generate matplotlib chart for player progression"""
+        try:
+            import matplotlib.pyplot as plt
+            import matplotlib
+            matplotlib.use('Agg')  # Use non-interactive backend
+            import io
+            
+            # Get session data directly
+            if not session_id:
+                session_id = session.get('server_session_id')
+            
+            if not session_id:
+                return None
+                
+            box_stats_data = server_session.load_session_data(session_id)
+            box_stats = box_stats_data.get('box_stats', {})
+            players = box_stats.get('players', {})
+            plays = box_stats.get('plays', [])
+            
+            # Find the player
+            player_data = None
+            for pid, pdata in players.items():
+                if str(pid) == str(player_id) or str(pdata.get('number')) == str(player_id):
+                    player_data = pdata
+                    break
+            
+            if not player_data:
+                return None
+            
+            # Calculate progression data
+            progression_data = []
+            current_efficient = 0
+            current_explosive = 0
+            current_negative = 0
+            total_plays = 0
+            
+            for play in plays:
+                # Check if this player was involved in the play
+                player_involved = False
+                for involved_player in play.get('players_involved', []):
+                    if (str(involved_player.get('number')) == str(player_id) or 
+                        str(involved_player.get('id')) == str(player_id)):
+                        player_involved = True
+                        
+                        # Update counters based on play outcome
+                        if involved_player.get('efficient', False):
+                            current_efficient += 1
+                        if involved_player.get('explosive', False):
+                            current_explosive += 1
+                        if involved_player.get('negative', False):
+                            current_negative += 1
+                        
+                        total_plays += 1
+                        break
+                
+                if player_involved:
+                    # Calculate rates
+                    if chart_type == 'efficiency':
+                        rate = (current_efficient / total_plays * 100) if total_plays > 0 else 0
+                    elif chart_type == 'explosive':
+                        rate = (current_explosive / total_plays * 100) if total_plays > 0 else 0
+                    elif chart_type == 'nee':
+                        eff_rate = (current_efficient / total_plays * 100) if total_plays > 0 else 0
+                        exp_rate = (current_explosive / total_plays * 100) if total_plays > 0 else 0
+                        neg_rate = (current_negative / total_plays * 100) if total_plays > 0 else 0
+                        rate = eff_rate + exp_rate - neg_rate
+                    else:
+                        return None
+                    
+                    progression_data.append(rate)
+            
+            if not progression_data:
+                return None
+            
+            # Create the chart
+            plt.figure(figsize=(8, 4))
+            plt.plot(range(1, len(progression_data) + 1), progression_data, 
+                    marker='o', linewidth=2, markersize=4)
+            
+            # Customize chart based on type
+            if chart_type == 'nee':
+                plt.title('NEE Score Progression', fontsize=14, fontweight='bold')
+                plt.ylabel('NEE Score', fontsize=12)
+                plt.axhline(y=0, color='gray', linestyle='--', alpha=0.5)
+            elif chart_type == 'efficiency':
+                plt.title('Efficiency Rate Progression', fontsize=14, fontweight='bold')
+                plt.ylabel('Efficiency Rate (%)', fontsize=12)
+                plt.ylim(0, 100)
+            elif chart_type == 'explosive':
+                plt.title('Explosive Rate Progression', fontsize=14, fontweight='bold')
+                plt.ylabel('Explosive Rate (%)', fontsize=12)
+                plt.ylim(0, 100)
+            
+            plt.xlabel('Play Number', fontsize=12)
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            # Save to buffer
+            buffer = io.BytesIO()
+            plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
+            buffer.seek(0)
+            plt.close()
+            
+            return buffer
+            
+        except Exception as e:
+            print(f"Error generating chart: {e}")
+            return None
 
 # Initialize PDF exporter
 pdf_exporter = PDFExporter()
@@ -4795,19 +5194,27 @@ pdf_exporter = PDFExporter()
 def export_pdf(export_type):
     """Export various stats to PDF"""
     try:
+        print(f"DEBUG: PDF export requested for type: {export_type}")
         username = session.get('username', 'anonymous')
         session_id = session.get('server_session_id')
         
+        print(f"DEBUG: Username: {username}, Session ID: {session_id}")
+        
         if not session_id:
+            print("DEBUG: No session ID found")
             return jsonify({'error': 'No active session found'}), 400
         
         box_stats_data = server_session.load_session_data(session_id)
         box_stats = box_stats_data.get('box_stats', {})
         
+        print(f"DEBUG: Box stats loaded, plays count: {len(box_stats.get('plays', []))}")
+        
         if not box_stats.get('plays'):
-            return jsonify({'error': 'No game data to export'}), 400
+            print("DEBUG: No plays found in box stats")
+            return jsonify({'error': 'No game data to export. Please add some plays first.'}), 400
         
         # Generate PDF based on type
+        print(f"DEBUG: Generating PDF for {export_type}")
         if export_type == 'player_stats':
             pdf_buffer = pdf_exporter.export_player_stats(username, box_stats)
             filename = f"player_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
@@ -4819,9 +5226,15 @@ def export_pdf(export_type):
             filename = f"play_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         elif export_type == 'analytics':
             pdf_buffer = pdf_exporter.export_analytics(username, box_stats)
-            filename = f"analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            filename = f"team_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        elif export_type == 'play_call_analytics':
+            pdf_buffer = pdf_exporter.export_play_call_analytics(username, box_stats)
+            filename = f"play_call_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         else:
+            print(f"DEBUG: Invalid export type: {export_type}")
             return jsonify({'error': 'Invalid export type'}), 400
+        
+        print(f"DEBUG: PDF generated successfully, filename: {filename}")
         
         return send_file(
             pdf_buffer,
@@ -4831,7 +5244,104 @@ def export_pdf(export_type):
         )
         
     except Exception as e:
+        print(f"ERROR: PDF export failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Error exporting PDF: {str(e)}'}), 500
+
+@app.route('/box_stats/export_player_pdf/<player_key>', methods=['POST'])
+@login_required
+def export_player_pdf(player_key):
+    """Export individual player chart to PDF"""
+    try:
+        print(f"DEBUG: Player PDF export requested for player: {player_key}")
+        username = session.get('username', 'anonymous')
+        session_id = session.get('server_session_id')
+        
+        if not session_id:
+            print("DEBUG: No session ID found")
+            return jsonify({'error': 'No active session found'}), 400
+        
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
+        players = box_stats.get('players', {})
+        
+        if player_key not in players:
+            print(f"DEBUG: Player {player_key} not found")
+            return jsonify({'error': 'Player not found'}), 404
+        
+        player_data = players[player_key]
+        chart_type = "Performance Analytics"
+        
+        print(f"DEBUG: Generating player PDF for {player_data.get('name', 'Unknown')}")
+        
+        pdf_buffer = pdf_exporter.export_player_chart(username, player_data, chart_type)
+        filename = f"player_{player_data.get('name', 'unknown').replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        
+        print(f"DEBUG: Player PDF generated successfully, filename: {filename}")
+        
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+        
+    except Exception as e:
+        print(f"ERROR: Player PDF export failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error exporting player PDF: {str(e)}'}), 500
+
+@app.route('/box_stats/export_player_chart/<player_key>/<chart_type>', methods=['POST'])
+@login_required
+def export_player_chart(player_key, chart_type):
+    """Export individual player chart as PNG"""
+    try:
+        print(f"DEBUG: Player chart export requested for player: {player_key}, type: {chart_type}")
+        username = session.get('username', 'anonymous')
+        session_id = session.get('server_session_id')
+        
+        if not session_id:
+            print("DEBUG: No session ID found")
+            return jsonify({'error': 'No active session found'}), 400
+        
+        if chart_type not in ['nee', 'efficiency', 'explosive']:
+            return jsonify({'error': 'Invalid chart type'}), 400
+        
+        # Generate chart
+        chart_buffer = pdf_exporter.generate_player_chart(player_key, chart_type, session_id)
+        
+        if not chart_buffer:
+            return jsonify({'error': 'Could not generate chart - no data available'}), 400
+        
+        # Get player name for filename
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
+        players = box_stats.get('players', {})
+        
+        player_name = "unknown"
+        for pid, pdata in players.items():
+            if str(pid) == str(player_key) or str(pdata.get('number')) == str(player_key):
+                player_name = pdata.get('name', f"player_{player_key}").replace(' ', '_')
+                break
+        
+        filename = f"{player_name}_{chart_type}_chart_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        
+        print(f"DEBUG: Chart generated successfully, filename: {filename}")
+        
+        return send_file(
+            chart_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='image/png'
+        )
+        
+    except Exception as e:
+        print(f"ERROR: Player chart export failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error exporting player chart: {str(e)}'}), 500
 
 if __name__ == '__main__':
     import os
