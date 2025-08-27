@@ -10,6 +10,16 @@ from functools import wraps
 import pickle
 from datetime import datetime
 import hashlib
+import io
+import base64
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 
 # Configure Altair to use inline data for web serving
 alt.data_transformers.disable_max_rows()
@@ -20,8 +30,11 @@ class ServerSideSession:
     
     def __init__(self, base_dir='server_sessions'):
         self.base_dir = base_dir
+        self.backup_dir = os.path.join(base_dir, 'backups')
         if not os.path.exists(base_dir):
             os.makedirs(base_dir)
+        if not os.path.exists(self.backup_dir):
+            os.makedirs(self.backup_dir)
     
     def get_session_file_path(self, session_id):
         """Get the file path for a session ID"""
@@ -55,12 +68,21 @@ class ServerSideSession:
             return {}
     
     def save_session_data(self, session_id, data):
-        """Save session data to file"""
+        """Save session data to file with backup"""
         if not session_id:
             return False
         
         file_path = self.get_session_file_path(session_id)
         try:
+            # Create backup if file exists
+            if os.path.exists(file_path):
+                backup_path = os.path.join(self.backup_dir, f"{session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl")
+                import shutil
+                shutil.copy2(file_path, backup_path)
+                
+                # Keep only last 5 backups per session
+                self._cleanup_old_backups(session_id)
+            
             session_wrapper = {
                 'session_data': data,
                 'last_accessed': datetime.now().isoformat(),
@@ -73,6 +95,18 @@ class ServerSideSession:
         except Exception as e:
             print(f"Error saving session {session_id}: {e}")
             return False
+    
+    def _cleanup_old_backups(self, session_id):
+        """Keep only the 5 most recent backups for a session"""
+        try:
+            backup_files = [f for f in os.listdir(self.backup_dir) if f.startswith(session_id)]
+            backup_files.sort(reverse=True)  # Most recent first
+            
+            # Remove old backups beyond the 5 most recent
+            for old_backup in backup_files[5:]:
+                os.remove(os.path.join(self.backup_dir, old_backup))
+        except Exception as e:
+            print(f"Error cleaning up backups for {session_id}: {e}")
     
     def create_session(self):
         """Create a new session ID"""
@@ -2527,6 +2561,20 @@ def save_roster_data(username, roster_name, roster_data):
             **roster_data
         }
         
+        # Create backup if file exists
+        if os.path.exists(filepath):
+            backup_dir = os.path.join(user_dir, 'backups')
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+            
+            backup_filename = f"{filename.replace('.json', '')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            backup_path = os.path.join(backup_dir, backup_filename)
+            import shutil
+            shutil.copy2(filepath, backup_path)
+            
+            # Keep only last 3 backups per roster
+            _cleanup_roster_backups(backup_dir, roster_name)
+        
         with open(filepath, 'w') as f:
             json.dump(roster_data_with_meta, f, indent=2)
         
@@ -2534,6 +2582,19 @@ def save_roster_data(username, roster_name, roster_data):
     except Exception as e:
         print(f"Error saving roster data: {e}")
         return False, str(e)
+
+def _cleanup_roster_backups(backup_dir, roster_name):
+    """Keep only the 3 most recent backups for a roster"""
+    try:
+        safe_name = create_safe_roster_filename(roster_name).replace('.json', '')
+        backup_files = [f for f in os.listdir(backup_dir) if f.startswith(safe_name)]
+        backup_files.sort(reverse=True)  # Most recent first
+        
+        # Remove old backups beyond the 3 most recent
+        for old_backup in backup_files[3:]:
+            os.remove(os.path.join(backup_dir, old_backup))
+    except Exception as e:
+        print(f"Error cleaning up roster backups: {e}")
 
 def load_roster_data(username, roster_filename):
     """Load roster data from file for a specific user"""
@@ -2653,6 +2714,20 @@ def save_game_data(username, game_name, game_data):
             'username': username
         }
         
+        # Create backup if file exists
+        if os.path.exists(filepath):
+            backup_dir = os.path.join(user_dir, 'backups')
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+            
+            backup_filename = f"{filename.replace('.json', '')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            backup_path = os.path.join(backup_dir, backup_filename)
+            import shutil
+            shutil.copy2(filepath, backup_path)
+            
+            # Keep only last 3 backups per game
+            _cleanup_game_backups(backup_dir, safe_game_name)
+        
         with open(filepath, 'w') as f:
             json.dump(save_data, f, indent=2)
         
@@ -2660,6 +2735,18 @@ def save_game_data(username, game_name, game_data):
     except Exception as e:
         print(f"Error saving game data: {str(e)}")
         return False, str(e)
+
+def _cleanup_game_backups(backup_dir, game_name):
+    """Keep only the 3 most recent backups for a game"""
+    try:
+        backup_files = [f for f in os.listdir(backup_dir) if f.startswith(game_name)]
+        backup_files.sort(reverse=True)  # Most recent first
+        
+        # Remove old backups beyond the 3 most recent
+        for old_backup in backup_files[3:]:
+            os.remove(os.path.join(backup_dir, old_backup))
+    except Exception as e:
+        print(f"Error cleaning up game backups: {e}")
 
 def load_game_data(username, game_filename):
     """Load game data from file"""
@@ -4394,6 +4481,357 @@ def get_play_call_analytics():
     except Exception as e:
         print(f"ERROR: Failed to get play call analytics: {str(e)}")
         return jsonify({'error': f'Error getting play call analytics: {str(e)}'}), 500
+
+class PDFExporter:
+    """PDF export functionality for all stats and analytics"""
+    
+    def __init__(self):
+        self.styles = getSampleStyleSheet()
+        self.title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=self.styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=1  # Center alignment
+        )
+        self.heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=self.styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12
+        )
+    
+    def create_chart_image(self, chart_data, chart_type='bar', title='Chart'):
+        """Create matplotlib chart and return as image buffer"""
+        plt.figure(figsize=(10, 6))
+        plt.clf()
+        
+        if chart_type == 'bar':
+            plt.bar(chart_data.keys(), chart_data.values())
+        elif chart_type == 'line':
+            plt.plot(list(chart_data.keys()), list(chart_data.values()), marker='o')
+        elif chart_type == 'pie':
+            plt.pie(chart_data.values(), labels=chart_data.keys(), autopct='%1.1f%%')
+        
+        plt.title(title)
+        plt.tight_layout()
+        
+        # Save to buffer
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
+        img_buffer.seek(0)
+        plt.close()
+        
+        return img_buffer
+    
+    def export_player_stats(self, username, box_stats):
+        """Export player statistics to PDF"""
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        story = []
+        
+        # Title
+        game_info = box_stats.get('game_info', {})
+        title = f"Player Statistics - {game_info.get('name', 'Game Report')}"
+        story.append(Paragraph(title, self.title_style))
+        story.append(Spacer(1, 12))
+        
+        # Game info
+        if game_info:
+            story.append(Paragraph("Game Information", self.heading_style))
+            game_data = [
+                ['Game Name', game_info.get('name', 'N/A')],
+                ['Opponent', game_info.get('opponent', 'N/A')],
+                ['Date', game_info.get('date', 'N/A')],
+                ['Location', game_info.get('location', 'N/A')]
+            ]
+            game_table = Table(game_data)
+            game_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(game_table)
+            story.append(Spacer(1, 20))
+        
+        # Player stats
+        players = box_stats.get('players', {})
+        if players:
+            story.append(Paragraph("Player Statistics", self.heading_style))
+            
+            # Create player stats table
+            headers = ['Player', 'Position', 'Comp/Att', 'Pass Yds', 'Pass TDs', 'INTs', 
+                      'Carries', 'Rush Yds', 'Rush TDs', 'Receptions', 'Rec Yds', 'Rec TDs']
+            data = [headers]
+            
+            for player_num, stats in players.items():
+                row = [
+                    f"#{player_num} {stats.get('name', 'Unknown')}",
+                    stats.get('position', 'N/A'),
+                    f"{stats.get('completions', 0)}/{stats.get('attempts', 0)}",
+                    str(stats.get('passing_yards', 0)),
+                    str(stats.get('passing_tds', 0)),
+                    str(stats.get('interceptions', 0)),
+                    str(stats.get('carries', 0)),
+                    str(stats.get('rushing_yards', 0)),
+                    str(stats.get('rushing_tds', 0)),
+                    str(stats.get('receptions', 0)),
+                    str(stats.get('receiving_yards', 0)),
+                    str(stats.get('receiving_tds', 0))
+                ]
+                data.append(row)
+            
+            player_table = Table(data)
+            player_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(player_table)
+        
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
+    def export_team_stats(self, username, box_stats):
+        """Export team statistics to PDF"""
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        story = []
+        
+        # Title
+        game_info = box_stats.get('game_info', {})
+        title = f"Team Statistics - {game_info.get('name', 'Game Report')}"
+        story.append(Paragraph(title, self.title_style))
+        story.append(Spacer(1, 12))
+        
+        # Team stats
+        team_stats = box_stats.get('team_stats', {})
+        if team_stats:
+            story.append(Paragraph("Team Performance", self.heading_style))
+            
+            # Handle both old and new team stats format
+            if 'offense' in team_stats:
+                # New format with phases
+                for phase in ['offense', 'defense', 'special_teams', 'overall']:
+                    if phase in team_stats:
+                        phase_stats = team_stats[phase]
+                        story.append(Paragraph(f"{phase.replace('_', ' ').title()} Statistics", self.heading_style))
+                        
+                        stats_data = [
+                            ['Metric', 'Value'],
+                            ['Total Plays', str(phase_stats.get('total_plays', 0))],
+                            ['Total Yards', str(phase_stats.get('total_yards', 0))],
+                            ['Efficient Plays', str(phase_stats.get('efficient_plays', 0))],
+                            ['Explosive Plays', str(phase_stats.get('explosive_plays', 0))],
+                            ['Negative Plays', str(phase_stats.get('negative_plays', 0))],
+                            ['Efficiency Rate', f"{phase_stats.get('efficiency_rate', 0):.1f}%"],
+                            ['Explosive Rate', f"{phase_stats.get('explosive_rate', 0):.1f}%"],
+                            ['NEE Score', f"{phase_stats.get('nee_score', 0):.2f}"],
+                            ['Avg Yards/Play', f"{phase_stats.get('avg_yards_per_play', 0):.1f}"]
+                        ]
+                        
+                        stats_table = Table(stats_data)
+                        stats_table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0, 0), (-1, 0), 12),
+                            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                        ]))
+                        story.append(stats_table)
+                        story.append(Spacer(1, 20))
+            else:
+                # Old format
+                stats_data = [
+                    ['Metric', 'Value'],
+                    ['Total Plays', str(team_stats.get('total_plays', 0))],
+                    ['Total Yards', str(team_stats.get('total_yards', 0))],
+                    ['Efficient Plays', str(team_stats.get('efficient_plays', 0))],
+                    ['Explosive Plays', str(team_stats.get('explosive_plays', 0))],
+                    ['Efficiency Rate', f"{team_stats.get('efficiency_rate', 0):.1f}%"],
+                    ['Explosive Rate', f"{team_stats.get('explosive_rate', 0):.1f}%"],
+                    ['Avg Yards/Play', f"{team_stats.get('avg_yards_per_play', 0):.1f}"]
+                ]
+                
+                stats_table = Table(stats_data)
+                stats_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 12),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                story.append(stats_table)
+        
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
+    def export_play_log(self, username, box_stats):
+        """Export play-by-play log to PDF"""
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        story = []
+        
+        # Title
+        game_info = box_stats.get('game_info', {})
+        title = f"Play-by-Play Log - {game_info.get('name', 'Game Report')}"
+        story.append(Paragraph(title, self.title_style))
+        story.append(Spacer(1, 12))
+        
+        # Play log
+        plays = box_stats.get('plays', [])
+        if plays:
+            story.append(Paragraph(f"Total Plays: {len(plays)}", self.heading_style))
+            
+            # Create play log table
+            headers = ['Play #', 'Down & Distance', 'Field Position', 'Play Call', 'Player', 'Result', 'Yards']
+            data = [headers]
+            
+            for i, play in enumerate(plays, 1):
+                row = [
+                    str(i),
+                    f"{play.get('down', 'N/A')} & {play.get('distance', 'N/A')}",
+                    play.get('field_position', 'N/A'),
+                    play.get('play_call', 'N/A'),
+                    play.get('player_name', 'N/A'),
+                    play.get('result', 'N/A'),
+                    str(play.get('yards', 0))
+                ]
+                data.append(row)
+            
+            play_table = Table(data)
+            play_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(play_table)
+        
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
+    def export_analytics(self, username, box_stats):
+        """Export advanced analytics to PDF"""
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        story = []
+        
+        # Title
+        game_info = box_stats.get('game_info', {})
+        title = f"Advanced Analytics - {game_info.get('name', 'Game Report')}"
+        story.append(Paragraph(title, self.title_style))
+        story.append(Spacer(1, 12))
+        
+        # Play call analytics
+        play_call_stats = box_stats.get('play_call_stats', {})
+        if play_call_stats:
+            story.append(Paragraph("Play Call Analytics", self.heading_style))
+            
+            headers = ['Play Call', 'Count', 'Total Yards', 'Avg Yards', 'Success Rate']
+            data = [headers]
+            
+            for play_call, stats in play_call_stats.items():
+                avg_yards = stats['total_yards'] / stats['count'] if stats['count'] > 0 else 0
+                success_rate = (stats['successful_plays'] / stats['count'] * 100) if stats['count'] > 0 else 0
+                
+                row = [
+                    play_call,
+                    str(stats['count']),
+                    str(stats['total_yards']),
+                    f"{avg_yards:.1f}",
+                    f"{success_rate:.1f}%"
+                ]
+                data.append(row)
+            
+            analytics_table = Table(data)
+            analytics_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            story.append(analytics_table)
+        
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+
+# Initialize PDF exporter
+pdf_exporter = PDFExporter()
+
+@app.route('/box_stats/export_pdf/<export_type>', methods=['POST'])
+@login_required
+def export_pdf(export_type):
+    """Export various stats to PDF"""
+    try:
+        username = session.get('username', 'anonymous')
+        session_id = session.get('server_session_id')
+        
+        if not session_id:
+            return jsonify({'error': 'No active session found'}), 400
+        
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {})
+        
+        if not box_stats.get('plays'):
+            return jsonify({'error': 'No game data to export'}), 400
+        
+        # Generate PDF based on type
+        if export_type == 'player_stats':
+            pdf_buffer = pdf_exporter.export_player_stats(username, box_stats)
+            filename = f"player_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        elif export_type == 'team_stats':
+            pdf_buffer = pdf_exporter.export_team_stats(username, box_stats)
+            filename = f"team_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        elif export_type == 'play_log':
+            pdf_buffer = pdf_exporter.export_play_log(username, box_stats)
+            filename = f"play_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        elif export_type == 'analytics':
+            pdf_buffer = pdf_exporter.export_analytics(username, box_stats)
+            filename = f"analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        else:
+            return jsonify({'error': 'Invalid export type'}), 400
+        
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+        
+    except Exception as e:
+        return jsonify({'error': f'Error exporting PDF: {str(e)}'}), 500
 
 if __name__ == '__main__':
     import os

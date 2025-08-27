@@ -308,9 +308,25 @@
                             <button class="btn btn-info btn-sm" onclick="showLoadGameModal()">
                                 <i class="fas fa-folder-open me-1"></i>Load Game
                             </button>
-                            <button class="btn btn-secondary btn-sm" onclick="exportStats()">
-                                <i class="fas fa-download me-1"></i>Export
-                            </button>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-file-pdf me-1"></i>Export PDF
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="exportPDF('player_stats')">
+                                        <i class="fas fa-user me-2"></i>Player Statistics
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="exportPDF('team_stats')">
+                                        <i class="fas fa-users me-2"></i>Team Statistics
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="exportPDF('play_log')">
+                                        <i class="fas fa-list me-2"></i>Play-by-Play Log
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="exportPDF('analytics')">
+                                        <i class="fas fa-chart-bar me-2"></i>Advanced Analytics
+                                    </a></li>
+                                </ul>
+                            </div>
                             <button class="btn btn-outline-secondary btn-sm" onclick="resetStats()">
                                 <i class="fas fa-refresh me-1"></i>Reset
                             </button>
@@ -1771,9 +1787,41 @@
             return suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0];
         }
 
-        // Export stats
-        function exportStats() {
-            window.location.href = '/box_stats/export';
+        // Export PDF functions
+        function exportPDF(exportType) {
+            // Check if there's game data to export
+            if (!currentGameData || !currentGameData.plays || currentGameData.plays.length === 0) {
+                showAlert('No game data to export. Please add some plays first.', 'warning');
+                return;
+            }
+            
+            // Show loading indicator
+            showAlert('Generating PDF export...', 'info');
+            
+            // Create a form and submit it to trigger download
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/box_stats/export_pdf/${exportType}`;
+            form.style.display = 'none';
+            
+            // Add CSRF token if available
+            const csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (csrfToken) {
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = csrfToken.getAttribute('content');
+                form.appendChild(csrfInput);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+            
+            // Clear loading message after a delay
+            setTimeout(() => {
+                showAlert(`${exportType.replace('_', ' ').toUpperCase()} PDF export completed!`, 'success');
+            }, 2000);
         }
 
         // Reset stats
