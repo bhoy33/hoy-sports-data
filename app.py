@@ -3218,6 +3218,67 @@ def get_box_stats():
 def reset_box_stats():
     """Reset all box stats data"""
     try:
+        print("DEBUG: Reset button clicked - clearing all game data")
+        
+        # Get or create server-side session
+        session_id = session.get('server_session_id')
+        if not session_id:
+            session_id = server_session.create_session()
+            session['server_session_id'] = session_id
+        
+        # Reset server-side session data
+        reset_data = {
+            'box_stats': {
+                'plays': [],
+                'players': {},
+                'game_info': {},
+                'team_stats': {
+                    'total_plays': 0,
+                    'efficient_plays': 0,
+                    'explosive_plays': 0,
+                    'negative_plays': 0,
+                    'efficiency_rate': 0.0,
+                    'explosive_rate': 0.0,
+                    'avg_yards_per_play': 0.0,
+                    'success_rate': 0.0,
+                    'offense': {
+                        'total_plays': 0,
+                        'efficient_plays': 0,
+                        'explosive_plays': 0,
+                        'negative_plays': 0,
+                        'efficiency_rate': 0.0,
+                        'explosive_rate': 0.0,
+                        'avg_yards_per_play': 0.0,
+                        'nee_score': 0.0
+                    },
+                    'defense': {
+                        'total_plays': 0,
+                        'efficient_plays': 0,
+                        'explosive_plays': 0,
+                        'negative_plays': 0,
+                        'efficiency_rate': 0.0,
+                        'explosive_rate': 0.0,
+                        'avg_yards_per_play': 0.0,
+                        'nee_score': 0.0
+                    },
+                    'special_teams': {
+                        'total_plays': 0,
+                        'efficient_plays': 0,
+                        'explosive_plays': 0,
+                        'negative_plays': 0,
+                        'efficiency_rate': 0.0,
+                        'explosive_rate': 0.0,
+                        'avg_yards_per_play': 0.0,
+                        'nee_score': 0.0
+                    }
+                },
+                'play_call_stats': {}
+            }
+        }
+        
+        server_session.save_session_data(session_id, reset_data)
+        
+        # Also clear old session data for backward compatibility
         session['box_stats'] = {
             'plays': [],
             'players': {},
@@ -3225,12 +3286,15 @@ def reset_box_stats():
         }
         session.modified = True
         
+        print("DEBUG: Reset completed - all game data cleared")
+        
         return jsonify({
             'success': True,
             'message': 'Box stats reset successfully'
         })
         
     except Exception as e:
+        print(f"ERROR: Reset failed: {str(e)}")
         return jsonify({'error': f'Error resetting stats: {str(e)}'}), 500
 
 # Player Roster Management Routes
