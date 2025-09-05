@@ -20,16 +20,18 @@ from reportlab.lib import colors
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
+from database import DatabaseManager, db
 
 # Configure Altair to use inline data for web serving
 alt.data_transformers.disable_max_rows()
 alt.data_transformers.enable('default')
 
 class ServerSideSession:
-    """Server-side session storage to bypass cookie size limits"""
+    """Hybrid server-side session storage with database primary and file fallback"""
     
-    def __init__(self, base_dir='server_sessions'):
+    def __init__(self, base_dir='server_sessions', use_database=True):
         self.base_dir = base_dir
+        self.use_database = use_database
         self.backup_dir = os.path.join(base_dir, 'backups')
         if not os.path.exists(base_dir):
             os.makedirs(base_dir)
@@ -44,34 +46,28 @@ class ServerSideSession:
             os.makedirs(subdir)
         return os.path.join(subdir, f"{session_id}.pkl")
     
-    def load_session_data(self, session_id):
-        """Load session data from file"""
-        if not session_id:
-            return {}
-        
-        file_path = self.get_session_file_path(session_id)
-        if not os.path.exists(file_path):
-            return {}
-        
-        try:
-            with open(file_path, 'rb') as f:
-                data = pickle.load(f)
-                # Check if data is expired (optional - 24 hour expiry)
-                if 'last_accessed' in data:
-                    last_accessed = datetime.fromisoformat(data['last_accessed'])
-                    if datetime.now() - last_accessed > timedelta(hours=24):
-                        os.remove(file_path)
-                        return {}
-                return data.get('session_data', {})
-        except Exception as e:
-            print(f"Error loading session {session_id}: {e}")
-            return {}
-    
     def save_session_data(self, session_id, data):
-        """Save session data to file with backup"""
+        """Save session data with database primary and file fallback"""
         if not session_id:
             return False
+            
+        username = session.get('username', 'unknown') if 'session' in globals() else 'unknown'
         
+        # Try database first
+        if self.use_database:
+            try:
+                if db_manager.save_session_data(session_id, username, data):
+                    # Also save to file as backup
+                    self._save_to_file(session_id, data)
+                    return True
+            except Exception as e:
+                print(f"Database save failed, using file fallback: {e}")
+        
+        # Fallback to file storage
+        return self._save_to_file(session_id, data)
+    
+    def _save_to_file(self, session_id, data):
+        """Save session data to file with backup"""
         file_path = self.get_session_file_path(session_id)
         try:
             # Create backup if file exists
@@ -96,6 +92,40 @@ class ServerSideSession:
             print(f"Error saving session {session_id}: {e}")
             return False
     
+    def load_session_data(self, session_id):
+        """Load session data with database primary and file fallback"""
+        if not session_id:
+            return {}
+            
+        # Try database first
+        if self.use_database:
+            try:
+                data = db_manager.load_session_data(session_id)
+                if data:
+                    return data
+            except Exception as e:
+                print(f"Database load failed, using file fallback: {e}")
+        
+        # Fallback to file storage
+        return self._load_from_file(session_id)
+    
+    def _load_from_file(self, session_id):
+        """Load session data from file"""
+        file_path = self.get_session_file_path(session_id)
+        try:
+            if os.path.exists(file_path):
+                with open(file_path, 'rb') as f:
+                    session_wrapper = pickle.load(f)
+                    # Handle both old format (direct data) and new format (wrapped data)
+                    if isinstance(session_wrapper, dict) and 'session_data' in session_wrapper:
+                        return session_wrapper['session_data']
+                    else:
+                        return session_wrapper
+            return {}
+        except Exception as e:
+            print(f"Error loading session {session_id}: {e}")
+            return {}
+    
     def _cleanup_old_backups(self, session_id):
         """Keep only the 5 most recent backups for a session"""
         try:
@@ -114,22 +144,32 @@ class ServerSideSession:
         return str(uuid.uuid4())
     
     def delete_session(self, session_id):
-        """Delete a session file"""
+        """Delete session data from both database and file"""
         if not session_id:
             return False
         
+        success = True
+        
+        # Try to delete from database first
+        if self.use_database:
+            try:
+                db_manager.delete_session_data(session_id)
+            except Exception as e:
+                print(f"Error deleting session from database {session_id}: {e}")
+                success = False
+        
+        # Also delete from file storage
         file_path = self.get_session_file_path(session_id)
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
-            return True
         except Exception as e:
-            print(f"Error deleting session {session_id}: {e}")
-            return False
+            print(f"Error deleting session file {session_id}: {e}")
+            success = False
+            
+        return success
 
-# Initialize server-side session storage
-server_session = ServerSideSession()
-
+# Initialize Flask app
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -141,6 +181,10 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request size
+
+# Initialize database and server-side session storage
+db_manager = DatabaseManager(app)
+server_session = ServerSideSession()
 
 # Password protection configuration
 SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25', 'eagleton25']  # Regular user passwords
@@ -5550,6 +5594,82 @@ def export_player_chart(player_key, chart_type):
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Error exporting player chart: {str(e)}'}), 500
+
+# Database management endpoints
+@app.route('/admin/migrate_data', methods=['POST'])
+@login_required
+def migrate_data_endpoint():
+    """Migrate file-based sessions to database"""
+    if session.get('username') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    try:
+        from migrate_data import migrate_file_sessions_to_database
+        migrated, errors = migrate_file_sessions_to_database()
+        return jsonify({
+            'success': True,
+            'migrated': migrated,
+            'errors': errors,
+            'message': f'Migration complete: {migrated} sessions migrated, {errors} errors'
+        })
+    except Exception as e:
+        return jsonify({'error': f'Migration failed: {str(e)}'}), 500
+
+@app.route('/admin/backup_database', methods=['POST'])
+@login_required
+def backup_database_endpoint():
+    """Backup database to files"""
+    if session.get('username') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    try:
+        from migrate_data import backup_database_to_files
+        backed_up, errors = backup_database_to_files()
+        return jsonify({
+            'success': True,
+            'backed_up': backed_up,
+            'errors': errors,
+            'message': f'Backup complete: {backed_up} sessions backed up, {errors} errors'
+        })
+    except Exception as e:
+        return jsonify({'error': f'Backup failed: {str(e)}'}), 500
+
+@app.route('/admin/database_status', methods=['GET'])
+@login_required
+def database_status():
+    """Get database status and statistics"""
+    if session.get('username') != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    try:
+        from database import UserSession, UserRoster, SavedGame
+        
+        session_count = UserSession.query.count()
+        roster_count = UserRoster.query.count()
+        game_count = SavedGame.query.count()
+        
+        # Get recent sessions
+        recent_sessions = UserSession.query.order_by(UserSession.updated_at.desc()).limit(5).all()
+        recent_list = []
+        for sess in recent_sessions:
+            recent_list.append({
+                'id': sess.id[:8] + '...',
+                'username': sess.username,
+                'updated_at': sess.updated_at.isoformat()
+            })
+        
+        return jsonify({
+            'success': True,
+            'statistics': {
+                'sessions': session_count,
+                'rosters': roster_count,
+                'saved_games': game_count
+            },
+            'recent_sessions': recent_list,
+            'database_url': app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured')[:50] + '...'
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to get database status: {str(e)}'}), 500
 
 if __name__ == '__main__':
     import os
