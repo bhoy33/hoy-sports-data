@@ -2156,8 +2156,8 @@ def add_box_stats_play():
         # Update play call analytics if play call is provided
         play_call = play_data.get('play_call')
         if play_call and play_call.strip():
-            print(f"DEBUG: Processing play call '{play_call}' for analytics")
-            update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is_team_efficient, team_explosive_this_play, team_negative_this_play)
+            print(f"DEBUG: Processing play call '{play_call}' for {current_phase} analytics")
+            update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is_team_efficient, team_explosive_this_play, team_negative_this_play, current_phase)
         else:
             print(f"DEBUG: No play call provided or empty play call: '{play_call}'")
         
@@ -2944,14 +2944,22 @@ def get_user_saved_games(username):
         print(f"Error getting saved games: {str(e)}")
         return []
 
-def update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is_efficient, is_explosive, is_negative):
-    """Update analytics tracking for a specific play call"""
+def update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is_efficient, is_explosive, is_negative, phase):
+    """Update analytics tracking for a specific play call by phase (offense/defense)"""
     try:
         # Initialize play call stats if not exists
         if 'play_call_stats' not in box_stats:
-            box_stats['play_call_stats'] = {}
+            box_stats['play_call_stats'] = {
+                'offense': {},
+                'defense': {},
+                'special_teams': {}
+            }
         
-        play_call_stats = box_stats['play_call_stats']
+        # Ensure phase-specific structure exists
+        if phase not in box_stats['play_call_stats']:
+            box_stats['play_call_stats'][phase] = {}
+        
+        play_call_stats = box_stats['play_call_stats'][phase]
         
         # Initialize this play call's stats if first time seeing it
         if play_call not in play_call_stats:
@@ -4682,7 +4690,7 @@ def debug_team_data():
 @app.route('/box_stats/play_call_analytics', methods=['GET'])
 @login_required
 def get_play_call_analytics():
-    """Get analytics for all play calls in the current session"""
+    """Get analytics for all play calls in the current session, separated by phase"""
     try:
         # Get server-side session ID
         session_id = session.get('server_session_id')
@@ -4690,39 +4698,68 @@ def get_play_call_analytics():
             # No session yet, return empty data
             return jsonify({
                 'success': True,
-                'play_call_analytics': [],
+                'offense_analytics': [],
+                'defense_analytics': [],
+                'special_teams_analytics': [],
                 'total_play_calls': 0
             })
         
-        # Load session data from server-side storage
+        # Load box stats data from server-side storage
         box_stats_data = server_session.load_session_data(session_id)
         box_stats = box_stats_data.get('box_stats', {})
         play_call_stats = box_stats.get('play_call_stats', {})
         
-        print(f"DEBUG: Getting play call analytics - found {len(play_call_stats)} play calls")
-        print(f"DEBUG: Play call stats keys: {list(play_call_stats.keys())}")
+        # Handle both old format (flat) and new format (by phase)
+        offense_analytics = []
+        defense_analytics = []
+        special_teams_analytics = []
         
-        # Sort play calls by total plays (most used first)
-        sorted_play_calls = []
-        for play_call, stats in play_call_stats.items():
-            sorted_play_calls.append({
-                'play_call': play_call,
-                **stats
-            })
+        # If old format, treat all as offense for backward compatibility
+        if isinstance(play_call_stats, dict) and any(key not in ['offense', 'defense', 'special_teams'] for key in play_call_stats.keys()):
+            # Old format - convert to offense analytics
+            for play_call, stats in play_call_stats.items():
+                if isinstance(stats, dict) and 'total_plays' in stats:
+                    offense_analytics.append({
+                        'play_call': play_call,
+                        **stats
+                    })
+        else:
+            # New format - separate by phase
+            for phase in ['offense', 'defense', 'special_teams']:
+                phase_stats = play_call_stats.get(phase, {})
+                phase_analytics = []
+                
+                for play_call, stats in phase_stats.items():
+                    phase_analytics.append({
+                        'play_call': play_call,
+                        **stats
+                    })
+                
+                # Sort by total plays descending
+                phase_analytics.sort(key=lambda x: x.get('total_plays', 0), reverse=True)
+                
+                if phase == 'offense':
+                    offense_analytics = phase_analytics
+                elif phase == 'defense':
+                    defense_analytics = phase_analytics
+                elif phase == 'special_teams':
+                    special_teams_analytics = phase_analytics
         
-        # Sort by total plays descending
-        sorted_play_calls.sort(key=lambda x: x['total_plays'], reverse=True)
+        # Sort offense analytics if from old format
+        offense_analytics.sort(key=lambda x: x.get('total_plays', 0), reverse=True)
         
-        print(f"DEBUG: Returning {len(sorted_play_calls)} sorted play calls")
+        total_play_calls = len(offense_analytics) + len(defense_analytics) + len(special_teams_analytics)
         
         return jsonify({
             'success': True,
-            'play_call_analytics': sorted_play_calls,
-            'total_play_calls': len(sorted_play_calls)
+            'offense_analytics': offense_analytics,
+            'defense_analytics': defense_analytics,
+            'special_teams_analytics': special_teams_analytics,
+            'total_play_calls': total_play_calls
         })
         
     except Exception as e:
-        print(f"ERROR: Failed to get play call analytics: {str(e)}")
+        print(f"Error getting play call analytics: {str(e)}")
         return jsonify({'error': f'Error getting play call analytics: {str(e)}'}), 500
 
 class PDFExporter:
@@ -5184,56 +5221,73 @@ class PDFExporter:
         story.append(Paragraph(title, self.title_style))
         story.append(Spacer(1, 12))
         
-        # Play call analytics
+        # Play call analytics - handle both old and new formats
         play_call_stats = box_stats.get('play_call_stats', {})
         if play_call_stats:
-            story.append(Paragraph("Play Call Performance", self.heading_style))
-            
-            headers = ['Play Call', 'Count', 'Total Yards', 'Avg Yards', 'Efficiency %', 'Explosive %', 'NEE Score', 'TDs']
-            data = [headers]
-            
-            for play_call, stats in play_call_stats.items():
-                # Handle both old and new data structures
-                count = stats.get('count', stats.get('total_plays', 0))
-                total_yards = stats.get('total_yards', 0)
-                efficient_plays = stats.get('efficient_plays', 0)
-                explosive_plays = stats.get('explosive_plays', 0)
-                negative_plays = stats.get('negative_plays', 0)
-                touchdowns = stats.get('touchdowns', 0)
-                
-                avg_yards = total_yards / count if count > 0 else 0
-                efficiency_rate = (efficient_plays / count * 100) if count > 0 else 0
-                explosive_rate = (explosive_plays / count * 100) if count > 0 else 0
-                negative_rate = (negative_plays / count * 100) if count > 0 else 0
-                nee_score = efficiency_rate + explosive_rate - negative_rate
-                
-                row = [
-                    play_call,
-                    str(count),
-                    str(total_yards),
-                    f"{avg_yards:.1f}",
-                    f"{efficiency_rate:.1f}%",
-                    f"{explosive_rate:.1f}%",
-                    f"{nee_score:.1f}",
-                    str(touchdowns)
-                ]
-                data.append(row)
-            
-            analytics_table = Table(data)
-            analytics_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('FONTSIZE', (0, 1), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            story.append(analytics_table)
+            # Check if new format (separated by phase) or old format (flat)
+            if isinstance(play_call_stats, dict) and any(key in ['offense', 'defense', 'special_teams'] for key in play_call_stats.keys()):
+                # New format - separate by phase
+                for phase in ['offense', 'defense', 'special_teams']:
+                    phase_stats = play_call_stats.get(phase, {})
+                    if phase_stats:
+                        phase_title = f"{phase.replace('_', ' ').title()} Play Call Performance"
+                        story.append(Paragraph(phase_title, self.heading_style))
+                        story.append(Spacer(1, 6))
+                        
+                        self._add_play_call_table(story, phase_stats)
+                        story.append(Spacer(1, 12))
+            else:
+                # Old format - treat as offense for backward compatibility
+                story.append(Paragraph("Play Call Performance", self.heading_style))
+                self._add_play_call_table(story, play_call_stats)
         else:
             story.append(Paragraph("No play call data available", self.normal_style))
+    
+    def _add_play_call_table(self, story, play_call_stats):
+        """Helper method to add a play call analytics table to the PDF"""
+        headers = ['Play Call', 'Count', 'Total Yards', 'Avg Yards', 'Efficiency %', 'Explosive %', 'NEE Score', 'TDs']
+        data = [headers]
+        
+        for play_call, stats in play_call_stats.items():
+            # Handle both old and new data structures
+            count = stats.get('count', stats.get('total_plays', 0))
+            total_yards = stats.get('total_yards', 0)
+            efficient_plays = stats.get('efficient_plays', 0)
+            explosive_plays = stats.get('explosive_plays', 0)
+            negative_plays = stats.get('negative_plays', 0)
+            touchdowns = stats.get('touchdowns', 0)
+            
+            avg_yards = total_yards / count if count > 0 else 0
+            efficiency_rate = (efficient_plays / count * 100) if count > 0 else 0
+            explosive_rate = (explosive_plays / count * 100) if count > 0 else 0
+            negative_rate = (negative_plays / count * 100) if count > 0 else 0
+            nee_score = efficiency_rate + explosive_rate - negative_rate
+            
+            row = [
+                play_call,
+                str(count),
+                str(total_yards),
+                f"{avg_yards:.1f}",
+                f"{efficiency_rate:.1f}%",
+                f"{explosive_rate:.1f}%",
+                f"{nee_score:.1f}",
+                str(touchdowns)
+            ]
+            data.append(row)
+        
+        analytics_table = Table(data)
+        analytics_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(analytics_table)
         
         doc.build(story)
         buffer.seek(0)
