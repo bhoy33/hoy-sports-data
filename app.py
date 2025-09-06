@@ -3408,6 +3408,163 @@ def get_box_stats():
     except Exception as e:
         return jsonify({'error': f'Error getting stats: {str(e)}'}), 500
 
+@app.route('/box_stats/get_down_analytics', methods=['GET'])
+@login_required
+def get_down_analytics():
+    """Get down-specific analytics for offense and defense"""
+    try:
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'success': False, 'error': 'No active session found'})
+        
+        # Load from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {'plays': []})
+        
+        # Initialize down analytics structure
+        down_analytics = {
+            'offense': {
+                '1st': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
+                '2nd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
+                '3rd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
+                '4th': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0}
+            },
+            'defense': {
+                '1st': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
+                '2nd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
+                '3rd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
+                '4th': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0}
+            }
+        }
+        
+        # Process each play
+        for play in box_stats.get('plays', []):
+            phase = play.get('phase', 'offense').lower()
+            if phase not in ['offense', 'defense']:
+                continue  # Skip special teams for down analytics
+            
+            down = str(play.get('down', '1'))
+            if down not in ['1', '2', '3', '4']:
+                continue  # Skip plays without valid down
+            
+            down_key = f"{down}{'st' if down == '1' else 'nd' if down == '2' else 'rd' if down == '3' else 'th'}"
+            yards_gained = int(play.get('yards_gained', 0))
+            play_type = play.get('play_type', '').lower()
+            
+            # Get down stats for this phase
+            down_stats = down_analytics[phase][down_key]
+            
+            # Update basic stats
+            down_stats['total_plays'] += 1
+            down_stats['total_yards'] += yards_gained
+            
+            # Track passing vs rushing
+            if play_type == 'pass':
+                down_stats['passing_plays'] += 1
+                down_stats['passing_yards'] += yards_gained
+            elif play_type == 'rush':
+                down_stats['rushing_plays'] += 1
+                down_stats['rushing_yards'] += yards_gained
+            
+            # Calculate efficiency, explosiveness, and negativeness
+            is_efficient = calculate_play_efficiency(play, yards_gained, None, phase)
+            if is_efficient:
+                down_stats['efficient_plays'] += 1
+                if play_type == 'pass':
+                    down_stats['passing_efficient'] += 1
+                elif play_type == 'rush':
+                    down_stats['rushing_efficient'] += 1
+            
+            # Check for explosive plays (no turnovers)
+            play_has_turnover = False
+            for player in play.get('players_involved', []):
+                if player.get('fumble', False) or player.get('interception', False):
+                    play_has_turnover = True
+                    break
+            
+            if not play_has_turnover:
+                for player in play.get('players_involved', []):
+                    role = str(player.get('role', ''))
+                    if calculate_play_explosiveness(role, yards_gained, player):
+                        down_stats['explosive_plays'] += 1
+                        if play_type == 'pass':
+                            down_stats['passing_explosive'] += 1
+                        elif play_type == 'rush':
+                            down_stats['rushing_explosive'] += 1
+                        break
+            
+            # Check for negative plays
+            for player in play.get('players_involved', []):
+                if calculate_play_negativeness(play, yards_gained, player):
+                    down_stats['negative_plays'] += 1
+                    if play_type == 'pass':
+                        down_stats['passing_negative'] += 1
+                    elif play_type == 'rush':
+                        down_stats['rushing_negative'] += 1
+                    break
+        
+        # Calculate rates and NEE scores for each down
+        for phase in ['offense', 'defense']:
+            for down_key in ['1st', '2nd', '3rd', '4th']:
+                stats = down_analytics[phase][down_key]
+                total_plays = stats['total_plays']
+                
+                if total_plays > 0:
+                    # Overall rates
+                    stats['efficiency_rate'] = round((stats['efficient_plays'] / total_plays) * 100, 1)
+                    stats['explosive_rate'] = round((stats['explosive_plays'] / total_plays) * 100, 1)
+                    stats['negative_rate'] = round((stats['negative_plays'] / total_plays) * 100, 1)
+                    stats['avg_yards_per_play'] = round(stats['total_yards'] / total_plays, 1)
+                    stats['nee_score'] = calculate_nee_score(stats['efficiency_rate'], stats['explosive_rate'], stats['negative_rate'], phase)
+                    
+                    # Passing rates
+                    if stats['passing_plays'] > 0:
+                        stats['passing_efficiency_rate'] = round((stats['passing_efficient'] / stats['passing_plays']) * 100, 1)
+                        stats['passing_explosive_rate'] = round((stats['passing_explosive'] / stats['passing_plays']) * 100, 1)
+                        stats['passing_negative_rate'] = round((stats['passing_negative'] / stats['passing_plays']) * 100, 1)
+                        stats['passing_avg_yards'] = round(stats['passing_yards'] / stats['passing_plays'], 1)
+                        stats['passing_nee_score'] = calculate_nee_score(stats['passing_efficiency_rate'], stats['passing_explosive_rate'], stats['passing_negative_rate'], phase)
+                    else:
+                        stats['passing_efficiency_rate'] = 0.0
+                        stats['passing_explosive_rate'] = 0.0
+                        stats['passing_negative_rate'] = 0.0
+                        stats['passing_avg_yards'] = 0.0
+                        stats['passing_nee_score'] = 0.0
+                    
+                    # Rushing rates
+                    if stats['rushing_plays'] > 0:
+                        stats['rushing_efficiency_rate'] = round((stats['rushing_efficient'] / stats['rushing_plays']) * 100, 1)
+                        stats['rushing_explosive_rate'] = round((stats['rushing_explosive'] / stats['rushing_plays']) * 100, 1)
+                        stats['rushing_negative_rate'] = round((stats['rushing_negative'] / stats['rushing_plays']) * 100, 1)
+                        stats['rushing_avg_yards'] = round(stats['rushing_yards'] / stats['rushing_plays'], 1)
+                        stats['rushing_nee_score'] = calculate_nee_score(stats['rushing_efficiency_rate'], stats['rushing_explosive_rate'], stats['rushing_negative_rate'], phase)
+                    else:
+                        stats['rushing_efficiency_rate'] = 0.0
+                        stats['rushing_explosive_rate'] = 0.0
+                        stats['rushing_negative_rate'] = 0.0
+                        stats['rushing_avg_yards'] = 0.0
+                        stats['rushing_nee_score'] = 0.0
+                else:
+                    # No plays for this down
+                    stats.update({
+                        'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
+                        'avg_yards_per_play': 0.0, 'nee_score': 0.0,
+                        'passing_efficiency_rate': 0.0, 'passing_explosive_rate': 0.0, 'passing_negative_rate': 0.0,
+                        'passing_avg_yards': 0.0, 'passing_nee_score': 0.0,
+                        'rushing_efficiency_rate': 0.0, 'rushing_explosive_rate': 0.0, 'rushing_negative_rate': 0.0,
+                        'rushing_avg_yards': 0.0, 'rushing_nee_score': 0.0
+                    })
+        
+        return jsonify({
+            'success': True,
+            'down_analytics': down_analytics
+        })
+        
+    except Exception as e:
+        print(f"Error getting down analytics: {str(e)}")
+        return jsonify({'error': f'Error getting down analytics: {str(e)}'}), 500
+
 @app.route('/box_stats/reset', methods=['POST'])
 @login_required
 def reset_box_stats():
@@ -5758,6 +5915,119 @@ class PDFExporter:
         buffer.seek(0)
         return buffer
     
+    def export_down_analytics(self, username, down_analytics):
+        """Export down-specific analytics to PDF"""
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        story = []
+        
+        # Title
+        story.append(Paragraph("Down-Specific Analytics Report", self.title_style))
+        story.append(Spacer(1, 12))
+        
+        # Generate timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        story.append(Paragraph(f"Generated: {timestamp}", self.styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Process each phase (offense and defense)
+        for phase in ['offense', 'defense']:
+            phase_title = f"{phase.title()} Analytics by Down"
+            story.append(Paragraph(phase_title, self.heading_style))
+            story.append(Spacer(1, 12))
+            
+            # Create table data
+            table_data = [
+                ['Down', 'Plays', 'Yards', 'Avg YPP', 'Eff%', 'Exp%', 'Neg%', 'NEE', 'Pass Eff%', 'Rush Eff%', 'Pass NEE', 'Rush NEE']
+            ]
+            
+            for down in ['1st', '2nd', '3rd', '4th']:
+                stats = down_analytics[phase][down]
+                row = [
+                    down,
+                    str(stats['total_plays']),
+                    str(stats['total_yards']),
+                    str(stats['avg_yards_per_play']),
+                    f"{stats['efficiency_rate']}%",
+                    f"{stats['explosive_rate']}%",
+                    f"{stats['negative_rate']}%",
+                    str(stats['nee_score']),
+                    f"{stats['passing_efficiency_rate']}%",
+                    f"{stats['rushing_efficiency_rate']}%",
+                    str(stats['passing_nee_score']),
+                    str(stats['rushing_nee_score'])
+                ]
+                table_data.append(row)
+            
+            # Create table
+            table = Table(table_data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            story.append(table)
+            story.append(Spacer(1, 20))
+            
+            # Add detailed breakdown for each down
+            story.append(Paragraph(f"{phase.title()} - Detailed Breakdown", self.heading_style))
+            story.append(Spacer(1, 12))
+            
+            for down in ['1st', '2nd', '3rd', '4th']:
+                stats = down_analytics[phase][down]
+                if stats['total_plays'] > 0:
+                    down_details = [
+                        ['Metric', 'Overall', 'Passing', 'Rushing']
+                    ]
+                    
+                    metrics = [
+                        ('Total Plays', stats['total_plays'], stats['passing_plays'], stats['rushing_plays']),
+                        ('Total Yards', stats['total_yards'], stats['passing_yards'], stats['rushing_yards']),
+                        ('Avg Yards/Play', stats['avg_yards_per_play'], stats['passing_avg_yards'], stats['rushing_avg_yards']),
+                        ('Efficiency Rate', f"{stats['efficiency_rate']}%", f"{stats['passing_efficiency_rate']}%", f"{stats['rushing_efficiency_rate']}%"),
+                        ('Explosive Rate', f"{stats['explosive_rate']}%", f"{stats['passing_explosive_rate']}%", f"{stats['rushing_explosive_rate']}%"),
+                        ('Negative Rate', f"{stats['negative_rate']}%", f"{stats['passing_negative_rate']}%", f"{stats['rushing_negative_rate']}%"),
+                        ('NEE Score', stats['nee_score'], stats['passing_nee_score'], stats['rushing_nee_score'])
+                    ]
+                    
+                    for metric in metrics:
+                        down_details.append([str(metric[0]), str(metric[1]), str(metric[2]), str(metric[3])])
+                    
+                    story.append(Paragraph(f"{down} Down", ParagraphStyle('DownTitle', parent=self.styles['Heading3'], fontSize=12, spaceAfter=6)))
+                    
+                    detail_table = Table(down_details)
+                    detail_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                        ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                    ]))
+                    
+                    story.append(detail_table)
+                    story.append(Spacer(1, 12))
+                else:
+                    story.append(Paragraph(f"{down} Down: No plays recorded", self.styles['Normal']))
+                    story.append(Spacer(1, 6))
+            
+            story.append(PageBreak())
+        
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
     def export_player_chart(self, username, player_data, chart_type):
         """Export individual player chart to PDF with actual graphs"""
         buffer = io.BytesIO()
@@ -6001,6 +6271,19 @@ def export_pdf(export_type):
         elif export_type == 'play_call_analytics':
             pdf_buffer = pdf_exporter.export_play_call_analytics(username, box_stats)
             filename = f"play_call_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        elif export_type == 'down_analytics':
+            # Get down analytics data
+            response = get_down_analytics()
+            if response.status_code != 200:
+                return jsonify({'error': 'Failed to get down analytics data'}), 500
+            
+            down_analytics_data = response.get_json()
+            if not down_analytics_data.get('success'):
+                return jsonify({'error': 'Failed to get down analytics data'}), 500
+            
+            down_analytics = down_analytics_data.get('down_analytics', {})
+            pdf_buffer = pdf_exporter.export_down_analytics(username, down_analytics)
+            filename = f"down_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         else:
             print(f"DEBUG: Invalid export type: {export_type}")
             return jsonify({'error': 'Invalid export type'}), 400
