@@ -4457,6 +4457,60 @@ def delete_play():
         print(f"Error deleting play: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
+def load_box_stats_data(username):
+    """Load box stats data from session storage"""
+    try:
+        # Get session ID from current session
+        session_id = session.get('server_session_id')
+        if not session_id:
+            raise Exception('No active session found')
+        
+        # Load session data from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        return box_stats_data.get('box_stats', {
+            'plays': [],
+            'players': {},
+            'team_stats': {
+                'offense': {'total_plays': 0, 'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'first_downs': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_efficient_plays': 0, 'passing_explosive_plays': 0, 'passing_negative_plays': 0, 'rushing_efficient_plays': 0, 'rushing_explosive_plays': 0, 'rushing_negative_plays': 0, 'progression': []},
+                'defense': {'total_plays': 0, 'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'first_downs': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_efficient_plays': 0, 'passing_explosive_plays': 0, 'passing_negative_plays': 0, 'rushing_efficient_plays': 0, 'rushing_explosive_plays': 0, 'rushing_negative_plays': 0, 'progression': []},
+                'special_teams': {'total_plays': 0, 'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'first_downs': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'progression': []},
+                'overall': {'total_plays': 0, 'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'first_downs': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_efficient_plays': 0, 'passing_explosive_plays': 0, 'passing_negative_plays': 0, 'rushing_efficient_plays': 0, 'rushing_explosive_plays': 0, 'rushing_negative_plays': 0, 'progression': []}
+            },
+            'play_call_stats': {
+                'offense': {},
+                'defense': {},
+                'special_teams': {}
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error loading box stats data: {str(e)}")
+        raise e
+
+def save_box_stats_data(username, box_stats):
+    """Save box stats data to session storage"""
+    try:
+        # Get session ID from current session
+        session_id = session.get('server_session_id')
+        if not session_id:
+            raise Exception('No active session found')
+        
+        # Load current session data
+        box_stats_data = server_session.load_session_data(session_id)
+        
+        # Update box stats
+        box_stats_data['box_stats'] = box_stats
+        
+        # Save back to session storage
+        server_session.save_session_data(session_id, box_stats_data)
+        
+        # Also save to database for persistence
+        db_manager.save_user_session(username, session_id, box_stats_data)
+        
+    except Exception as e:
+        print(f"Error saving box stats data: {str(e)}")
+        raise e
+
 def recalculate_all_stats(box_stats):
     """Recalculate all statistics from scratch based on current plays"""
     try:
