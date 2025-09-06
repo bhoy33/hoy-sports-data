@@ -1897,7 +1897,8 @@ def add_box_stats_play():
             'result': data.get('result'),
             'yards_gained': data.get('yards_gained', 0),
             'players_involved': data.get('players_involved', []),
-            'timestamp': data.get('timestamp')
+            'timestamp': data.get('timestamp'),
+            'phase': data.get('phase', 'offense').lower()  # Store the phase in play data
         }
         
         # DEBUG: Log the incoming data to diagnose player selection issue
@@ -3451,6 +3452,9 @@ def get_down_analytics():
             down_key = f"{down}{'st' if down == '1' else 'nd' if down == '2' else 'rd' if down == '3' else 'th'}"
             yards_gained = int(play.get('yards_gained', 0))
             play_type = play.get('play_type', '').lower()
+            
+            # Debug logging to verify phase assignment
+            print(f"DEBUG: Processing play - Phase: {phase}, Down: {down}, Play Type: {play_type}, Yards: {yards_gained}")
             
             # Get down stats for this phase
             down_stats = down_analytics[phase][down_key]
