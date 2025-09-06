@@ -4364,27 +4364,132 @@ def delete_saved_game():
     """Delete a saved game"""
     try:
         data = request.get_json()
-        filename = data.get('filename', '').strip()
+        filename = data.get('filename', '')
         
         if not filename:
-            return jsonify({'error': 'Filename is required'}), 400
+            return jsonify({'success': False, 'error': 'No filename provided'})
         
-        username = session.get('username', 'anonymous')
-        user_dir = get_user_games_dir(username)
-        filepath = os.path.join(user_dir, filename)
+        # Delete from database
+        success = db_manager.delete_saved_game(session['username'], filename)
         
-        if not os.path.exists(filepath):
-            return jsonify({'error': 'Game file not found'}), 404
+        if success:
+            return jsonify({'success': True, 'message': 'Game deleted successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Game not found or could not be deleted'})
+            
+    except Exception as e:
+        print(f"Error deleting saved game: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/box_stats/edit_play', methods=['POST'])
+@login_required
+def edit_play():
+    """Edit an existing play in the box stats"""
+    try:
+        data = request.get_json()
+        play_index = data.get('play_index')
+        play_data = data.get('play_data')
         
-        os.remove(filepath)
+        if play_index is None or play_data is None:
+            return jsonify({'success': False, 'error': 'Missing play index or play data'})
+        
+        # Load current box stats
+        box_stats = load_box_stats_data(session['username'])
+        
+        # Validate play index
+        if play_index < 0 or play_index >= len(box_stats.get('plays', [])):
+            return jsonify({'success': False, 'error': 'Invalid play index'})
+        
+        # Store original play for comparison
+        original_play = box_stats['plays'][play_index].copy()
+        
+        # Update the play
+        box_stats['plays'][play_index] = play_data
+        
+        # Recalculate all stats since play data changed
+        recalculate_all_stats(box_stats)
+        
+        # Save updated box stats
+        save_box_stats_data(session['username'], box_stats)
         
         return jsonify({
-            'success': True,
-            'message': 'Game deleted successfully'
+            'success': True, 
+            'message': f'Play #{play_data.get("play_number", play_index + 1)} updated successfully'
         })
         
     except Exception as e:
-        return jsonify({'error': f'Error deleting game: {str(e)}'}), 500
+        print(f"Error editing play: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/box_stats/delete_play', methods=['POST'])
+@login_required
+def delete_play():
+    """Delete a play from the box stats"""
+    try:
+        data = request.get_json()
+        play_index = data.get('play_index')
+        
+        if play_index is None:
+            return jsonify({'success': False, 'error': 'Missing play index'})
+        
+        # Load current box stats
+        box_stats = load_box_stats_data(session['username'])
+        
+        # Validate play index
+        if play_index < 0 or play_index >= len(box_stats.get('plays', [])):
+            return jsonify({'success': False, 'error': 'Invalid play index'})
+        
+        # Remove the play
+        deleted_play = box_stats['plays'].pop(play_index)
+        
+        # Recalculate all stats since play was removed
+        recalculate_all_stats(box_stats)
+        
+        # Save updated box stats
+        save_box_stats_data(session['username'], box_stats)
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Play #{deleted_play.get("play_number", play_index + 1)} deleted successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error deleting play: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
+def recalculate_all_stats(box_stats):
+    """Recalculate all statistics from scratch based on current plays"""
+    try:
+        # Reset all stats to initial state
+        box_stats['team_stats'] = {
+            'offense': {'total_plays': 0, 'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'first_downs': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_efficient_plays': 0, 'passing_explosive_plays': 0, 'passing_negative_plays': 0, 'rushing_efficient_plays': 0, 'rushing_explosive_plays': 0, 'rushing_negative_plays': 0, 'progression': []},
+            'defense': {'total_plays': 0, 'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'first_downs': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_efficient_plays': 0, 'passing_explosive_plays': 0, 'passing_negative_plays': 0, 'rushing_efficient_plays': 0, 'rushing_explosive_plays': 0, 'rushing_negative_plays': 0, 'progression': []},
+            'special_teams': {'total_plays': 0, 'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'first_downs': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'progression': []},
+            'overall': {'total_plays': 0, 'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'first_downs': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_efficient_plays': 0, 'passing_explosive_plays': 0, 'passing_negative_plays': 0, 'rushing_efficient_plays': 0, 'rushing_explosive_plays': 0, 'rushing_negative_plays': 0, 'progression': []}
+        }
+        
+        # Reset player stats
+        box_stats['players'] = {}
+        
+        # Reset play call stats
+        box_stats['play_call_stats'] = {
+            'offense': {},
+            'defense': {},
+            'special_teams': {}
+        }
+        
+        # Reprocess all plays
+        for play in box_stats.get('plays', []):
+            # Simulate adding each play to recalculate stats
+            update_team_stats(box_stats, play)
+            update_player_stats(box_stats, play)
+            update_play_call_analytics(box_stats, play)
+        
+        print(f"Recalculated stats for {len(box_stats.get('plays', []))} plays")
+        
+    except Exception as e:
+        print(f"Error recalculating stats: {str(e)}")
+        raise e
 
 @app.route('/box_stats/nee_progression/<player_number>', methods=['GET'])
 @login_required

@@ -382,6 +382,49 @@
             </div>
         </div>
 
+        <!-- Play Log Management -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Play Log Management</h5>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-success btn-sm" onclick="showAddPlayModal()">
+                                <i class="fas fa-plus"></i> Add Play
+                            </button>
+                            <button type="button" class="btn btn-info btn-sm" onclick="refreshPlayLog()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="playLogTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Play #</th>
+                                        <th>Phase</th>
+                                        <th>Down & Distance</th>
+                                        <th>Field Position</th>
+                                        <th>Play Call</th>
+                                        <th>Players</th>
+                                        <th>Result</th>
+                                        <th>Yards</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="playLogTableBody">
+                                    <tr>
+                                        <td colspan="9" class="text-center text-muted">No plays recorded yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Play Entry Form -->
         <div class="row">
             <div class="col-12">
@@ -1545,6 +1588,7 @@
                     updateTeamAdvancedAnalytics(data.team_stats);  // Update team advanced analytics
                     updatePlayerStats(data.box_stats.players);
                     updateRecentPlays(data.box_stats.plays);
+                    displayPlayLog(data.box_stats); // Add play log display
                     console.log('About to call updateNextSituation with:', data.next_situation);
                     updateNextSituation(data.next_situation);
                 }
@@ -1554,6 +1598,11 @@
                 console.error('Error loading stats:', error);
                 throw error;
             });
+        }
+        
+        // Alias for loadStats to maintain compatibility
+        function loadBoxStats() {
+            return loadStats();
         }
 
         // Update team stats display
@@ -4648,6 +4697,330 @@
             });
         }
 
+        // Play Log Management Functions
+        let currentBoxStats = null;
+        let editPlayerCounter = 0;
+
+        function refreshPlayLog() {
+            loadBoxStats();
+        }
+
+        function displayPlayLog(boxStats) {
+            currentBoxStats = boxStats;
+            const tableBody = document.getElementById('playLogTableBody');
+            const plays = boxStats.plays || [];
+            
+            if (plays.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No plays recorded yet</td></tr>';
+                return;
+            }
+
+            tableBody.innerHTML = plays.map((play, index) => {
+                const players = play.players_involved || [];
+                const playerNames = players.map(p => p.name || 'Unknown').join(', ');
+                const phaseColor = getPhaseColor(play.phase);
+                
+                return `
+                    <tr>
+                        <td><span class="badge bg-secondary">${play.play_number || index + 1}</span></td>
+                        <td><span class="badge ${phaseColor}">${(play.phase || 'offense').replace('_', ' ')}</span></td>
+                        <td>${play.down || 'N/A'} & ${play.distance || 'N/A'}</td>
+                        <td>${play.field_position || 'N/A'}</td>
+                        <td><strong>${play.play_call || 'N/A'}</strong></td>
+                        <td><small>${playerNames || 'None'}</small></td>
+                        <td>${play.play_type || 'N/A'}</td>
+                        <td><span class="badge ${play.yards_gained >= 0 ? 'bg-success' : 'bg-danger'}">${play.yards_gained || 0}</span></td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="editPlay(${index})" title="Edit Play">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="deletePlay(${index})" title="Delete Play">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getPhaseColor(phase) {
+            switch(phase) {
+                case 'offense': return 'bg-primary';
+                case 'defense': return 'bg-success';
+                case 'special_teams': return 'bg-warning';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function showAddPlayModal() {
+            document.getElementById('playEditModalTitle').textContent = 'Add New Play';
+            document.getElementById('editPlayIndex').value = '';
+            document.getElementById('playEditForm').reset();
+            document.getElementById('editPlayersContainer').innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Add players involved in this play. You can add multiple players with different roles.
+                </div>
+                <button type="button" class="btn btn-success btn-sm" onclick="addPlayerToEdit()">
+                    <i class="fas fa-plus"></i> Add Player
+                </button>
+            `;
+            editPlayerCounter = 0;
+            
+            // Set next play number
+            const nextPlayNumber = (currentBoxStats?.plays?.length || 0) + 1;
+            document.getElementById('editPlayNumber').value = nextPlayNumber;
+            
+            new bootstrap.Modal(document.getElementById('playEditModal')).show();
+        }
+
+        function editPlay(index) {
+            const play = currentBoxStats.plays[index];
+            if (!play) return;
+
+            document.getElementById('playEditModalTitle').textContent = 'Edit Play';
+            document.getElementById('editPlayIndex').value = index;
+            
+            // Populate form fields
+            document.getElementById('editPlayNumber').value = play.play_number || index + 1;
+            document.getElementById('editPhase').value = play.phase || 'offense';
+            document.getElementById('editDown').value = play.down || '';
+            document.getElementById('editDistance').value = play.distance || '';
+            document.getElementById('editFieldPosition').value = play.field_position || '';
+            document.getElementById('editPlayType').value = play.play_type || '';
+            document.getElementById('editPlayCall').value = play.play_call || '';
+            document.getElementById('editYardsGained').value = play.yards_gained || 0;
+
+            // Update play type options based on phase
+            updatePlayTypeOptions();
+
+            // Populate players
+            const playersContainer = document.getElementById('editPlayersContainer');
+            playersContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Add players involved in this play. You can add multiple players with different roles.
+                </div>
+                <button type="button" class="btn btn-success btn-sm" onclick="addPlayerToEdit()">
+                    <i class="fas fa-plus"></i> Add Player
+                </button>
+            `;
+            
+            editPlayerCounter = 0;
+            const players = play.players_involved || [];
+            players.forEach(player => {
+                addPlayerToEdit(player);
+            });
+
+            new bootstrap.Modal(document.getElementById('playEditModal')).show();
+        }
+
+        function addPlayerToEdit(existingPlayer = null) {
+            editPlayerCounter++;
+            const playersContainer = document.getElementById('editPlayersContainer');
+            
+            const playerDiv = document.createElement('div');
+            playerDiv.className = 'player-input-group mt-2';
+            playerDiv.id = `editPlayer${editPlayerCounter}`;
+            
+            playerDiv.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label">Player Name</label>
+                        <input type="text" class="form-control" name="playerName" value="${existingPlayer?.name || ''}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Jersey #</label>
+                        <input type="number" class="form-control" name="playerNumber" value="${existingPlayer?.number || ''}" min="0" max="99">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" name="playerRole" required>
+                            <option value="">Select Role</option>
+                            <option value="ball_carrier" ${existingPlayer?.role === 'ball_carrier' ? 'selected' : ''}>Ball Carrier</option>
+                            <option value="passer" ${existingPlayer?.role === 'passer' ? 'selected' : ''}>Passer</option>
+                            <option value="receiver" ${existingPlayer?.role === 'receiver' ? 'selected' : ''}>Receiver</option>
+                            <option value="blocker" ${existingPlayer?.role === 'blocker' ? 'selected' : ''}>Blocker</option>
+                            <option value="tackler" ${existingPlayer?.role === 'tackler' ? 'selected' : ''}>Tackler</option>
+                            <option value="defender" ${existingPlayer?.role === 'defender' ? 'selected' : ''}>Defender</option>
+                            <option value="kicker" ${existingPlayer?.role === 'kicker' ? 'selected' : ''}>Kicker</option>
+                            <option value="returner" ${existingPlayer?.role === 'returner' ? 'selected' : ''}>Returner</option>
+                            <option value="other" ${existingPlayer?.role === 'other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Special Stats</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="touchdown" ${existingPlayer?.touchdown ? 'checked' : ''}>
+                                <label class="form-check-label">TD</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="fumble" ${existingPlayer?.fumble ? 'checked' : ''}>
+                                <label class="form-check-label">Fumble</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="interception" ${existingPlayer?.interception ? 'checked' : ''}>
+                                <label class="form-check-label">INT</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="first_down" ${existingPlayer?.first_down ? 'checked' : ''}>
+                                <label class="form-check-label">1st Down</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="removePlayerFromEdit('editPlayer${editPlayerCounter}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            playersContainer.appendChild(playerDiv);
+        }
+
+        function removePlayerFromEdit(playerId) {
+            const playerDiv = document.getElementById(playerId);
+            if (playerDiv) {
+                playerDiv.remove();
+            }
+        }
+
+        function updatePlayTypeOptions() {
+            const phase = document.getElementById('editPhase').value;
+            const playTypeSelect = document.getElementById('editPlayType');
+            
+            let options = '<option value="">Select Play Type</option>';
+            
+            if (phase === 'offense') {
+                options += `
+                    <option value="run">Run</option>
+                    <option value="pass">Pass</option>
+                    <option value="penalty">Penalty</option>
+                `;
+            } else if (phase === 'defense') {
+                options += `
+                    <option value="run_defense">Run Defense</option>
+                    <option value="pass_defense">Pass Defense</option>
+                    <option value="penalty">Penalty</option>
+                `;
+            } else if (phase === 'special_teams') {
+                options += `
+                    <option value="punt">Punt</option>
+                    <option value="field_goal">Field Goal</option>
+                    <option value="kickoff">Kickoff</option>
+                    <option value="extra_point">Extra Point</option>
+                    <option value="punt_return">Punt Return</option>
+                    <option value="kickoff_return">Kickoff Return</option>
+                    <option value="penalty">Penalty</option>
+                `;
+            }
+            
+            playTypeSelect.innerHTML = options;
+        }
+
+        function savePlayEdit() {
+            const form = document.getElementById('playEditForm');
+            const formData = new FormData(form);
+            
+            // Collect basic play data
+            const playData = {
+                play_number: parseInt(document.getElementById('editPlayNumber').value),
+                phase: document.getElementById('editPhase').value,
+                down: document.getElementById('editDown').value,
+                distance: parseInt(document.getElementById('editDistance').value),
+                field_position: document.getElementById('editFieldPosition').value,
+                play_type: document.getElementById('editPlayType').value,
+                play_call: document.getElementById('editPlayCall').value,
+                yards_gained: parseFloat(document.getElementById('editYardsGained').value)
+            };
+            
+            // Collect players data
+            const players = [];
+            const playerDivs = document.querySelectorAll('#editPlayersContainer .player-input-group');
+            
+            playerDivs.forEach(playerDiv => {
+                const name = playerDiv.querySelector('input[name="playerName"]').value;
+                const number = playerDiv.querySelector('input[name="playerNumber"]').value;
+                const role = playerDiv.querySelector('select[name="playerRole"]').value;
+                
+                if (name && role) {
+                    const player = {
+                        name: name,
+                        number: number ? parseInt(number) : null,
+                        role: role,
+                        touchdown: playerDiv.querySelector('input[name="touchdown"]').checked,
+                        fumble: playerDiv.querySelector('input[name="fumble"]').checked,
+                        interception: playerDiv.querySelector('input[name="interception"]').checked,
+                        first_down: playerDiv.querySelector('input[name="first_down"]').checked
+                    };
+                    players.push(player);
+                }
+            });
+            
+            playData.players_involved = players;
+            
+            const playIndex = document.getElementById('editPlayIndex').value;
+            const isEdit = playIndex !== '';
+            
+            // Send to server
+            const endpoint = isEdit ? '/box_stats/edit_play' : '/box_stats/add_play';
+            const requestData = isEdit ? { play_index: parseInt(playIndex), play_data: playData } : playData;
+            
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('playEditModal')).hide();
+                    loadBoxStats(); // Refresh all data
+                } else {
+                    showAlert('Error saving play: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Error saving play: ' + error.message, 'danger');
+            });
+        }
+
+        function deletePlay(index) {
+            if (!confirm('Are you sure you want to delete this play? This action cannot be undone.')) {
+                return;
+            }
+            
+            fetch('/box_stats/delete_play', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ play_index: index })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    loadBoxStats(); // Refresh all data
+                } else {
+                    showAlert('Error deleting play: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Error deleting play: ' + error.message, 'danger');
+            });
+        }
+
     </script>
 
     <!-- Save Game Modal -->
@@ -4698,6 +5071,96 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Play Edit/Add Modal -->
+    <div class="modal fade" id="playEditModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="playEditModalTitle">Edit Play</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="playEditForm">
+                        <input type="hidden" id="editPlayIndex" value="">
+                        
+                        <!-- Basic Play Info -->
+                        <div class="row mb-3">
+                            <div class="col-md-2">
+                                <label for="editPlayNumber" class="form-label">Play #</label>
+                                <input type="number" class="form-control" id="editPlayNumber" min="1" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="editPhase" class="form-label">Phase</label>
+                                <select class="form-select" id="editPhase" required onchange="updatePlayTypeOptions()">
+                                    <option value="">Select Phase</option>
+                                    <option value="offense">Offense</option>
+                                    <option value="defense">Defense</option>
+                                    <option value="special_teams">Special Teams</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="editDown" class="form-label">Down</label>
+                                <select class="form-select" id="editDown" required>
+                                    <option value="">Select Down</option>
+                                    <option value="1">1st Down</option>
+                                    <option value="2">2nd Down</option>
+                                    <option value="3">3rd Down</option>
+                                    <option value="4">4th Down</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="editDistance" class="form-label">Distance</label>
+                                <input type="number" class="form-control" id="editDistance" min="1" max="99" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editFieldPosition" class="form-label">Field Position</label>
+                                <input type="text" class="form-control" id="editFieldPosition" placeholder="e.g., Own 25, Opp 40" required>
+                            </div>
+                        </div>
+
+                        <!-- Play Details -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="editPlayType" class="form-label">Play Type</label>
+                                <select class="form-select" id="editPlayType" required>
+                                    <option value="">Select Play Type</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editPlayCall" class="form-label">Play Call</label>
+                                <input type="text" class="form-control" id="editPlayCall" placeholder="e.g., Inside Zone, Slant, Punt" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editYardsGained" class="form-label">Yards Gained</label>
+                                <input type="number" class="form-control" id="editYardsGained" step="0.1" required>
+                            </div>
+                        </div>
+
+                        <!-- Players Section -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Players Involved</label>
+                            <div id="editPlayersContainer">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Add players involved in this play. You can add multiple players with different roles.
+                                </div>
+                                <button type="button" class="btn btn-success btn-sm" onclick="addPlayerToEdit()">
+                                    <i class="fas fa-plus"></i> Add Player
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="savePlayEdit()">
+                        <i class="fas fa-save me-1"></i>Save Play
+                    </button>
                 </div>
             </div>
         </div>
