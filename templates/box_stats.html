@@ -3988,7 +3988,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    displayPlayCallAnalytics(data.play_call_analytics);
+                    displayPlayCallAnalytics(data);
                 } else {
                     showAlert('Error loading play call analytics: ' + data.error, 'danger');
                 }

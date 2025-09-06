@@ -1955,7 +1955,7 @@ def add_box_stats_play():
             
             # Calculate team efficiency and explosiveness for this play
             # For team calculation, pass None as player_data to check all players for turnovers
-            is_team_efficient = calculate_play_efficiency(play_data, yards_gained, None)
+            is_team_efficient = calculate_play_efficiency(play_data, yards_gained, None, current_phase)
             
             # Track passing vs rushing yards and advanced analytics
             play_type = data.get('play_type', '').lower()
@@ -2058,13 +2058,14 @@ def add_box_stats_play():
             overall_team_stats = box_stats['team_stats']['overall']
         
         # Update team rates for both phase-specific and overall stats
-        def update_team_rates(stats):
+        def update_team_rates(stats, phase='offense'):
+            """Helper function to update rates for team stats"""
             stats['efficiency_rate'] = round((stats['efficient_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
             stats['explosive_rate'] = round((stats['explosive_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
             stats['negative_rate'] = round((stats['negative_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
             stats['avg_yards_per_play'] = round(stats['total_yards'] / stats['total_plays'], 1) if stats['total_plays'] > 0 else 0.0
-            # Calculate NEE (Net Explosive Efficiency): Efficiency Rate + Explosive Rate - Negative Rate
-            stats['nee_score'] = round(stats['efficiency_rate'] + stats['explosive_rate'] - stats['negative_rate'], 1)
+            # Calculate NEE (Net Explosive Efficiency) with phase-specific logic
+            stats['nee_score'] = calculate_nee_score(stats['efficiency_rate'], stats['explosive_rate'], stats['negative_rate'], phase)
             
             # Calculate pass vs rush advanced analytics
             # Passing analytics
@@ -2074,7 +2075,7 @@ def add_box_stats_play():
                 stats['passing_explosive_rate'] = round((stats.get('passing_explosive_plays', 0) / passing_plays) * 100, 1)
                 stats['passing_negative_rate'] = round((stats.get('passing_negative_plays', 0) / passing_plays) * 100, 1)
                 stats['passing_avg_yards'] = round(stats.get('passing_yards', 0) / passing_plays, 1)
-                stats['passing_nee_score'] = round(stats['passing_efficiency_rate'] + stats['passing_explosive_rate'] - stats['passing_negative_rate'], 1)
+                stats['passing_nee_score'] = calculate_nee_score(stats['passing_efficiency_rate'], stats['passing_explosive_rate'], stats['passing_negative_rate'], phase)
             else:
                 stats['passing_efficiency_rate'] = 0.0
                 stats['passing_explosive_rate'] = 0.0
@@ -2089,7 +2090,7 @@ def add_box_stats_play():
                 stats['rushing_explosive_rate'] = round((stats.get('rushing_explosive_plays', 0) / rushing_plays) * 100, 1)
                 stats['rushing_negative_rate'] = round((stats.get('rushing_negative_plays', 0) / rushing_plays) * 100, 1)
                 stats['rushing_avg_yards'] = round(stats.get('rushing_yards', 0) / rushing_plays, 1)
-                stats['rushing_nee_score'] = round(stats['rushing_efficiency_rate'] + stats['rushing_explosive_rate'] - stats['rushing_negative_rate'], 1)
+                stats['rushing_nee_score'] = calculate_nee_score(stats['rushing_efficiency_rate'], stats['rushing_explosive_rate'], stats['rushing_negative_rate'], phase)
             else:
                 stats['rushing_efficiency_rate'] = 0.0
                 stats['rushing_explosive_rate'] = 0.0
@@ -2097,8 +2098,8 @@ def add_box_stats_play():
                 stats['rushing_avg_yards'] = 0.0
                 stats['rushing_nee_score'] = 0.0
         
-        update_team_rates(phase_team_stats)
-        update_team_rates(overall_team_stats)
+        update_team_rates(phase_team_stats, current_phase)
+        update_team_rates(overall_team_stats, 'overall')
         
         # Debug logging for team advanced analytics
         print(f"DEBUG TEAM ANALYTICS ({current_phase}): Total plays: {phase_team_stats['total_plays']}, Efficient plays: {phase_team_stats['efficient_plays']}, Explosive plays: {phase_team_stats['explosive_plays']}, Negative plays: {phase_team_stats['negative_plays']}")
@@ -2433,7 +2434,7 @@ def add_box_stats_play():
                     
                     # Calculate if play was efficient
                     # For individual player calculation, pass the player data to check only their turnover
-                    is_efficient = calculate_play_efficiency(play_data, yards_gained, player)
+                    is_efficient = calculate_play_efficiency(play_data, yards_gained, player, current_phase)
                     if is_efficient:
                         player_stats['efficient_plays'] += 1
                     
@@ -2452,8 +2453,8 @@ def add_box_stats_play():
                     player_stats['explosive_rate'] = round((player_stats['explosive_plays'] / player_stats['total_plays']) * 100, 1) if player_stats['total_plays'] > 0 else 0.0
                     player_stats['negative_rate'] = round((player_stats['negative_plays'] / player_stats['total_plays']) * 100, 1) if player_stats['total_plays'] > 0 else 0.0
                     
-                    # Calculate NEE (Net Explosive Efficiency): Efficiency Rate + Explosive Rate - Negative Rate
-                    player_stats['nee_score'] = round(player_stats['efficiency_rate'] + player_stats['explosive_rate'] - player_stats['negative_rate'], 1)
+                    # Calculate NEE (Net Explosive Efficiency) with phase-specific logic
+                    player_stats['nee_score'] = calculate_nee_score(player_stats['efficiency_rate'], player_stats['explosive_rate'], player_stats['negative_rate'], current_phase)
                     
                     # Record progression data (play number and various metrics)
                     current_play_number = len(box_stats['plays']) + 1
@@ -2561,47 +2562,87 @@ def add_box_stats_play():
     except Exception as e:
         return jsonify({'error': f'Error adding play: {str(e)}'}), 500
 
-def calculate_play_efficiency(play_data, yards_gained, player_data=None):
+def calculate_play_efficiency(play_data, yards_gained, player_data=None, phase='offense'):
     """
     Calculate if a play was efficient based on down and distance
+    
+    OFFENSE:
     - 1st Down: ≥4 yards gained = efficient
     - 2nd Down: Yards to go cut in half or more = efficient  
     - 3rd/4th Down: Conversion achieved = efficient
-    - NOTE: For individual players, only their own turnover negates efficiency
-    - NOTE: For team-level, any turnover on the play negates efficiency
+    
+    DEFENSE (opposite logic):
+    - 1st Down: <4 yards allowed = efficient
+    - 2nd Down: Yards to go NOT cut in half = efficient
+    - 3rd/4th Down: Conversion prevented = efficient
+    
+    - NOTE: For individual players, only their own turnover affects efficiency
+    - NOTE: For team-level, any turnover on the play affects efficiency
     """
     try:
-        # If player_data is provided, check only that player's turnover
-        # If player_data is None, this is for team-level calculation - check all players
+        # Handle turnover logic based on phase
         if player_data is not None:
             # Individual player calculation - only their own turnover matters
-            if player_data.get('fumble', False) or player_data.get('interception', False):
-                return False
+            player_turnover = player_data.get('fumble', False) or player_data.get('interception', False)
+            if phase == 'offense' and player_turnover:
+                return False  # Offensive turnover negates efficiency
+            elif phase == 'defense' and player_turnover:
+                return True   # Defensive turnover (forced) is always efficient
         else:
-            # Team-level calculation - any turnover on the play negates efficiency
+            # Team-level calculation - any turnover on the play affects efficiency
             players_involved = play_data.get('players_involved', [])
-            for player in players_involved:
-                if player.get('fumble', False) or player.get('interception', False):
-                    return False
+            team_turnover = any(player.get('fumble', False) or player.get('interception', False) 
+                             for player in players_involved)
+            if phase == 'offense' and team_turnover:
+                return False  # Offensive turnover negates efficiency
+            elif phase == 'defense' and team_turnover:
+                return True   # Defensive turnover (forced) is always efficient
         
         current_down = int(play_data.get('down', 1))
         current_distance = int(play_data.get('distance', 10))
         yards_gained = int(yards_gained)
         
-        if current_down == 1:
-            # 1st down: efficient if 4+ yards gained
-            return yards_gained >= 4
-        elif current_down == 2:
-            # 2nd down: efficient if yards to go cut in half or more
-            return yards_gained >= (current_distance / 2)
-        elif current_down in [3, 4]:
-            # 3rd/4th down: efficient if converted (gained enough for first down)
-            return yards_gained >= current_distance
+        if phase == 'defense':
+            # Defensive efficiency logic (opposite of offense)
+            if current_down == 1:
+                # 1st down: efficient if less than 4 yards allowed
+                return yards_gained < 4
+            elif current_down == 2:
+                # 2nd down: efficient if yards to go NOT cut in half
+                return yards_gained < (current_distance / 2)
+            elif current_down in [3, 4]:
+                # 3rd/4th down: efficient if conversion prevented
+                return yards_gained < current_distance
+            else:
+                return False
         else:
-            return False
+            # Offensive efficiency logic (original)
+            if current_down == 1:
+                # 1st down: efficient if 4+ yards gained
+                return yards_gained >= 4
+            elif current_down == 2:
+                # 2nd down: efficient if yards to go cut in half or more
+                return yards_gained >= (current_distance / 2)
+            elif current_down in [3, 4]:
+                # 3rd/4th down: efficient if converted (gained enough for first down)
+                return yards_gained >= current_distance
+            else:
+                return False
             
     except (ValueError, TypeError):
         return False
+
+def calculate_nee_score(efficiency_rate, explosive_rate, negative_rate, phase='offense'):
+    """
+    Calculate NEE (Net Explosive Efficiency) score based on phase
+    
+    OFFENSE: NEE = Efficiency Rate + Explosive Rate - Negative Rate
+    DEFENSE: NEE = Efficiency Rate + Negative Rate - Explosive Rate
+    """
+    if phase == 'defense':
+        return round(efficiency_rate + negative_rate - explosive_rate, 1)
+    else:
+        return round(efficiency_rate + explosive_rate - negative_rate, 1)
 
 def calculate_play_explosiveness(role, yards_gained, player_data=None):
     """
@@ -5234,16 +5275,16 @@ class PDFExporter:
                         story.append(Paragraph(phase_title, self.heading_style))
                         story.append(Spacer(1, 6))
                         
-                        self._add_play_call_table(story, phase_stats)
+                        self._add_play_call_table(story, phase_stats, phase)
                         story.append(Spacer(1, 12))
             else:
                 # Old format - treat as offense for backward compatibility
                 story.append(Paragraph("Play Call Performance", self.heading_style))
-                self._add_play_call_table(story, play_call_stats)
+                self._add_play_call_table(story, play_call_stats, 'offense')
         else:
             story.append(Paragraph("No play call data available", self.normal_style))
     
-    def _add_play_call_table(self, story, play_call_stats):
+    def _add_play_call_table(self, story, play_call_stats, phase='offense'):
         """Helper method to add a play call analytics table to the PDF"""
         headers = ['Play Call', 'Count', 'Total Yards', 'Avg Yards', 'Efficiency %', 'Explosive %', 'NEE Score', 'TDs']
         data = [headers]
@@ -5261,7 +5302,7 @@ class PDFExporter:
             efficiency_rate = (efficient_plays / count * 100) if count > 0 else 0
             explosive_rate = (explosive_plays / count * 100) if count > 0 else 0
             negative_rate = (negative_plays / count * 100) if count > 0 else 0
-            nee_score = efficiency_rate + explosive_rate - negative_rate
+            nee_score = calculate_nee_score(efficiency_rate, explosive_rate, negative_rate, phase)
             
             row = [
                 play_call,
