@@ -4393,8 +4393,14 @@ def edit_play():
         if play_index is None or play_data is None:
             return jsonify({'success': False, 'error': 'Missing play index or play data'})
         
-        # Load current box stats
-        box_stats = load_box_stats_data(session['username'])
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'success': False, 'error': 'No active session found'})
+        
+        # Load current box stats from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {'plays': []})
         
         # Validate play index
         if play_index < 0 or play_index >= len(box_stats.get('plays', [])):
@@ -4409,8 +4415,9 @@ def edit_play():
         # Recalculate all stats since play data changed
         recalculate_all_stats(box_stats)
         
-        # Save updated box stats
-        save_box_stats_data(session['username'], box_stats)
+        # Save updated box stats to server-side storage
+        box_stats_data['box_stats'] = box_stats
+        server_session.save_session_data(session_id, box_stats_data)
         
         return jsonify({
             'success': True, 
@@ -4432,8 +4439,14 @@ def delete_play():
         if play_index is None:
             return jsonify({'success': False, 'error': 'Missing play index'})
         
-        # Load current box stats
-        box_stats = load_box_stats_data(session['username'])
+        # Get server-side session ID
+        session_id = session.get('server_session_id')
+        if not session_id:
+            return jsonify({'success': False, 'error': 'No active session found'})
+        
+        # Load current box stats from server-side storage
+        box_stats_data = server_session.load_session_data(session_id)
+        box_stats = box_stats_data.get('box_stats', {'plays': []})
         
         # Validate play index
         if play_index < 0 or play_index >= len(box_stats.get('plays', [])):
@@ -4445,8 +4458,9 @@ def delete_play():
         # Recalculate all stats since play was removed
         recalculate_all_stats(box_stats)
         
-        # Save updated box stats
-        save_box_stats_data(session['username'], box_stats)
+        # Save updated box stats to server-side storage
+        box_stats_data['box_stats'] = box_stats
+        server_session.save_session_data(session_id, box_stats_data)
         
         return jsonify({
             'success': True, 
@@ -4532,12 +4546,263 @@ def recalculate_all_stats(box_stats):
             'special_teams': {}
         }
         
-        # Reprocess all plays
-        for play in box_stats.get('plays', []):
-            # Simulate adding each play to recalculate stats
-            update_team_stats(box_stats, play)
-            update_player_stats(box_stats, play)
-            update_play_call_analytics(box_stats, play)
+        # Reprocess all plays using the same logic as add_box_stats_play
+        for play_index, play in enumerate(box_stats.get('plays', [])):
+            # Recalculate team stats for this play
+            if play.get('play_type') != 'penalty':
+                yards_gained = int(play.get('yards_gained', 0))
+                current_phase = play.get('phase', 'offense').lower()
+                if current_phase not in ['offense', 'defense', 'special_teams']:
+                    current_phase = 'offense'
+                
+                # Get phase-specific team stats
+                phase_team_stats = box_stats['team_stats'][current_phase]
+                overall_team_stats = box_stats['team_stats']['overall']
+                
+                # Update basic team stats
+                phase_team_stats['total_plays'] += 1
+                phase_team_stats['total_yards'] += yards_gained
+                overall_team_stats['total_plays'] += 1
+                overall_team_stats['total_yards'] += yards_gained
+                
+                # Calculate efficiency and explosiveness
+                is_team_efficient = calculate_play_efficiency(play, yards_gained, None, current_phase)
+                
+                # Track passing vs rushing
+                play_type = play.get('play_type', '').lower()
+                if play_type == 'pass':
+                    phase_team_stats['passing_yards'] = phase_team_stats.get('passing_yards', 0) + yards_gained
+                    phase_team_stats['passing_plays'] = phase_team_stats.get('passing_plays', 0) + 1
+                    overall_team_stats['passing_yards'] = overall_team_stats.get('passing_yards', 0) + yards_gained
+                    overall_team_stats['passing_plays'] = overall_team_stats.get('passing_plays', 0) + 1
+                    
+                    if is_team_efficient:
+                        phase_team_stats['passing_efficient_plays'] = phase_team_stats.get('passing_efficient_plays', 0) + 1
+                        overall_team_stats['passing_efficient_plays'] = overall_team_stats.get('passing_efficient_plays', 0) + 1
+                        
+                elif play_type == 'rush':
+                    phase_team_stats['rushing_yards'] = phase_team_stats.get('rushing_yards', 0) + yards_gained
+                    phase_team_stats['rushing_plays'] = phase_team_stats.get('rushing_plays', 0) + 1
+                    overall_team_stats['rushing_yards'] = overall_team_stats.get('rushing_yards', 0) + yards_gained
+                    overall_team_stats['rushing_plays'] = overall_team_stats.get('rushing_plays', 0) + 1
+                    
+                    if is_team_efficient:
+                        phase_team_stats['rushing_efficient_plays'] = phase_team_stats.get('rushing_efficient_plays', 0) + 1
+                        overall_team_stats['rushing_efficient_plays'] = overall_team_stats.get('rushing_efficient_plays', 0) + 1
+                
+                if is_team_efficient:
+                    phase_team_stats['efficient_plays'] += 1
+                    overall_team_stats['efficient_plays'] += 1
+                
+                # Calculate explosive and negative plays
+                team_explosive_this_play = False
+                team_negative_this_play = False
+                
+                # Check for turnovers
+                play_has_turnover = False
+                for player in play.get('players_involved', []):
+                    if player.get('fumble', False) or player.get('interception', False):
+                        play_has_turnover = True
+                        break
+                
+                # Process each player
+                for player in play.get('players_involved', []):
+                    role = str(player.get('role', ''))
+                    
+                    # Team explosive calculation
+                    if not play_has_turnover and calculate_play_explosiveness(role, yards_gained, player):
+                        team_explosive_this_play = True
+                        
+                    if calculate_play_negativeness(play, yards_gained, player):
+                        team_negative_this_play = True
+                    
+                    # Update team-level special stats
+                    if player.get('touchdown', False):
+                        phase_team_stats['touchdowns'] += 1
+                        overall_team_stats['touchdowns'] += 1
+                    if player.get('interception', False):
+                        phase_team_stats['interceptions'] += 1
+                        phase_team_stats['turnovers'] += 1
+                        overall_team_stats['interceptions'] += 1
+                        overall_team_stats['turnovers'] += 1
+                    if player.get('fumble', False):
+                        phase_team_stats['turnovers'] += 1
+                        overall_team_stats['turnovers'] += 1
+                
+                if team_explosive_this_play:
+                    phase_team_stats['explosive_plays'] += 1
+                    overall_team_stats['explosive_plays'] += 1
+                    
+                    if play_type == 'pass':
+                        phase_team_stats['passing_explosive_plays'] = phase_team_stats.get('passing_explosive_plays', 0) + 1
+                        overall_team_stats['passing_explosive_plays'] = overall_team_stats.get('passing_explosive_plays', 0) + 1
+                    elif play_type == 'rush':
+                        phase_team_stats['rushing_explosive_plays'] = phase_team_stats.get('rushing_explosive_plays', 0) + 1
+                        overall_team_stats['rushing_explosive_plays'] = overall_team_stats.get('rushing_explosive_plays', 0) + 1
+                
+                if team_negative_this_play:
+                    phase_team_stats['negative_plays'] += 1
+                    overall_team_stats['negative_plays'] += 1
+                    
+                    if play_type == 'pass':
+                        phase_team_stats['passing_negative_plays'] = phase_team_stats.get('passing_negative_plays', 0) + 1
+                        overall_team_stats['passing_negative_plays'] = overall_team_stats.get('passing_negative_plays', 0) + 1
+                    elif play_type == 'rush':
+                        phase_team_stats['rushing_negative_plays'] = phase_team_stats.get('rushing_negative_plays', 0) + 1
+                        overall_team_stats['rushing_negative_plays'] = overall_team_stats.get('rushing_negative_plays', 0) + 1
+            
+            # Recalculate player stats for this play
+            for player in play.get('players_involved', []):
+                player_key = f"{player.get('name', 'Unknown')}_{player.get('number', 0)}"
+                
+                if player_key not in box_stats['players']:
+                    box_stats['players'][player_key] = {
+                        'name': player.get('name', 'Unknown'),
+                        'number': player.get('number', 0),
+                        'total_plays': 0,
+                        'rushing_yards': 0,
+                        'passing_yards': 0,
+                        'receiving_yards': 0,
+                        'touchdowns': 0,
+                        'fumbles': 0,
+                        'interceptions': 0,
+                        'first_downs': 0,
+                        'efficient_plays': 0,
+                        'explosive_plays': 0,
+                        'negative_plays': 0,
+                        'efficiency_rate': 0.0,
+                        'explosive_rate': 0.0,
+                        'negative_rate': 0.0,
+                        'nee_score': 0.0
+                    }
+                
+                player_stats = box_stats['players'][player_key]
+                role = player.get('role', '')
+                yards_gained = int(play.get('yards_gained', 0))
+                
+                # Update player stats based on role
+                player_stats['total_plays'] += 1
+                
+                if role == 'ball_carrier':
+                    player_stats['rushing_yards'] += yards_gained
+                elif role == 'passer':
+                    player_stats['passing_yards'] += yards_gained
+                elif role == 'receiver':
+                    player_stats['receiving_yards'] += yards_gained
+                
+                # Update special stats
+                if player.get('touchdown', False):
+                    player_stats['touchdowns'] += 1
+                if player.get('fumble', False):
+                    player_stats['fumbles'] += 1
+                if player.get('interception', False):
+                    player_stats['interceptions'] += 1
+                if player.get('first_down', False):
+                    player_stats['first_downs'] += 1
+                
+                # Calculate efficiency, explosiveness, and negativeness
+                current_phase = play.get('phase', 'offense').lower()
+                is_efficient = calculate_play_efficiency(play, yards_gained, player, current_phase)
+                if is_efficient:
+                    player_stats['efficient_plays'] += 1
+                
+                is_explosive = calculate_play_explosiveness(role, yards_gained, player)
+                if is_explosive:
+                    player_stats['explosive_plays'] += 1
+                
+                is_negative = calculate_play_negativeness(play, yards_gained, player)
+                if is_negative:
+                    player_stats['negative_plays'] += 1
+                
+                # Update rates
+                player_stats['efficiency_rate'] = round((player_stats['efficient_plays'] / player_stats['total_plays']) * 100, 1) if player_stats['total_plays'] > 0 else 0.0
+                player_stats['explosive_rate'] = round((player_stats['explosive_plays'] / player_stats['total_plays']) * 100, 1) if player_stats['total_plays'] > 0 else 0.0
+                player_stats['negative_rate'] = round((player_stats['negative_plays'] / player_stats['total_plays']) * 100, 1) if player_stats['total_plays'] > 0 else 0.0
+                player_stats['nee_score'] = calculate_nee_score(player_stats['efficiency_rate'], player_stats['explosive_rate'], player_stats['negative_rate'], current_phase)
+            
+            # Recalculate play call analytics
+            current_phase = play.get('phase', 'offense').lower()
+            if current_phase not in ['offense', 'defense', 'special_teams']:
+                current_phase = 'offense'
+            
+            play_call = play.get('play_call', 'Unknown')
+            if play_call not in box_stats['play_call_stats'][current_phase]:
+                box_stats['play_call_stats'][current_phase][play_call] = {
+                    'count': 0,
+                    'total_yards': 0,
+                    'efficient_plays': 0,
+                    'explosive_plays': 0,
+                    'negative_plays': 0,
+                    'touchdowns': 0
+                }
+            
+            play_call_data = box_stats['play_call_stats'][current_phase][play_call]
+            play_call_data['count'] += 1
+            play_call_data['total_yards'] += int(play.get('yards_gained', 0))
+            
+            # Check if play was efficient/explosive/negative for any player
+            yards_gained = int(play.get('yards_gained', 0))
+            for player in play.get('players_involved', []):
+                if calculate_play_efficiency(play, yards_gained, player, current_phase):
+                    play_call_data['efficient_plays'] += 1
+                    break
+            
+            for player in play.get('players_involved', []):
+                if calculate_play_explosiveness(player.get('role', ''), yards_gained, player):
+                    play_call_data['explosive_plays'] += 1
+                    break
+            
+            for player in play.get('players_involved', []):
+                if calculate_play_negativeness(play, yards_gained, player):
+                    play_call_data['negative_plays'] += 1
+                    break
+            
+            # Count touchdowns
+            for player in play.get('players_involved', []):
+                if player.get('touchdown', False):
+                    play_call_data['touchdowns'] += 1
+        
+        # Update team rates after recalculating all plays
+        def update_team_rates(stats, phase='offense'):
+            stats['efficiency_rate'] = round((stats['efficient_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
+            stats['explosive_rate'] = round((stats['explosive_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
+            stats['negative_rate'] = round((stats['negative_plays'] / stats['total_plays']) * 100, 1) if stats['total_plays'] > 0 else 0.0
+            stats['avg_yards_per_play'] = round(stats['total_yards'] / stats['total_plays'], 1) if stats['total_plays'] > 0 else 0.0
+            stats['nee_score'] = calculate_nee_score(stats['efficiency_rate'], stats['explosive_rate'], stats['negative_rate'], phase)
+            
+            # Update passing/rushing rates
+            passing_plays = stats.get('passing_plays', 0)
+            if passing_plays > 0:
+                stats['passing_efficiency_rate'] = round((stats.get('passing_efficient_plays', 0) / passing_plays) * 100, 1)
+                stats['passing_explosive_rate'] = round((stats.get('passing_explosive_plays', 0) / passing_plays) * 100, 1)
+                stats['passing_negative_rate'] = round((stats.get('passing_negative_plays', 0) / passing_plays) * 100, 1)
+                stats['passing_avg_yards'] = round(stats.get('passing_yards', 0) / passing_plays, 1)
+                stats['passing_nee_score'] = calculate_nee_score(stats['passing_efficiency_rate'], stats['passing_explosive_rate'], stats['passing_negative_rate'], phase)
+            else:
+                stats['passing_efficiency_rate'] = 0.0
+                stats['passing_explosive_rate'] = 0.0
+                stats['passing_negative_rate'] = 0.0
+                stats['passing_avg_yards'] = 0.0
+                stats['passing_nee_score'] = 0.0
+            
+            rushing_plays = stats.get('rushing_plays', 0)
+            if rushing_plays > 0:
+                stats['rushing_efficiency_rate'] = round((stats.get('rushing_efficient_plays', 0) / rushing_plays) * 100, 1)
+                stats['rushing_explosive_rate'] = round((stats.get('rushing_explosive_plays', 0) / rushing_plays) * 100, 1)
+                stats['rushing_negative_rate'] = round((stats.get('rushing_negative_plays', 0) / rushing_plays) * 100, 1)
+                stats['rushing_avg_yards'] = round(stats.get('rushing_yards', 0) / rushing_plays, 1)
+                stats['rushing_nee_score'] = calculate_nee_score(stats['rushing_efficiency_rate'], stats['rushing_explosive_rate'], stats['rushing_negative_rate'], phase)
+            else:
+                stats['rushing_efficiency_rate'] = 0.0
+                stats['rushing_explosive_rate'] = 0.0
+                stats['rushing_negative_rate'] = 0.0
+                stats['rushing_avg_yards'] = 0.0
+                stats['rushing_nee_score'] = 0.0
+        
+        update_team_rates(box_stats['team_stats']['offense'], 'offense')
+        update_team_rates(box_stats['team_stats']['defense'], 'defense')
+        update_team_rates(box_stats['team_stats']['special_teams'], 'special_teams')
+        update_team_rates(box_stats['team_stats']['overall'], 'overall')
         
         print(f"Recalculated stats for {len(box_stats.get('plays', []))} plays")
         
