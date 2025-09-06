@@ -1454,6 +1454,14 @@
             
             playerDiv.innerHTML = `
                 <div class="row">
+                    <div class="col-md-12 mb-2">
+                        <label class="form-label">Select from Roster</label>
+                        <select class="form-select" onchange="populatePlayerFromRosterRegular(this, 'player-${playerInputCount}')">
+                            <option value="">Select a player from roster or enter manually</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
                     <div class="col-md-2">
                         <label class="form-label">Player #</label>
                         <input type="number" class="form-control player-number" min="0" max="99" required>
@@ -1501,6 +1509,9 @@
             `;
             
             container.appendChild(playerDiv);
+            
+            // Populate roster dropdown for this player
+            populateRosterDropdownRegular(`player-${playerInputCount}`);
         }
 
         // Remove player input group
@@ -4827,6 +4838,14 @@
             
             playerDiv.innerHTML = `
                 <div class="row">
+                    <div class="col-md-12 mb-2">
+                        <label class="form-label">Select from Roster</label>
+                        <select class="form-select" onchange="populatePlayerFromRoster(this, 'editPlayer${editPlayerCounter}')">
+                            <option value="">Select a player from roster or enter manually</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
                     <div class="col-md-3">
                         <label class="form-label">Player Name</label>
                         <input type="text" class="form-control" name="playerName" value="${existingPlayer?.name || ''}" required>
@@ -4881,12 +4900,125 @@
             `;
             
             playersContainer.appendChild(playerDiv);
+            
+            // Populate roster dropdown for this player
+            populateRosterDropdown(`editPlayer${editPlayerCounter}`);
         }
 
         function removePlayerFromEdit(playerId) {
             const playerDiv = document.getElementById(playerId);
             if (playerDiv) {
                 playerDiv.remove();
+            }
+        }
+
+        function populateRosterDropdown(playerDivId) {
+            const playerDiv = document.getElementById(playerDivId);
+            if (!playerDiv) return;
+            
+            const rosterSelect = playerDiv.querySelector('select');
+            if (!rosterSelect) return;
+            
+            // Clear existing options except the first one
+            rosterSelect.innerHTML = '<option value="">Select a player from roster or enter manually</option>';
+            
+            // Add players from current roster (playerProfiles)
+            if (playerProfiles && Object.keys(playerProfiles).length > 0) {
+                Object.values(playerProfiles).forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify({
+                        name: player.name,
+                        number: player.number,
+                        position: player.position
+                    });
+                    option.textContent = `#${player.number} ${player.name} (${player.position})`;
+                    rosterSelect.appendChild(option);
+                });
+            } else {
+                // If no roster is loaded, show a message
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No roster loaded - Load a roster first or enter manually';
+                option.disabled = true;
+                rosterSelect.appendChild(option);
+            }
+        }
+
+        function populatePlayerFromRoster(selectElement, playerDivId) {
+            const playerDiv = document.getElementById(playerDivId);
+            if (!playerDiv || !selectElement.value) return;
+            
+            try {
+                const playerData = JSON.parse(selectElement.value);
+                
+                // Populate the form fields
+                const nameInput = playerDiv.querySelector('input[name="playerName"]');
+                const numberInput = playerDiv.querySelector('input[name="playerNumber"]');
+                
+                if (nameInput) nameInput.value = playerData.name || '';
+                if (numberInput) numberInput.value = playerData.number || '';
+                
+                // You could also set a default role based on position if needed
+                // const roleSelect = playerDiv.querySelector('select[name="playerRole"]');
+                // if (roleSelect && playerData.position) {
+                //     // Map positions to roles if desired
+                // }
+                
+            } catch (error) {
+                console.error('Error parsing player data:', error);
+            }
+        }
+
+        function populateRosterDropdownRegular(playerDivId) {
+            const playerDiv = document.getElementById(playerDivId);
+            if (!playerDiv) return;
+            
+            const rosterSelect = playerDiv.querySelector('select');
+            if (!rosterSelect) return;
+            
+            // Clear existing options except the first one
+            rosterSelect.innerHTML = '<option value="">Select a player from roster or enter manually</option>';
+            
+            // Add players from current roster (playerProfiles)
+            if (playerProfiles && Object.keys(playerProfiles).length > 0) {
+                Object.values(playerProfiles).forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify({
+                        name: player.name,
+                        number: player.number,
+                        position: player.position
+                    });
+                    option.textContent = `#${player.number} ${player.name} (${player.position})`;
+                    rosterSelect.appendChild(option);
+                });
+            } else {
+                // If no roster is loaded, show a message
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No roster loaded - Load a roster first or enter manually';
+                option.disabled = true;
+                rosterSelect.appendChild(option);
+            }
+        }
+
+        function populatePlayerFromRosterRegular(selectElement, playerDivId) {
+            const playerDiv = document.getElementById(playerDivId);
+            if (!playerDiv || !selectElement.value) return;
+            
+            try {
+                const playerData = JSON.parse(selectElement.value);
+                
+                // Populate the form fields for regular play entry
+                const nameInput = playerDiv.querySelector('.player-name');
+                const numberInput = playerDiv.querySelector('.player-number');
+                const positionInput = playerDiv.querySelector('.player-position');
+                
+                if (nameInput) nameInput.value = playerData.name || '';
+                if (numberInput) numberInput.value = playerData.number || '';
+                if (positionInput) positionInput.value = playerData.position || '';
+                
+            } catch (error) {
+                console.error('Error parsing player data:', error);
             }
         }
 
