@@ -2002,10 +2002,10 @@ def add_box_stats_play():
                 role = str(player.get('role', ''))
                 
                 # For team explosive calculation, don't count as explosive if ANY player on play has turnover
-                if not play_has_turnover and calculate_play_explosiveness(role, yards_gained, player):
+                if not play_has_turnover and calculate_play_explosiveness(role, yards_gained, player, current_phase):
                     team_explosive_this_play = True
                     
-                if calculate_play_negativeness(play_data, yards_gained, player):
+                if calculate_play_negativeness(play_data, yards_gained, player, current_phase):
                     team_negative_this_play = True
                 
                 # Update team-level special stats
@@ -2440,12 +2440,12 @@ def add_box_stats_play():
                         player_stats['efficient_plays'] += 1
                     
                     # Calculate if play was explosive
-                    is_explosive = calculate_play_explosiveness(role, yards_gained, player)
+                    is_explosive = calculate_play_explosiveness(role, yards_gained, player, current_phase)
                     if is_explosive:
                         player_stats['explosive_plays'] += 1
                     
                     # Calculate if play was negative
-                    is_negative = calculate_play_negativeness(play_data, yards_gained, player)
+                    is_negative = calculate_play_negativeness(play_data, yards_gained, player, current_phase)
                     if is_negative:
                         player_stats['negative_plays'] += 1
                     
@@ -2645,43 +2645,72 @@ def calculate_nee_score(efficiency_rate, explosive_rate, negative_rate, phase='o
     else:
         return round(efficiency_rate + explosive_rate - negative_rate, 1)
 
-def calculate_play_explosiveness(role, yards_gained, player_data=None):
+def calculate_play_explosiveness(role, yards_gained, player_data=None, phase='offense'):
     """
     Calculate if a play was explosive
-    - Rushing plays: ≥10 yards = explosive
-    - Passing plays: ≥15 yards = explosive
-    - NOTE: If play ends with a turnover (fumble/interception), it is NOT explosive regardless of yardage
+    - For OFFENSE: Rushing ≥10 yards, Passing ≥15 yards = explosive
+    - For DEFENSE: Rushing ≤2 yards, Passing ≤5 yards = explosive (defensive success)
+    - NOTE: If play ends with a turnover (fumble/interception), it is NOT explosive for offense but IS explosive for defense
     """
     try:
-        # First check if this player had a turnover - if so, not explosive
-        if player_data and (player_data.get('fumble', False) or player_data.get('interception', False)):
-            return False
-            
         yards_gained = int(yards_gained)
         
-        if role == 'rusher':
-            return yards_gained >= 10
-        elif role in ['receiver', 'passer']:
-            return yards_gained >= 15
+        # Handle turnovers based on phase
+        if player_data and (player_data.get('fumble', False) or player_data.get('interception', False)):
+            if phase == 'defense':
+                return True  # Turnovers are explosive for defense
+            else:
+                return False  # Turnovers are not explosive for offense
+        
+        if phase == 'defense':
+            # For defense, explosive means limiting offensive gains
+            if role == 'rusher':
+                return yards_gained <= 2  # Stopped for minimal gain
+            elif role in ['receiver', 'passer']:
+                return yards_gained <= 5  # Limited passing gain
+            else:
+                return False
         else:
+            # For offense, explosive means big gains
+            if role == 'rusher':
+                return yards_gained >= 10
+            elif role in ['receiver', 'passer']:
+                return yards_gained >= 15
+            else:
+                return False
+                
+    except (ValueError, TypeError):
+        return False
+
+def calculate_play_negativeness(play_data, yards_gained, player, phase='offense'):
+    """
+    Calculate if a play was negative
+    - For OFFENSE: fumble, interception, or negative yards = negative
+    - For DEFENSE: allowing big gains or giving up touchdowns = negative
+    """
+    try:
+        yards_gained = int(yards_gained)
+        
+        if phase == 'defense':
+            # For defense, negative means allowing big offensive gains
+            role = player.get('role', '')
+            if role == 'rusher' and yards_gained >= 15:  # Allowed big rushing gain
+                return True
+            elif role in ['receiver', 'passer'] and yards_gained >= 25:  # Allowed big passing gain
+                return True
+            elif player.get('touchdown', False):  # Allowed touchdown
+                return True
+            return False
+        else:
+            # For offense, negative means turnovers or negative yards
+            if player.get('fumble', False) or player.get('interception', False):
+                return True
+            if yards_gained < 0:
+                return True
             return False
             
     except (ValueError, TypeError):
         return False
-
-def calculate_play_negativeness(play_data, yards_gained, player):
-    """
-    Calculate if a play was negative (fumble, interception, or negative yards)
-    """
-    # Check for turnovers
-    if player.get('fumble', False) or player.get('interception', False):
-        return True
-    
-    # Check for negative yards
-    if yards_gained < 0:
-        return True
-    
-    return False
 
 def get_saved_games_dir():
     """Get the directory for saved games"""
@@ -3490,7 +3519,7 @@ def get_down_analytics():
             if not play_has_turnover:
                 for player in play.get('players_involved', []):
                     role = str(player.get('role', ''))
-                    if calculate_play_explosiveness(role, yards_gained, player):
+                    if calculate_play_explosiveness(role, yards_gained, player, phase):
                         down_stats['explosive_plays'] += 1
                         if play_type == 'pass':
                             down_stats['passing_explosive'] += 1
@@ -3500,7 +3529,7 @@ def get_down_analytics():
             
             # Check for negative plays
             for player in play.get('players_involved', []):
-                if calculate_play_negativeness(play, yards_gained, player):
+                if calculate_play_negativeness(play, yards_gained, player, phase):
                     down_stats['negative_plays'] += 1
                     if play_type == 'pass':
                         down_stats['passing_negative'] += 1
@@ -4771,10 +4800,10 @@ def recalculate_all_stats(box_stats):
                     role = str(player.get('role', ''))
                     
                     # Team explosive calculation
-                    if not play_has_turnover and calculate_play_explosiveness(role, yards_gained, player):
+                    if not play_has_turnover and calculate_play_explosiveness(role, yards_gained, player, current_phase):
                         team_explosive_this_play = True
                         
-                    if calculate_play_negativeness(play, yards_gained, player):
+                    if calculate_play_negativeness(play, yards_gained, player, current_phase):
                         team_negative_this_play = True
                     
                     # Update team-level special stats
@@ -4867,11 +4896,11 @@ def recalculate_all_stats(box_stats):
                 if is_efficient:
                     player_stats['efficient_plays'] += 1
                 
-                is_explosive = calculate_play_explosiveness(role, yards_gained, player)
+                is_explosive = calculate_play_explosiveness(role, yards_gained, player, current_phase)
                 if is_explosive:
                     player_stats['explosive_plays'] += 1
                 
-                is_negative = calculate_play_negativeness(play, yards_gained, player)
+                is_negative = calculate_play_negativeness(play, yards_gained, player, current_phase)
                 if is_negative:
                     player_stats['negative_plays'] += 1
                 
@@ -4909,12 +4938,12 @@ def recalculate_all_stats(box_stats):
                     break
             
             for player in play.get('players_involved', []):
-                if calculate_play_explosiveness(player.get('role', ''), yards_gained, player):
+                if calculate_play_explosiveness(player.get('role', ''), yards_gained, player, current_phase):
                     play_call_data['explosive_plays'] += 1
                     break
             
             for player in play.get('players_involved', []):
-                if calculate_play_negativeness(play, yards_gained, player):
+                if calculate_play_negativeness(play, yards_gained, player, current_phase):
                     play_call_data['negative_plays'] += 1
                     break
             
