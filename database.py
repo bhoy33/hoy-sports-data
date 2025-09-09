@@ -390,3 +390,6 @@ class DatabaseManager:
             print(f"Error cleaning up old sessions: {e}")
             db.session.rollback()
             return 0
+
+# Global database manager instance
+db_manager = DatabaseManager()

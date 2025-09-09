@@ -20,7 +20,8 @@ from reportlab.lib import colors
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
-from database import DatabaseManager, db
+from database import db_manager
+from data_backup_system import backup_system, backup_all_user_data
 
 # Configure Altair to use inline data for web serving
 alt.data_transformers.disable_max_rows()
@@ -47,29 +48,26 @@ class ServerSideSession:
         return os.path.join(subdir, f"{session_id}.pkl")
     
     def save_session_data(self, session_id, data):
-        """Save session data with database primary and file fallback"""
+        """Save session data with comprehensive backup system"""
         if not session_id:
             return False
-            
-        # Get username from Flask session if available
-        from flask import session as flask_session
-        username = flask_session.get('username', 'unknown') if flask_session else 'unknown'
         
-        # Try database first - this is critical for persistence
-        if self.use_database:
-            try:
-                if db_manager.save_session_data(session_id, username, data):
-                    print(f"✓ Session saved to database for {username}")
-                    # Also save to file as backup only if database succeeds
-                    self._save_to_file(session_id, data)
-                    return True
-                else:
-                    print(f"❌ Database save failed for {username}, trying file fallback")
-            except Exception as e:
-                print(f"❌ Database save exception for {username}: {e}")
+        username = data.get('username', 'unknown')
         
-        # Fallback to file storage (but this won't persist on Railway)
-        print(f"⚠️  Using file fallback for {username} - data may not persist across deployments")
+        # Use comprehensive backup system for maximum data protection
+        try:
+            backup_success = backup_system.backup_session_data(session_id, username, data)
+            if backup_success:
+                print(f"✓ Session comprehensively backed up for {username}")
+                # Also save to original file location for compatibility
+                self._save_to_file(session_id, data)
+                return True
+            else:
+                print(f"❌ Comprehensive backup failed for {username}, trying fallback")
+        except Exception as e:
+            print(f"❌ Backup system error for {username}: {e}")
+        
+        # Final fallback to original file storage
         return self._save_to_file(session_id, data)
     
     def _save_to_file(self, session_id, data):
@@ -193,31 +191,74 @@ app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request size
 
 # Initialize database and server-side session storage
+from database import DatabaseManager
 db_manager = DatabaseManager(app)
 server_session = ServerSideSession()
 
 # Add health check endpoint for Railway
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Railway deployment"""
+    """Health check endpoint for Railway"""
     try:
-        # Check database connection
-        db_healthy = db_manager.verify_database_connection()
+        # Test database connection
+        db_connected = db_manager.test_connection()
         
-        health_status = {
-            'status': 'healthy' if db_healthy else 'degraded',
-            'database': 'connected' if db_healthy else 'disconnected',
+        # Get backup system status
+        backup_status = backup_system.get_backup_status()
+        
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected' if db_connected else 'disconnected',
+            'backup_system': backup_status,
             'timestamp': datetime.now().isoformat()
-        }
-        
-        return jsonify(health_status), 200 if db_healthy else 503
-        
+        }), 200
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
             'error': str(e),
             'timestamp': datetime.now().isoformat()
-        }), 503
+        }), 500
+
+@app.route('/admin/data_recovery')
+def data_recovery_dashboard():
+    """Admin dashboard for data recovery and backup status"""
+    try:
+        backup_status = backup_system.get_backup_status()
+        
+        return jsonify({
+            'backup_status': backup_status,
+            'recovery_options': [
+                'Database recovery',
+                'File system recovery', 
+                'Emergency backup recovery'
+            ],
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/recover_session/<session_id>')
+def recover_session_data(session_id):
+    """Recover session data from backups"""
+    try:
+        recovered_data = backup_system.recover_session_data(session_id)
+        
+        if recovered_data:
+            # Restore to active session
+            server_session.save_session_data(session_id, recovered_data)
+            return jsonify({
+                'success': True,
+                'message': f'Session {session_id} recovered successfully',
+                'data_size': len(str(recovered_data))
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'No backup found for session {session_id}'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Password protection configuration
 SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25', 'eagleton25']  # Regular user passwords
@@ -2046,13 +2087,13 @@ def add_box_stats_play():
                     phase_team_stats['touchdowns'] += 1
                     overall_team_stats['touchdowns'] += 1
                 if player.get('interception', False):
-                    phase_team_stats['interceptions'] += 1
-                    phase_team_stats['turnovers'] += 1  # Interceptions count as turnovers
-                    overall_team_stats['interceptions'] += 1
-                    overall_team_stats['turnovers'] += 1
+                    phase_team_stats['interceptions'] = phase_team_stats.get('interceptions', 0) + 1
+                    phase_team_stats['turnovers'] = phase_team_stats.get('turnovers', 0) + 1  # Interceptions count as turnovers
+                    overall_team_stats['interceptions'] = overall_team_stats.get('interceptions', 0) + 1
+                    overall_team_stats['turnovers'] = overall_team_stats.get('turnovers', 0) + 1
                 if player.get('fumble', False):
-                    phase_team_stats['turnovers'] += 1  # Fumbles count as turnovers
-                    overall_team_stats['turnovers'] += 1
+                    phase_team_stats['turnovers'] = phase_team_stats.get('turnovers', 0) + 1  # Fumbles count as turnovers
+                    overall_team_stats['turnovers'] = overall_team_stats.get('turnovers', 0) + 1
             
             # Debug logging for this play's calculations
             print(f"DEBUG PLAY: Down {play_data.get('down')}, Distance {play_data.get('distance')}, Yards {yards_gained}")
@@ -2683,17 +2724,14 @@ def calculate_play_explosiveness(role, yards_gained, player_data=None, phase='of
     Calculate if a play was explosive
     - For OFFENSE: Rushing ≥10 yards, Passing ≥15 yards = explosive
     - For DEFENSE: Allowing Rushing ≥10 yards, Passing ≥15 yards = explosive (bad for defense)
-    - NOTE: If play ends with a turnover (fumble/interception), it is NOT explosive for offense but IS explosive for defense
+    - NOTE: Turnovers are NOT explosive - they are negative plays
     """
     try:
         yards_gained = int(yards_gained)
         
-        # Handle turnovers based on phase
+        # Turnovers are never explosive - they are negative plays
         if player_data and (player_data.get('fumble', False) or player_data.get('interception', False)):
-            if phase == 'defense':
-                return True  # Turnovers are explosive for defense (good)
-            else:
-                return False  # Turnovers are not explosive for offense
+            return False
         
         if phase == 'defense':
             # For defense, explosive means allowing big offensive gains (bad for defense)
@@ -2719,20 +2757,17 @@ def calculate_play_negativeness(play_data, yards_gained, player, phase='offense'
     """
     Calculate if a play was negative
     - For OFFENSE: fumble, interception, or negative yards = negative
-    - For DEFENSE: allowing big gains or giving up touchdowns = negative
+    - For DEFENSE: turnovers (interceptions, fumble recoveries) or loss of yards = negative (good for defense)
     """
     try:
         yards_gained = int(yards_gained)
         
         if phase == 'defense':
-            # For defense, negative means allowing big offensive gains
-            role = player.get('role', '')
-            if role == 'rusher' and yards_gained >= 15:  # Allowed big rushing gain
-                return True
-            elif role in ['receiver', 'passer'] and yards_gained >= 25:  # Allowed big passing gain
-                return True
-            elif player.get('touchdown', False):  # Allowed touchdown
-                return True
+            # For defense, negative means good defensive plays (turnovers, loss of yards)
+            if player.get('fumble', False) or player.get('interception', False):
+                return True  # Turnovers are negative plays for defense (good)
+            if yards_gained < 0:
+                return True  # Loss of yards is negative for defense (good)
             return False
         else:
             # For offense, negative means turnovers or negative yards
@@ -2783,13 +2818,23 @@ def create_safe_roster_filename(roster_name):
     return f"{safe_filename}.json"
 
 def save_roster_data(username, roster_name, roster_data):
-    """Save roster data to file for a specific user"""
+    """Save roster data to database with file backup"""
     try:
         # Security check: prevent saving to anonymous or invalid usernames
         if not username or username == 'anonymous' or len(username.strip()) == 0:
             print(f"WARNING: Blocked roster save for invalid username: '{username}'")
             return False, "Access denied"
         
+        # Primary: Save to database
+        database_success = False
+        try:
+            database_success = db_manager.save_roster(username, roster_name, roster_data)
+            if database_success:
+                print(f"✓ Roster '{roster_name}' saved to database for {username}")
+        except Exception as e:
+            print(f"❌ Database save failed for roster '{roster_name}': {e}")
+        
+        # Secondary: Save to file (always as backup)
         user_dir = get_user_rosters_dir(username)
         
         # Additional security: verify the directory belongs to this user
@@ -2808,6 +2853,7 @@ def save_roster_data(username, roster_name, roster_data):
             'player_count': len(roster_data.get('players', [])),
             'created_at': datetime.now().isoformat(),
             'username': username,  # Track which user created this
+            'database_saved': database_success,
             **roster_data
         }
         
@@ -2822,26 +2868,30 @@ def save_roster_data(username, roster_name, roster_data):
             import shutil
             shutil.copy2(filepath, backup_path)
             
-            # Keep only last 3 backups per roster
-            _cleanup_roster_backups(backup_dir, roster_name)
+            # Keep only last 5 backups per roster (increased from 3)
+            _cleanup_roster_backups(backup_dir, roster_name, keep_count=5)
         
         with open(filepath, 'w') as f:
             json.dump(roster_data_with_meta, f, indent=2)
         
+        print(f"✓ Roster '{roster_name}' saved to file backup for {username}")
+        
+        # Return success if either database or file save worked
         return True, filename
+        
     except Exception as e:
-        print(f"Error saving roster data: {e}")
+        print(f"❌ Error saving roster data: {e}")
         return False, str(e)
 
-def _cleanup_roster_backups(backup_dir, roster_name):
-    """Keep only the 3 most recent backups for a roster"""
+def _cleanup_roster_backups(backup_dir, roster_name, keep_count=5):
+    """Keep only the most recent backups for a roster"""
     try:
         safe_name = create_safe_roster_filename(roster_name).replace('.json', '')
         backup_files = [f for f in os.listdir(backup_dir) if f.startswith(safe_name)]
         backup_files.sort(reverse=True)  # Most recent first
         
-        # Remove old backups beyond the 3 most recent
-        for old_backup in backup_files[3:]:
+        # Remove old backups beyond the keep_count most recent
+        for old_backup in backup_files[keep_count:]:
             os.remove(os.path.join(backup_dir, old_backup))
     except Exception as e:
         print(f"Error cleaning up roster backups: {e}")
@@ -2941,10 +2991,19 @@ def delete_roster_data(username, roster_filename):
         return False, str(e)
 
 def save_game_data(username, game_name, game_data):
-    """Save game data to file"""
+    """Save game data to database with file backup"""
     try:
+        # Primary: Save to database
+        database_success = False
+        try:
+            database_success = db_manager.save_game(username, game_name, game_data)
+            if database_success:
+                print(f"✓ Game '{game_name}' saved to database for {username}")
+        except Exception as e:
+            print(f"❌ Database save failed for game '{game_name}': {e}")
+        
+        # Secondary: Save to file (always as backup)
         user_dir = get_user_games_dir(username)
-        # Create safe filename from game name
         safe_game_name = "".join(c for c in game_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
         safe_game_name = safe_game_name.replace(' ', '_')
         if not safe_game_name:
@@ -2955,45 +3014,46 @@ def save_game_data(username, game_name, game_data):
         
         # Add metadata
         save_data = {
-            'game_info': game_data.get('game_info', {}),
-            'plays': game_data.get('plays', []),
-            'players': game_data.get('players', {}),
-            'team_stats': game_data.get('team_stats', {}),
-            'play_call_stats': game_data.get('play_call_stats', {}),
+            'game_name': game_name,
+            'username': username,
             'saved_at': datetime.now().isoformat(),
-            'username': username
+            'version': '2.0',
+            'database_saved': database_success,
+            'game_data': game_data
         }
         
         # Create backup if file exists
         if os.path.exists(filepath):
             backup_dir = os.path.join(user_dir, 'backups')
-            if not os.path.exists(backup_dir):
-                os.makedirs(backup_dir)
-            
+            os.makedirs(backup_dir, exist_ok=True)
             backup_filename = f"{filename.replace('.json', '')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             backup_path = os.path.join(backup_dir, backup_filename)
             import shutil
             shutil.copy2(filepath, backup_path)
             
-            # Keep only last 3 backups per game
-            _cleanup_game_backups(backup_dir, safe_game_name)
+            # Keep only last 5 backups per game (increased from 3)
+            _cleanup_game_backups(backup_dir, safe_game_name, keep_count=5)
         
         with open(filepath, 'w') as f:
             json.dump(save_data, f, indent=2)
         
+        print(f"✓ Game '{game_name}' saved to file backup for {username}")
+        
+        # Return success if either database or file save worked
         return True, filepath
+        
     except Exception as e:
-        print(f"Error saving game data: {str(e)}")
+        print(f"❌ Error saving game data: {str(e)}")
         return False, str(e)
 
-def _cleanup_game_backups(backup_dir, game_name):
-    """Keep only the 3 most recent backups for a game"""
+def _cleanup_game_backups(backup_dir, game_name, keep_count=5):
+    """Keep only the most recent backups for a game"""
     try:
         backup_files = [f for f in os.listdir(backup_dir) if f.startswith(game_name)]
         backup_files.sort(reverse=True)  # Most recent first
         
-        # Remove old backups beyond the 3 most recent
-        for old_backup in backup_files[3:]:
+        # Remove old backups beyond the keep_count most recent
+        for old_backup in backup_files[keep_count:]:
             os.remove(os.path.join(backup_dir, old_backup))
     except Exception as e:
         print(f"Error cleaning up game backups: {e}")
@@ -4744,6 +4804,10 @@ def save_box_stats_data(username, box_stats):
         # Also save to database for persistence
         db_manager.save_user_session(username, session_id, box_stats_data)
         
+        # Comprehensive backup of all user data
+        backup_results = backup_all_user_data(username, session_id, box_stats_data)
+        print(f"Backup results: {', '.join(backup_results)}")
+        
     except Exception as e:
         print(f"Error saving box stats data: {str(e)}")
         raise e
@@ -4844,13 +4908,13 @@ def recalculate_all_stats(box_stats):
                         phase_team_stats['touchdowns'] += 1
                         overall_team_stats['touchdowns'] += 1
                     if player.get('interception', False):
-                        phase_team_stats['interceptions'] += 1
-                        phase_team_stats['turnovers'] += 1
-                        overall_team_stats['interceptions'] += 1
-                        overall_team_stats['turnovers'] += 1
+                        phase_team_stats['interceptions'] = phase_team_stats.get('interceptions', 0) + 1
+                        phase_team_stats['turnovers'] = phase_team_stats.get('turnovers', 0) + 1
+                        overall_team_stats['interceptions'] = overall_team_stats.get('interceptions', 0) + 1
+                        overall_team_stats['turnovers'] = overall_team_stats.get('turnovers', 0) + 1
                     if player.get('fumble', False):
-                        phase_team_stats['turnovers'] += 1
-                        overall_team_stats['turnovers'] += 1
+                        phase_team_stats['turnovers'] = phase_team_stats.get('turnovers', 0) + 1
+                        overall_team_stats['turnovers'] = overall_team_stats.get('turnovers', 0) + 1
                 
                 if team_explosive_this_play:
                     phase_team_stats['explosive_plays'] += 1
