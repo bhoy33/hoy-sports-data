@@ -21,7 +21,12 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 from database import db_manager
-from data_backup_system import backup_system, backup_all_user_data
+try:
+    from data_backup_system import backup_system, backup_all_user_data
+except ImportError:
+    print("Warning: data_backup_system not available, using fallback")
+    backup_system = None
+    backup_all_user_data = lambda *args, **kwargs: []
 
 # Configure Altair to use inline data for web serving
 alt.data_transformers.disable_max_rows()
@@ -56,14 +61,17 @@ class ServerSideSession:
         
         # Use comprehensive backup system for maximum data protection
         try:
-            backup_success = backup_system.backup_session_data(session_id, username, data)
-            if backup_success:
-                print(f"✓ Session comprehensively backed up for {username}")
-                # Also save to original file location for compatibility
-                self._save_to_file(session_id, data)
-                return True
+            if backup_system:
+                backup_success = backup_system.backup_session_data(session_id, username, data)
+                if backup_success:
+                    print(f"✓ Session comprehensively backed up for {username}")
+                    # Also save to original file location for compatibility
+                    self._save_to_file(session_id, data)
+                    return True
+                else:
+                    print(f"❌ Comprehensive backup failed for {username}, trying fallback")
             else:
-                print(f"❌ Comprehensive backup failed for {username}, trying fallback")
+                print(f"❌ Backup system not available for {username}, using file fallback")
         except Exception as e:
             print(f"❌ Backup system error for {username}: {e}")
         
@@ -204,7 +212,14 @@ def health_check():
         db_connected = db_manager.test_connection()
         
         # Get backup system status
-        backup_status = backup_system.get_backup_status()
+        backup_status = {}
+        if backup_system:
+            try:
+                backup_status = backup_system.get_backup_status()
+            except Exception as e:
+                backup_status = {'error': str(e)}
+        else:
+            backup_status = {'status': 'not_available'}
         
         return jsonify({
             'status': 'healthy',
@@ -223,7 +238,10 @@ def health_check():
 def data_recovery_dashboard():
     """Admin dashboard for data recovery and backup status"""
     try:
-        backup_status = backup_system.get_backup_status()
+        if backup_system:
+            backup_status = backup_system.get_backup_status()
+        else:
+            backup_status = {'status': 'backup_system_not_available'}
         
         return jsonify({
             'backup_status': backup_status,
@@ -241,21 +259,27 @@ def data_recovery_dashboard():
 def recover_session_data(session_id):
     """Recover session data from backups"""
     try:
-        recovered_data = backup_system.recover_session_data(session_id)
-        
-        if recovered_data:
-            # Restore to active session
-            server_session.save_session_data(session_id, recovered_data)
-            return jsonify({
-                'success': True,
-                'message': f'Session {session_id} recovered successfully',
-                'data_size': len(str(recovered_data))
-            })
+        if backup_system:
+            recovered_data = backup_system.recover_session_data(session_id)
+            
+            if recovered_data:
+                # Restore to active session
+                server_session.save_session_data(session_id, recovered_data)
+                return jsonify({
+                    'success': True,
+                    'message': f'Session {session_id} recovered successfully',
+                    'data_size': len(str(recovered_data))
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': f'No backup found for session {session_id}'
+                }), 404
         else:
             return jsonify({
                 'success': False,
-                'message': f'No backup found for session {session_id}'
-            }), 404
+                'message': 'Backup system not available'
+            }), 503
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -4805,8 +4829,14 @@ def save_box_stats_data(username, box_stats):
         db_manager.save_user_session(username, session_id, box_stats_data)
         
         # Comprehensive backup of all user data
-        backup_results = backup_all_user_data(username, session_id, box_stats_data)
-        print(f"Backup results: {', '.join(backup_results)}")
+        if backup_all_user_data:
+            try:
+                backup_results = backup_all_user_data(username, session_id, box_stats_data)
+                print(f"Backup results: {', '.join(backup_results)}")
+            except Exception as e:
+                print(f"Backup error: {e}")
+        else:
+            print("Backup system not available")
         
     except Exception as e:
         print(f"Error saving box stats data: {str(e)}")
