@@ -73,7 +73,8 @@ def verify_database_schema():
             db.init_app(app)
             
             # Get table information
-            inspector = db.inspect(db.engine)
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
             tables = inspector.get_table_names()
             
             expected_tables = ['user_sessions', 'user_rosters', 'saved_games']

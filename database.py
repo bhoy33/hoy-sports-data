@@ -100,13 +100,15 @@ class DatabaseManager:
             try:
                 with app.app_context():
                     # Test database connection first
-                    db.engine.execute(text('SELECT 1'))
+                    with db.engine.connect() as conn:
+                        conn.execute(text('SELECT 1'))
                     
                     # Create tables if they don't exist (preserves existing data)
                     db.create_all()
                     
                     # Verify tables exist
-                    inspector = db.inspect(db.engine)
+                    from sqlalchemy import inspect
+                    inspector = inspect(db.engine)
                     tables = inspector.get_table_names()
                     
                     expected_tables = ['user_sessions', 'user_rosters', 'saved_games']
@@ -131,7 +133,8 @@ class DatabaseManager:
     def verify_database_connection(self):
         """Verify database connection is working"""
         try:
-            db.engine.execute(text('SELECT 1'))
+            with db.engine.connect() as conn:
+                conn.execute(text('SELECT 1'))
             return True
         except Exception as e:
             print(f"Database connection verification failed: {e}")

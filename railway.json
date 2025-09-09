@@ -3,7 +3,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "chmod +x startup.sh && ./startup.sh",
+    "startCommand": "gunicorn --bind 0.0.0.0:$PORT app:app --workers 1 --timeout 120",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
