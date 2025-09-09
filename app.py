@@ -51,19 +51,25 @@ class ServerSideSession:
         if not session_id:
             return False
             
-        username = session.get('username', 'unknown') if 'session' in globals() else 'unknown'
+        # Get username from Flask session if available
+        from flask import session as flask_session
+        username = flask_session.get('username', 'unknown') if flask_session else 'unknown'
         
-        # Try database first
+        # Try database first - this is critical for persistence
         if self.use_database:
             try:
                 if db_manager.save_session_data(session_id, username, data):
-                    # Also save to file as backup
+                    print(f"✓ Session saved to database for {username}")
+                    # Also save to file as backup only if database succeeds
                     self._save_to_file(session_id, data)
                     return True
+                else:
+                    print(f"❌ Database save failed for {username}, trying file fallback")
             except Exception as e:
-                print(f"Database save failed, using file fallback: {e}")
+                print(f"❌ Database save exception for {username}: {e}")
         
-        # Fallback to file storage
+        # Fallback to file storage (but this won't persist on Railway)
+        print(f"⚠️  Using file fallback for {username} - data may not persist across deployments")
         return self._save_to_file(session_id, data)
     
     def _save_to_file(self, session_id, data):
@@ -97,16 +103,20 @@ class ServerSideSession:
         if not session_id:
             return {}
             
-        # Try database first
+        # Try database first - this is critical for persistence
         if self.use_database:
             try:
                 data = db_manager.load_session_data(session_id)
                 if data:
+                    print(f"✓ Session loaded from database")
                     return data
+                else:
+                    print(f"No session found in database, trying file fallback")
             except Exception as e:
-                print(f"Database load failed, using file fallback: {e}")
+                print(f"❌ Database load exception: {e}, trying file fallback")
         
         # Fallback to file storage
+        print(f"⚠️  Loading from file storage - may not have latest data")
         return self._load_from_file(session_id)
     
     def _load_from_file(self, session_id):
@@ -185,6 +195,29 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request size
 # Initialize database and server-side session storage
 db_manager = DatabaseManager(app)
 server_session = ServerSideSession()
+
+# Add health check endpoint for Railway
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Railway deployment"""
+    try:
+        # Check database connection
+        db_healthy = db_manager.verify_database_connection()
+        
+        health_status = {
+            'status': 'healthy' if db_healthy else 'degraded',
+            'database': 'connected' if db_healthy else 'disconnected',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify(health_status), 200 if db_healthy else 503
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 503
 
 # Password protection configuration
 SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25', 'eagleton25']  # Regular user passwords

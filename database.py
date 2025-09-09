@@ -82,20 +82,68 @@ class DatabaseManager:
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
+            'pool_timeout': 20,
+            'pool_size': 10,
+            'max_overflow': 20
         }
         
         db.init_app(app)
         
-        with app.app_context():
+        # Initialize database with retry logic
+        self._initialize_database_with_retry(app)
+    
+    def _initialize_database_with_retry(self, app, max_retries=5):
+        """Initialize database with retry logic for Railway deployments"""
+        import time
+        
+        for attempt in range(max_retries):
             try:
-                # Create tables if they don't exist
-                db.create_all()
-                print("Database tables created successfully")
+                with app.app_context():
+                    # Test database connection first
+                    db.engine.execute(text('SELECT 1'))
+                    
+                    # Create tables if they don't exist (preserves existing data)
+                    db.create_all()
+                    
+                    # Verify tables exist
+                    inspector = db.inspect(db.engine)
+                    tables = inspector.get_table_names()
+                    
+                    expected_tables = ['user_sessions', 'user_rosters', 'saved_games']
+                    missing_tables = [t for t in expected_tables if t not in tables]
+                    
+                    if missing_tables:
+                        print(f"Warning: Missing tables: {missing_tables}")
+                    else:
+                        print("✓ Database connection verified and tables initialized successfully")
+                    
+                    return True
+                    
             except Exception as e:
-                print(f"Error creating database tables: {e}")
+                print(f"Database initialization attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    print("❌ Database initialization failed after all retries")
+                    # Don't raise exception - allow app to start with file fallback
+                    return False
+    
+    def verify_database_connection(self):
+        """Verify database connection is working"""
+        try:
+            db.engine.execute(text('SELECT 1'))
+            return True
+        except Exception as e:
+            print(f"Database connection verification failed: {e}")
+            return False
     
     def save_session_data(self, session_id, username, data):
-        """Save session data to database"""
+        """Save session data to database with connection verification"""
+        # Verify database connection before attempting save
+        if not self.verify_database_connection():
+            print("Database connection failed, cannot save session data")
+            return False
+            
         try:
             # Serialize data
             pickled_data = pickle.dumps(data)
@@ -117,28 +165,33 @@ class DatabaseManager:
                 db.session.add(session)
             
             db.session.commit()
-            print(f"Session data saved for {username} (session: {session_id})")
+            print(f"✓ Session data saved for {username} (session: {session_id})")
             return True
             
         except Exception as e:
-            print(f"Error saving session data: {e}")
+            print(f"❌ Error saving session data: {e}")
             db.session.rollback()
             return False
     
     def load_session_data(self, session_id):
-        """Load session data from database"""
+        """Load session data from database with connection verification"""
+        # Verify database connection before attempting load
+        if not self.verify_database_connection():
+            print("Database connection failed, cannot load session data")
+            return {}
+            
         try:
             session = UserSession.query.filter_by(id=session_id).first()
             if session:
                 data = pickle.loads(session.session_data)
-                print(f"Session data loaded for session: {session_id}")
+                print(f"✓ Session data loaded for session: {session_id}")
                 return data
             else:
                 print(f"No session data found for session: {session_id}")
                 return {}
                 
         except Exception as e:
-            print(f"Error loading session data: {e}")
+            print(f"❌ Error loading session data: {e}")
             return {}
     
     def delete_session_data(self, session_id):

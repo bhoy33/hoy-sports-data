@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+why #!/usr/bin/env python3
 """
 Test script for play editing functionality
 Tests the edit_play and delete_play endpoints
