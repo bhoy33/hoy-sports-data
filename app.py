@@ -2682,7 +2682,7 @@ def calculate_play_explosiveness(role, yards_gained, player_data=None, phase='of
     """
     Calculate if a play was explosive
     - For OFFENSE: Rushing ≥10 yards, Passing ≥15 yards = explosive
-    - For DEFENSE: Rushing ≤2 yards, Passing ≤5 yards = explosive (defensive success)
+    - For DEFENSE: Allowing Rushing ≥10 yards, Passing ≥15 yards = explosive (bad for defense)
     - NOTE: If play ends with a turnover (fumble/interception), it is NOT explosive for offense but IS explosive for defense
     """
     try:
@@ -2691,16 +2691,16 @@ def calculate_play_explosiveness(role, yards_gained, player_data=None, phase='of
         # Handle turnovers based on phase
         if player_data and (player_data.get('fumble', False) or player_data.get('interception', False)):
             if phase == 'defense':
-                return True  # Turnovers are explosive for defense
+                return True  # Turnovers are explosive for defense (good)
             else:
                 return False  # Turnovers are not explosive for offense
         
         if phase == 'defense':
-            # For defense, explosive means limiting offensive gains
+            # For defense, explosive means allowing big offensive gains (bad for defense)
             if role == 'rusher':
-                return yards_gained <= 2  # Stopped for minimal gain
+                return yards_gained >= 10  # Allowed big rushing gain
             elif role in ['receiver', 'passer']:
-                return yards_gained <= 5  # Limited passing gain
+                return yards_gained >= 15  # Allowed big passing gain
             else:
                 return False
         else:
