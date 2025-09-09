@@ -295,6 +295,61 @@ def recover_session_data(session_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/admin/recalculate_stats/<session_id>')
+def recalculate_session_stats(session_id):
+    """Force recalculation of all stats for a session with updated defensive logic"""
+    try:
+        # Get session data
+        session_data = server_session.get_session_data(session_id)
+        if not session_data:
+            return jsonify({
+                'success': False,
+                'message': f'Session {session_id} not found'
+            }), 404
+        
+        box_stats = session_data.get('box_stats')
+        if not box_stats:
+            return jsonify({
+                'success': False,
+                'message': f'No box stats found for session {session_id}'
+            }), 404
+        
+        # Force recalculation with updated defensive logic
+        recalculate_all_stats(box_stats)
+        
+        # Update rates for all phases
+        for phase in ['offense', 'defense', 'special_teams', 'overall']:
+            stats = box_stats['team_stats'][phase]
+            if stats['total_plays'] > 0:
+                stats['efficiency_rate'] = round((stats['efficient_plays'] / stats['total_plays']) * 100, 1)
+                stats['explosive_rate'] = round((stats['explosive_plays'] / stats['total_plays']) * 100, 1)
+                stats['negative_rate'] = round((stats['negative_plays'] / stats['total_plays']) * 100, 1)
+                stats['nee_score'] = calculate_nee_score(stats['efficiency_rate'], stats['explosive_rate'], stats['negative_rate'], phase)
+        
+        # Save updated data
+        session_data['box_stats'] = box_stats
+        server_session.save_session_data(session_id, session_data)
+        
+        # Also save to database
+        username = session_data.get('username', 'unknown')
+        db_manager.save_user_session(username, session_id, session_data)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Stats recalculated for session {session_id}',
+            'defense_stats': {
+                'total_plays': box_stats['team_stats']['defense']['total_plays'],
+                'explosive_plays': box_stats['team_stats']['defense']['explosive_plays'],
+                'explosive_rate': box_stats['team_stats']['defense'].get('explosive_rate', 0),
+                'negative_plays': box_stats['team_stats']['defense']['negative_plays'],
+                'negative_rate': box_stats['team_stats']['defense'].get('negative_rate', 0),
+                'nee_score': box_stats['team_stats']['defense'].get('nee_score', 0)
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Password protection configuration
 SITE_PASSWORDS = ['scots25', 'hunt25', 'cobble25', 'eagleton25']  # Regular user passwords
 ADMIN_PASSWORD = 'Jackets21!'
