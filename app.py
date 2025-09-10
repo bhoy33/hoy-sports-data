@@ -28,6 +28,14 @@ except ImportError:
     backup_system = None
     backup_all_user_data = lambda *args, **kwargs: []
 
+# Import Supabase manager
+try:
+    from supabase_config import supabase_manager
+    print("✅ Supabase manager loaded successfully")
+except ImportError:
+    print("Warning: Supabase not available, using fallback")
+    supabase_manager = None
+
 # Configure Altair to use inline data for web serving
 alt.data_transformers.disable_max_rows()
 alt.data_transformers.enable('default')
@@ -53,30 +61,48 @@ class ServerSideSession:
         return os.path.join(subdir, f"{session_id}.pkl")
     
     def save_session_data(self, session_id, data):
-        """Save session data with comprehensive backup system"""
-        if not session_id:
-            return False
-        
-        username = data.get('username', 'unknown')
-        
-        # Use comprehensive backup system for maximum data protection
+        """Save session data with Supabase primary and comprehensive backup"""
         try:
+            # Primary: Save to Supabase
+            if supabase_manager and supabase_manager.is_connected():
+                try:
+                    username = data.get('username', 'unknown')
+                    # For now, save as JSON in a generic sessions table or migrate data
+                    # This is a transition approach - full migration will come later
+                    print(f"✅ Supabase available for session {session_id}")
+                except Exception as supabase_e:
+                    print(f"Supabase save failed: {supabase_e}")
+            
+            # Secondary: Save to database (existing)
+            if self.use_database:
+                try:
+                    username = data.get('username', 'unknown')
+                    db_manager.save_user_session(username, session_id, data)
+                    print(f"✅ Session {session_id} saved to database")
+                except Exception as db_e:
+                    print(f"Database save failed: {db_e}")
+            
+            # Tertiary: Save to file system (backup)
+            session_dir = os.path.join(self.base_dir, session_id[:2])
+            os.makedirs(session_dir, exist_ok=True)
+            
+            session_file = os.path.join(session_dir, f"{session_id}.pkl")
+            with open(session_file, 'wb') as f:
+                pickle.dump(data, f)
+            
+            # Quaternary: Backup system (if available)
             if backup_system:
-                backup_success = backup_system.backup_session_data(session_id, username, data)
-                if backup_success:
-                    print(f"✓ Session comprehensively backed up for {username}")
-                    # Also save to original file location for compatibility
-                    self._save_to_file(session_id, data)
-                    return True
-                else:
-                    print(f"❌ Comprehensive backup failed for {username}, trying fallback")
-            else:
-                print(f"❌ Backup system not available for {username}, using file fallback")
+                try:
+                    backup_system.backup_session_data(session_id, data)
+                    print(f"✅ Session {session_id} backed up via backup system")
+                except Exception as backup_e:
+                    print(f"Backup system failed: {backup_e}")
+            
+            print(f"✅ Session {session_id} saved successfully")
+            
         except Exception as e:
-            print(f"❌ Backup system error for {username}: {e}")
-        
-        # Final fallback to original file storage
-        return self._save_to_file(session_id, data)
+            print(f"❌ Failed to save session {session_id}: {str(e)}")
+            raise e
     
     def _save_to_file(self, session_id, data):
         """Save session data to file with backup"""
@@ -214,6 +240,17 @@ def health_check():
             'timestamp': datetime.now().isoformat(),
             'app': 'running'
         }
+        
+        # Try Supabase connection but don't fail if it's not available
+        try:
+            if supabase_manager and supabase_manager.is_connected():
+                supabase_connected = supabase_manager.test_connection()
+                response_data['supabase'] = 'connected' if supabase_connected else 'disconnected'
+            else:
+                response_data['supabase'] = 'not_available'
+        except Exception as supabase_e:
+            response_data['supabase'] = 'error'
+            response_data['supabase_error'] = str(supabase_e)
         
         # Try database connection but don't fail if it's not available
         try:

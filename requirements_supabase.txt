@@ -1,3 +1,4 @@
+# Updated requirements with Supabase integration
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
 Werkzeug==2.3.7
@@ -23,8 +24,12 @@ gotrue==1.2.0
 realtime==1.0.0
 storage3==0.7.0
 
-# Additional dependencies
+# Additional dependencies for enhanced functionality
 bcrypt==4.0.1
 python-dateutil==2.8.2
 pytz==2023.3
 requests==2.31.0
+urllib3==2.0.4
+certifi==2023.7.22
+charset-normalizer==3.2.0
+idna==3.4
