@@ -1,24 +1,25 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
+import pandas as pd
 import os
 import json
 from datetime import datetime, timedelta
 import hashlib
 import uuid
+import altair as alt
 from functools import wraps
 import pickle
+from datetime import datetime
+import hashlib
 import io
 import base64
-
-# Temporarily disable heavy imports that may cause Railway crashes
-# import pandas as pd
-# import altair as alt
-# from reportlab.lib.pagesizes import letter, A4
-# from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
-# from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-# from reportlab.lib.units import inch
-# from reportlab.lib import colors
-# import matplotlib.pyplot as plt
-# import matplotlib
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 # Import database manager with error handling
 try:
     from database import db_manager
@@ -33,24 +34,20 @@ except ImportError:
     backup_system = None
     backup_all_user_data = lambda *args, **kwargs: []
 
-# Import Supabase manager - TEMPORARILY DISABLED FOR DEPLOYMENT
-# try:
-#     from supabase_config import supabase_manager
-#     print("✅ Supabase manager loaded successfully")
-# except ImportError as e:
-#     print(f"Warning: Supabase not available ({e}), using fallback")
-#     supabase_manager = None
-# except Exception as e:
-#     print(f"Warning: Supabase initialization failed ({e}), using fallback")
-#     supabase_manager = None
+# Import Supabase manager
+try:
+    from supabase_config import supabase_manager
+    print("✅ Supabase manager loaded successfully")
+except ImportError as e:
+    print(f"Warning: Supabase not available ({e}), using fallback")
+    supabase_manager = None
+except Exception as e:
+    print(f"Warning: Supabase initialization failed ({e}), using fallback")
+    supabase_manager = None
 
-# Temporarily disable Supabase for deployment
-supabase_manager = None
-print("Supabase temporarily disabled for Railway deployment")
-
-# Configure Altair - DISABLED FOR MINIMAL DEPLOYMENT
-# alt.data_transformers.disable_max_rows()
-# alt.data_transformers.enable('default')
+# Configure Altair to use inline data for web serving
+alt.data_transformers.disable_max_rows()
+alt.data_transformers.enable('default')
 
 class ServerSideSession:
     """Hybrid server-side session storage with database primary and file fallback"""
@@ -252,6 +249,26 @@ except Exception as e:
     print(f"❌ ServerSideSession initialization failed: {e}")
     server_session = None
 
+# Authentication helper functions
+def hash_password(password):
+    """Hash password with salt"""
+    salt = uuid.uuid4().hex
+    return hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
+
+def check_password(hashed_password, user_password):
+    """Check if password matches hash"""
+    password, salt = hashed_password.split(':')
+    return password == hashlib.sha256(salt.encode() + user_password.encode()).hexdigest()
+
+def require_login(f):
+    """Decorator to require login for routes"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Add health check endpoint for Railway
 @app.route('/health')
 def health_check():
@@ -282,8 +299,11 @@ def detailed_health_check():
         
         # Try database connection but don't fail if it's not available
         try:
-            db_connected = db_manager.test_connection()
-            response_data['database'] = 'connected' if db_connected else 'disconnected'
+            if db_manager:
+                db_connected = db_manager.test_connection()
+                response_data['database'] = 'connected' if db_connected else 'disconnected'
+            else:
+                response_data['database'] = 'not_available'
         except Exception as db_e:
             response_data['database'] = 'error'
             response_data['database_error'] = str(db_e)
@@ -309,6 +329,93 @@ def detailed_health_check():
             'timestamp': datetime.now().isoformat(),
             'message': 'App is running despite errors'
         }), 200
+
+# Authentication routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username or not password:
+            return render_template('login.html', error="Username and password required")
+        
+        if not supabase_manager:
+            return render_template('login.html', error="Database not available")
+        
+        try:
+            # Check user credentials
+            result = supabase_manager.supabase.table('users').select('*').eq('username', username).execute()
+            
+            if result.data and len(result.data) > 0:
+                user = result.data[0]
+                if check_password(user['password_hash'], password):
+                    # Login successful
+                    session['user_id'] = user['id']
+                    session['username'] = user['username']
+                    session['is_admin'] = user.get('is_admin', False)
+                    return redirect(url_for('index'))
+                else:
+                    return render_template('login.html', error="Invalid credentials")
+            else:
+                return render_template('login.html', error="Invalid credentials")
+                
+        except Exception as e:
+            return render_template('login.html', error=f"Login error: {str(e)}")
+    
+    return render_template('login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        email = request.form.get('email')
+        
+        if not username or not password:
+            return render_template('signup.html', error="Username and password required")
+        
+        if not supabase_manager:
+            return render_template('signup.html', error="Database not available")
+        
+        try:
+            # Check if username exists
+            result = supabase_manager.supabase.table('users').select('username').eq('username', username).execute()
+            
+            if result.data and len(result.data) > 0:
+                return render_template('signup.html', error="Username already exists")
+            
+            # Create new user
+            user_data = {
+                'username': username,
+                'password_hash': hash_password(password),
+                'email': email,
+                'is_admin': False,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            result = supabase_manager.supabase.table('users').insert(user_data).execute()
+            
+            if result.data:
+                # Auto-login after signup
+                user = result.data[0]
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+                session['is_admin'] = user.get('is_admin', False)
+                return redirect(url_for('index'))
+            else:
+                return render_template('signup.html', error="Failed to create account")
+                
+        except Exception as e:
+            return render_template('signup.html', error=f"Signup error: {str(e)}")
+    
+    return render_template('signup.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
 
 @app.route('/admin/data_recovery')
 def data_recovery_dashboard():
