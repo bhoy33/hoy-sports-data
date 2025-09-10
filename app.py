@@ -20,7 +20,13 @@ from reportlab.lib import colors
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
-from database import db_manager
+# Import database manager with error handling
+try:
+    from database import db_manager
+    print("✅ Database manager loaded successfully")
+except ImportError as e:
+    print(f"❌ Database import failed: {e}")
+    db_manager = None
 try:
     from data_backup_system import backup_system, backup_all_user_data
 except ImportError:
@@ -231,10 +237,21 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request size
 
-# Initialize database and server-side session storage
-from database import DatabaseManager
-db_manager = DatabaseManager(app)
-server_session = ServerSideSession()
+# Initialize database and server-side session storage with error handling
+try:
+    from database import DatabaseManager
+    db_manager = DatabaseManager(app)
+    print("✅ DatabaseManager initialized successfully")
+except Exception as e:
+    print(f"❌ DatabaseManager initialization failed: {e}")
+    db_manager = None
+
+try:
+    server_session = ServerSideSession()
+    print("✅ ServerSideSession initialized successfully")
+except Exception as e:
+    print(f"❌ ServerSideSession initialization failed: {e}")
+    server_session = None
 
 # Add health check endpoint for Railway
 @app.route('/health')
