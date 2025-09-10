@@ -72,8 +72,8 @@ def health_detailed():
     # Test Supabase connection
     if supabase_client:
         try:
-            # Simple test query
-            result = supabase_client.table('users').select('count').execute()
+            # Simple test query - just check if table exists
+            result = supabase_client.table('users').select('id').limit(1).execute()
             status['supabase_test'] = 'success'
         except Exception as e:
             status['supabase_test'] = f'error: {str(e)}'
@@ -309,4 +309,4 @@ DASHBOARD_TEMPLATE = '''
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)

@@ -3,7 +3,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python app_minimal.py",
+    "startCommand": "gunicorn --bind 0.0.0.0:$PORT app_minimal:app --workers 1 --timeout 120 --preload",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
