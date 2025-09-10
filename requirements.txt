@@ -1,2 +1,9 @@
 Flask==2.3.2
 gunicorn==21.2.0
+
+# Supabase integration
+supabase==1.0.4
+postgrest==0.10.8
+gotrue==1.0.4
+realtime==1.0.0
+storage3==0.5.4
