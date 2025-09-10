@@ -1,25 +1,24 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
-import pandas as pd
 import os
 import json
 from datetime import datetime, timedelta
 import hashlib
 import uuid
-import altair as alt
 from functools import wraps
 import pickle
-from datetime import datetime
-import hashlib
 import io
 import base64
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib import colors
-import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
+
+# Temporarily disable heavy imports that may cause Railway crashes
+# import pandas as pd
+# import altair as alt
+# from reportlab.lib.pagesizes import letter, A4
+# from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
+# from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+# from reportlab.lib.units import inch
+# from reportlab.lib import colors
+# import matplotlib.pyplot as plt
+# import matplotlib
 # Import database manager with error handling
 try:
     from database import db_manager
@@ -49,9 +48,9 @@ except ImportError:
 supabase_manager = None
 print("Supabase temporarily disabled for Railway deployment")
 
-# Configure Altair to use inline data for web serving
-alt.data_transformers.disable_max_rows()
-alt.data_transformers.enable('default')
+# Configure Altair - DISABLED FOR MINIMAL DEPLOYMENT
+# alt.data_transformers.disable_max_rows()
+# alt.data_transformers.enable('default')
 
 class ServerSideSession:
     """Hybrid server-side session storage with database primary and file fallback"""
