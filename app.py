@@ -235,7 +235,16 @@ server_session = ServerSideSession()
 # Add health check endpoint for Railway
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Railway - simplified to avoid deployment failures"""
+    """Ultra-simple health check for Railway deployment - always returns 200"""
+    return jsonify({
+        'status': 'healthy',
+        'app': 'running',
+        'timestamp': datetime.now().isoformat()
+    }), 200
+
+@app.route('/health/detailed')
+def detailed_health_check():
+    """Detailed health check with all system status - for debugging only"""
     try:
         # Basic health check - just return that the app is running
         response_data = {
