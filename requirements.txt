@@ -16,19 +16,15 @@ plotly==5.15.0
 psycopg2-binary==2.9.7
 gunicorn==21.2.0
 
-# Supabase integration - using compatible versions
-supabase==1.0.4
-postgrest==0.10.8
-gotrue==1.0.4
-realtime==1.0.0
-storage3==0.5.4
+# Supabase integration - TEMPORARILY DISABLED FOR DEPLOYMENT
+# supabase==1.0.4
+# postgrest==0.10.8
+# gotrue==1.0.4
+# realtime==1.0.0
+# storage3==0.5.4
 
 # Additional dependencies
 bcrypt==4.0.1
 python-dateutil==2.8.2
 pytz==2023.3
 requests==2.31.0
-urllib3==1.26.16
-certifi==2023.7.22
-charset-normalizer==3.2.0
-idna==3.4
