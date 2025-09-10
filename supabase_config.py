@@ -2,7 +2,6 @@
 Supabase configuration and database operations for Hoy Sports Data App
 """
 import os
-from supabase import create_client, Client
 from typing import Dict, List, Optional, Any
 import json
 from datetime import datetime
@@ -12,6 +11,15 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Try to import Supabase with fallback
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Supabase not available: {e}")
+    SUPABASE_AVAILABLE = False
+    Client = None
+
 class SupabaseManager:
     """Manages all Supabase database operations for the sports data app"""
     
@@ -20,7 +28,10 @@ class SupabaseManager:
         self.url = os.getenv('SUPABASE_URL')
         self.key = os.getenv('SUPABASE_ANON_KEY')
         
-        if not self.url or not self.key:
+        if not SUPABASE_AVAILABLE:
+            logger.warning("Supabase library not available")
+            self.supabase = None
+        elif not self.url or not self.key:
             logger.warning("Supabase credentials not found in environment variables")
             self.supabase = None
         else:

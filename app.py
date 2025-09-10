@@ -28,12 +28,15 @@ except ImportError:
     backup_system = None
     backup_all_user_data = lambda *args, **kwargs: []
 
-# Import Supabase manager
+# Import Supabase manager with better error handling
 try:
     from supabase_config import supabase_manager
     print("✅ Supabase manager loaded successfully")
-except ImportError:
-    print("Warning: Supabase not available, using fallback")
+except ImportError as e:
+    print(f"Warning: Supabase not available ({e}), using fallback")
+    supabase_manager = None
+except Exception as e:
+    print(f"Warning: Supabase initialization failed ({e}), using fallback")
     supabase_manager = None
 
 # Configure Altair to use inline data for web serving
