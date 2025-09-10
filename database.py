@@ -1,12 +1,13 @@
 """
 Database models and connection management for persistent user data storage.
 """
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Boolean, JSON, text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime, timedelta
 import os
 import json
-import pickle
-from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import text
 
 db = SQLAlchemy()
 
@@ -390,6 +391,16 @@ class DatabaseManager:
             print(f"Error cleaning up old sessions: {e}")
             db.session.rollback()
             return 0
+    
+    def test_connection(self):
+        """Test database connection"""
+        try:
+            # Simple query to test connection
+            db.session.execute(text('SELECT 1'))
+            return True
+        except Exception as e:
+            print(f"Database connection test failed: {e}")
+            return False
 
 # Global database manager instance
 db_manager = DatabaseManager()
