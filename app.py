@@ -240,11 +240,7 @@ server_session = ServerSideSession()
 @app.route('/health')
 def health_check():
     """Ultra-simple health check for Railway deployment - always returns 200"""
-    return jsonify({
-        'status': 'healthy',
-        'app': 'running',
-        'timestamp': datetime.now().isoformat()
-    }), 200
+    return "OK", 200
 
 @app.route('/health/detailed')
 def detailed_health_check():
