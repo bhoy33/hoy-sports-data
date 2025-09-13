@@ -331,8 +331,8 @@ def detailed_health_check():
         }), 200
 
 # Authentication routes
-@app.route('/login', methods=['GET', 'POST'])
-def login():
+@app.route('/login_supabase', methods=['GET', 'POST'])
+def login_supabase():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -630,8 +630,8 @@ def toggle_maintenance():
         'message': f'Maintenance mode {status}'
     })
 
-@app.route('/logout')
-def logout():
+@app.route('/logout_old')
+def logout_old():
     """Logout and clear session"""
     session.pop('authenticated', None)
     session.pop('is_admin', None)

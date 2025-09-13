@@ -1,0 +1,620 @@
+{
+  "roster_name": "Week 1 - 2025 Maryville College Scots",
+  "player_count": 102,
+  "created_at": "2025-09-13T15:39:39.853660",
+  "username": "scots25_user",
+  "players": {
+    "player_1": {
+      "id": "player_1",
+      "number": 0,
+      "name": "Seth Carter",
+      "position": "LB"
+    },
+    "player_2": {
+      "id": "player_2",
+      "number": 1,
+      "name": "Steph Carter Jr.",
+      "position": "WR"
+    },
+    "player_3": {
+      "id": "player_3",
+      "number": 1,
+      "name": "Adarian Cheek",
+      "position": "DL"
+    },
+    "player_4": {
+      "id": "player_4",
+      "number": 2,
+      "name": "Grant Henderson",
+      "position": "DB"
+    },
+    "player_5": {
+      "id": "player_5",
+      "number": 2,
+      "name": "Teddy Orton",
+      "position": "WR"
+    },
+    "player_6": {
+      "id": "player_6",
+      "number": 3,
+      "name": "Zae Richardson",
+      "position": "WR"
+    },
+    "player_7": {
+      "id": "player_7",
+      "number": 4,
+      "name": "Trey Wilhite",
+      "position": "WR"
+    },
+    "player_8": {
+      "id": "player_8",
+      "number": 5,
+      "name": "Noah Giger",
+      "position": "QB"
+    },
+    "player_9": {
+      "id": "player_9",
+      "number": 6,
+      "name": "Jayden Neal",
+      "position": "WR"
+    },
+    "player_10": {
+      "id": "player_10",
+      "number": 7,
+      "name": "Bryson Claiborne",
+      "position": "RB"
+    },
+    "player_11": {
+      "id": "player_11",
+      "number": 8,
+      "name": "Tyler Ferguson",
+      "position": "QB"
+    },
+    "player_12": {
+      "id": "player_12",
+      "number": 9,
+      "name": "Ethan Ford",
+      "position": "WR"
+    },
+    "player_13": {
+      "id": "player_13",
+      "number": 10,
+      "name": "Bryson Rollins",
+      "position": "QB"
+    },
+    "player_14": {
+      "id": "player_14",
+      "number": 11,
+      "name": "Luke Hensley",
+      "position": "WR"
+    },
+    "player_15": {
+      "id": "player_15",
+      "number": 12,
+      "name": "Caden Stephens",
+      "position": "QB"
+    },
+    "player_16": {
+      "id": "player_16",
+      "number": 13,
+      "name": "Griffin Swinea",
+      "position": "RB"
+    },
+    "player_17": {
+      "id": "player_17",
+      "number": 14,
+      "name": "Jake Brock",
+      "position": "QB"
+    },
+    "player_18": {
+      "id": "player_18",
+      "number": 15,
+      "name": "Erozinis Edmondson",
+      "position": "WR"
+    },
+    "player_19": {
+      "id": "player_19",
+      "number": 16,
+      "name": "C.J. Lowe",
+      "position": "QB"
+    },
+    "player_20": {
+      "id": "player_20",
+      "number": 17,
+      "name": "Joseph Cummings",
+      "position": "QB"
+    },
+    "player_21": {
+      "id": "player_21",
+      "number": 18,
+      "name": "Sam Evitts",
+      "position": "QB"
+    },
+    "player_22": {
+      "id": "player_22",
+      "number": 19,
+      "name": "An'terius Mcalister",
+      "position": "RB"
+    },
+    "player_23": {
+      "id": "player_23",
+      "number": 20,
+      "name": "Jermaine Abner",
+      "position": "RB"
+    },
+    "player_24": {
+      "id": "player_24",
+      "number": 21,
+      "name": "Hudson DeLine",
+      "position": "RB"
+    },
+    "player_25": {
+      "id": "player_25",
+      "number": 22,
+      "name": "Griffin Swinea",
+      "position": "RB"
+    },
+    "player_26": {
+      "id": "player_26",
+      "number": 23,
+      "name": "Nick Duke",
+      "position": "RB"
+    },
+    "player_27": {
+      "id": "player_27",
+      "number": 24,
+      "name": "Luke Hensley",
+      "position": "WR"
+    },
+    "player_28": {
+      "id": "player_28",
+      "number": 25,
+      "name": "DaRell Brown",
+      "position": "RB"
+    },
+    "player_29": {
+      "id": "player_29",
+      "number": 26,
+      "name": "Bryson Palmer",
+      "position": "RB"
+    },
+    "player_30": {
+      "id": "player_30",
+      "number": 27,
+      "name": "Dewey Whaley",
+      "position": "WR"
+    },
+    "player_31": {
+      "id": "player_31",
+      "number": 28,
+      "name": "Micah Burton",
+      "position": "RB"
+    },
+    "player_32": {
+      "id": "player_32",
+      "number": 29,
+      "name": "Manny Palmer",
+      "position": "RB"
+    },
+    "player_33": {
+      "id": "player_33",
+      "number": 30,
+      "name": "Juwaan Troutman",
+      "position": "RB"
+    },
+    "player_34": {
+      "id": "player_34",
+      "number": 31,
+      "name": "Casey Cobble",
+      "position": "RB"
+    },
+    "player_35": {
+      "id": "player_35",
+      "number": 32,
+      "name": "Caleb Kozinski",
+      "position": "LB"
+    },
+    "player_36": {
+      "id": "player_36",
+      "number": 33,
+      "name": "Gabriel Dennis",
+      "position": "LB"
+    },
+    "player_37": {
+      "id": "player_37",
+      "number": 34,
+      "name": "Jaden Marlin",
+      "position": "TE"
+    },
+    "player_38": {
+      "id": "player_38",
+      "number": 35,
+      "name": "Taymarion Williams",
+      "position": "RB"
+    },
+    "player_39": {
+      "id": "player_39",
+      "number": 36,
+      "name": "Kaden Gregory",
+      "position": "LB"
+    },
+    "player_40": {
+      "id": "player_40",
+      "number": 37,
+      "name": "Jalen McCullough",
+      "position": "TE"
+    },
+    "player_41": {
+      "id": "player_41",
+      "number": 38,
+      "name": "Javaris Gallaher",
+      "position": "RB"
+    },
+    "player_42": {
+      "id": "player_42",
+      "number": 39,
+      "name": "Jacquese Abner",
+      "position": "RB"
+    },
+    "player_43": {
+      "id": "player_43",
+      "number": 40,
+      "name": "Lincoln Rich",
+      "position": "LB"
+    },
+    "player_44": {
+      "id": "player_44",
+      "number": 41,
+      "name": "Knox Kremblas",
+      "position": "LB"
+    },
+    "player_45": {
+      "id": "player_45",
+      "number": 42,
+      "name": "Dante Strickland",
+      "position": "LB"
+    },
+    "player_46": {
+      "id": "player_46",
+      "number": 43,
+      "name": "Matthew Covert",
+      "position": "LB"
+    },
+    "player_47": {
+      "id": "player_47",
+      "number": 44,
+      "name": "Landon Vest",
+      "position": "LB"
+    },
+    "player_48": {
+      "id": "player_48",
+      "number": 45,
+      "name": "Shiv Patel",
+      "position": "K"
+    },
+    "player_49": {
+      "id": "player_49",
+      "number": 46,
+      "name": "Britton Barrett",
+      "position": "LS"
+    },
+    "player_50": {
+      "id": "player_50",
+      "number": 47,
+      "name": "Andrew Moore",
+      "position": "LB"
+    },
+    "player_51": {
+      "id": "player_51",
+      "number": 48,
+      "name": "Denton Cavender",
+      "position": "LB"
+    },
+    "player_52": {
+      "id": "player_52",
+      "number": 49,
+      "name": "Makhi Cunningham",
+      "position": "LB"
+    },
+    "player_53": {
+      "id": "player_53",
+      "number": 50,
+      "name": "Aiden Relthford",
+      "position": "OL"
+    },
+    "player_54": {
+      "id": "player_54",
+      "number": 51,
+      "name": "Mushaba Zulu",
+      "position": "OL"
+    },
+    "player_55": {
+      "id": "player_55",
+      "number": 52,
+      "name": "Kemmanuel Liggett",
+      "position": "OL"
+    },
+    "player_56": {
+      "id": "player_56",
+      "number": 53,
+      "name": "Garrett Edgar",
+      "position": "OL"
+    },
+    "player_57": {
+      "id": "player_57",
+      "number": 54,
+      "name": "Ben Murphy",
+      "position": "OL"
+    },
+    "player_58": {
+      "id": "player_58",
+      "number": 55,
+      "name": "Dakoda Haun",
+      "position": "OL"
+    },
+    "player_59": {
+      "id": "player_59",
+      "number": 56,
+      "name": "Blane Collins",
+      "position": "OL"
+    },
+    "player_60": {
+      "id": "player_60",
+      "number": 57,
+      "name": "Turner Davis",
+      "position": "OL"
+    },
+    "player_61": {
+      "id": "player_61",
+      "number": 58,
+      "name": "Dallas Jefferson",
+      "position": "OL"
+    },
+    "player_62": {
+      "id": "player_62",
+      "number": 59,
+      "name": "Landon Deitch",
+      "position": "OL"
+    },
+    "player_63": {
+      "id": "player_63",
+      "number": 60,
+      "name": "Jakob Iwanek",
+      "position": "OL"
+    },
+    "player_64": {
+      "id": "player_64",
+      "number": 61,
+      "name": "Kain Ladd",
+      "position": "OL"
+    },
+    "player_65": {
+      "id": "player_65",
+      "number": 62,
+      "name": "Jordan King",
+      "position": "OL"
+    },
+    "player_66": {
+      "id": "player_66",
+      "number": 63,
+      "name": "LaRue Tisby",
+      "position": "OL"
+    },
+    "player_67": {
+      "id": "player_67",
+      "number": 64,
+      "name": "Jacob Berven",
+      "position": "OL"
+    },
+    "player_68": {
+      "id": "player_68",
+      "number": 65,
+      "name": "Malachi Allgood",
+      "position": "OL"
+    },
+    "player_69": {
+      "id": "player_69",
+      "number": 66,
+      "name": "Chris Cooper",
+      "position": "OL"
+    },
+    "player_70": {
+      "id": "player_70",
+      "number": 67,
+      "name": "Zyon Rockett",
+      "position": "DL"
+    },
+    "player_71": {
+      "id": "player_71",
+      "number": 68,
+      "name": "Darion Lister",
+      "position": "DL"
+    },
+    "player_72": {
+      "id": "player_72",
+      "number": 69,
+      "name": "Brennon Sayler",
+      "position": "DL"
+    },
+    "player_73": {
+      "id": "player_73",
+      "number": 70,
+      "name": "Logan Kinnard",
+      "position": "DL"
+    },
+    "player_74": {
+      "id": "player_74",
+      "number": 71,
+      "name": "Jonathan Barron",
+      "position": "DL"
+    },
+    "player_75": {
+      "id": "player_75",
+      "number": 72,
+      "name": "Carson Paul",
+      "position": "DL"
+    },
+    "player_76": {
+      "id": "player_76",
+      "number": 73,
+      "name": "Chase Barnard",
+      "position": "DL"
+    },
+    "player_77": {
+      "id": "player_77",
+      "number": 74,
+      "name": "Clark Langley",
+      "position": "DL"
+    },
+    "player_78": {
+      "id": "player_78",
+      "number": 75,
+      "name": "Caden Walker",
+      "position": "DL"
+    },
+    "player_79": {
+      "id": "player_79",
+      "number": 76,
+      "name": "Evan Vader",
+      "position": "DL"
+    },
+    "player_80": {
+      "id": "player_80",
+      "number": 77,
+      "name": "Luke Pinkston",
+      "position": "DL"
+    },
+    "player_81": {
+      "id": "player_81",
+      "number": 78,
+      "name": "Rashon Wells Jr.",
+      "position": "DL"
+    },
+    "player_82": {
+      "id": "player_82",
+      "number": 79,
+      "name": "P.J. Clennon",
+      "position": "DL"
+    },
+    "player_83": {
+      "id": "player_83",
+      "number": 80,
+      "name": "Josiah Evans",
+      "position": "WR"
+    },
+    "player_84": {
+      "id": "player_84",
+      "number": 81,
+      "name": "Haden Tidwell",
+      "position": "WR"
+    },
+    "player_85": {
+      "id": "player_85",
+      "number": 82,
+      "name": "Brady Messenger",
+      "position": "WR"
+    },
+    "player_86": {
+      "id": "player_86",
+      "number": 83,
+      "name": "Ethan Boggess",
+      "position": "WR"
+    },
+    "player_87": {
+      "id": "player_87",
+      "number": 84,
+      "name": "Chuck Hammack",
+      "position": "WR"
+    },
+    "player_88": {
+      "id": "player_88",
+      "number": 85,
+      "name": "Sam Jared",
+      "position": "WR"
+    },
+    "player_89": {
+      "id": "player_89",
+      "number": 86,
+      "name": "Brady Messenger",
+      "position": "WR"
+    },
+    "player_90": {
+      "id": "player_90",
+      "number": 87,
+      "name": "Jalen McCullough",
+      "position": "TE"
+    },
+    "player_91": {
+      "id": "player_91",
+      "number": 88,
+      "name": "Jackson Thomas",
+      "position": "TE"
+    },
+    "player_92": {
+      "id": "player_92",
+      "number": 89,
+      "name": "Wyatt DeRoche",
+      "position": "TE"
+    },
+    "player_93": {
+      "id": "player_93",
+      "number": 90,
+      "name": "Lukas Yackley",
+      "position": "DL"
+    },
+    "player_94": {
+      "id": "player_94",
+      "number": 91,
+      "name": "BJ Bailey",
+      "position": "DL"
+    },
+    "player_95": {
+      "id": "player_95",
+      "number": 92,
+      "name": "Zach Carroll",
+      "position": "DL"
+    },
+    "player_96": {
+      "id": "player_96",
+      "number": 93,
+      "name": "Davonte Thomas",
+      "position": "DL"
+    },
+    "player_97": {
+      "id": "player_97",
+      "number": 94,
+      "name": "Caleb Boldin",
+      "position": "DL"
+    },
+    "player_98": {
+      "id": "player_98",
+      "number": 95,
+      "name": "Tyler Green",
+      "position": "DL"
+    },
+    "player_99": {
+      "id": "player_99",
+      "number": 96,
+      "name": "C.J. Ellis",
+      "position": "DL"
+    },
+    "player_100": {
+      "id": "player_100",
+      "number": 97,
+      "name": "Ethan Colton",
+      "position": "DL"
+    },
+    "player_101": {
+      "id": "player_101",
+      "number": 98,
+      "name": "Anthony Williams",
+      "position": "DL"
+    },
+    "player_102": {
+      "id": "player_102",
+      "number": 99,
+      "name": "Javier Gaspar",
+      "position": "DL"
+    }
+  }
+}
