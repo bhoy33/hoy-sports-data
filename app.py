@@ -365,52 +365,10 @@ def login_supabase():
     
     return render_template('login.html')
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        email = request.form.get('email')
-        
-        if not username or not password:
-            return render_template('signup.html', error="Username and password required")
-        
-        if not supabase_manager:
-            return render_template('signup.html', error="Database not available")
-        
-        try:
-            # Check if username exists
-            result = supabase_manager.supabase.table('users').select('username').eq('username', username).execute()
-            
-            if result.data and len(result.data) > 0:
-                return render_template('signup.html', error="Username already exists")
-            
-            # Create new user
-            user_data = {
-                'username': username,
-                'password_hash': hash_password(password),
-                'email': email,
-                'is_admin': False,
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
-            }
-            
-            result = supabase_manager.supabase.table('users').insert(user_data).execute()
-            
-            if result.data:
-                # Auto-login after signup
-                user = result.data[0]
-                session['user_id'] = user['id']
-                session['username'] = user['username']
-                session['is_admin'] = user.get('is_admin', False)
-                return redirect(url_for('index'))
-            else:
-                return render_template('signup.html', error="Failed to create account")
-                
-        except Exception as e:
-            return render_template('signup.html', error=f"Signup error: {str(e)}")
-    
-    return render_template('signup.html')
+# Signup route disabled - users created via admin script only
+# @app.route('/signup', methods=['GET', 'POST'])
+# def signup():
+#     return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
