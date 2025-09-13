@@ -1,4 +1,4 @@
-from test_deploy import app
+from minimal_app import app
 
 if __name__ == '__main__':
     import os
