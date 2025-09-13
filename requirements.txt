@@ -1,2 +1,12 @@
 Flask==2.3.2
+Werkzeug==2.3.6
+Jinja2==3.1.2
 gunicorn==21.2.0
+pandas==2.0.3
+numpy==1.24.3
+altair==5.0.1
+reportlab==4.0.4
+supabase==1.0.4
+python-dotenv==1.0.0
+bcrypt==4.0.1
+flask-session==0.5.0
