@@ -256,9 +256,16 @@ def hash_password(password):
     return hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
 
 def check_password(hashed_password, user_password):
-    """Check if password matches hash"""
-    password, salt = hashed_password.split(':')
-    return password == hashlib.sha256(salt.encode() + user_password.encode()).hexdigest()
+    """Check if password matches bcrypt hash"""
+    try:
+        import bcrypt
+        return bcrypt.checkpw(user_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except:
+        # Fallback for old hash format
+        if ':' in hashed_password:
+            password, salt = hashed_password.split(':')
+            return password == hashlib.sha256(salt.encode() + user_password.encode()).hexdigest()
+        return False
 
 def require_login(f):
     """Decorator to require login for routes"""
@@ -331,39 +338,10 @@ def detailed_health_check():
         }), 200
 
 # Authentication routes
-@app.route('/login_supabase', methods=['GET', 'POST'])
-def login_supabase():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        if not username or not password:
-            return render_template('login.html', error="Username and password required")
-        
-        if not supabase_manager:
-            return render_template('login.html', error="Database not available")
-        
-        try:
-            # Check user credentials
-            result = supabase_manager.supabase.table('users').select('*').eq('username', username).execute()
-            
-            if result.data and len(result.data) > 0:
-                user = result.data[0]
-                if check_password(user['password_hash'], password):
-                    # Login successful
-                    session['user_id'] = user['id']
-                    session['username'] = user['username']
-                    session['is_admin'] = user.get('is_admin', False)
-                    return redirect(url_for('index'))
-                else:
-                    return render_template('login.html', error="Invalid credentials")
-            else:
-                return render_template('login.html', error="Invalid credentials")
-                
-        except Exception as e:
-            return render_template('login.html', error=f"Login error: {str(e)}")
-    
-    return render_template('login.html')
+# Old Supabase login route - now handled by main login route
+# @app.route('/login_supabase', methods=['GET', 'POST'])
+# def login_supabase():
+#     return redirect(url_for('login'))
 
 # Signup route disabled - users created via admin script only
 # @app.route('/signup', methods=['GET', 'POST'])
@@ -525,39 +503,43 @@ alt.data_transformers.enable('json')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login page for password protection"""
+    """Username/password login using Supabase authentication"""
     if request.method == 'POST':
+        username = request.form.get('username')
         password = request.form.get('password')
         
-        # Check for admin password
-        if password == ADMIN_PASSWORD:
-            session['authenticated'] = True
-            session['is_admin'] = True
-            session['username'] = 'admin'  # Set admin username for data access
-            return redirect(url_for('admin_dashboard'))
+        if not username or not password:
+            return render_template('login.html', error="Username and password required")
         
-        # Check for regular user passwords
-        elif password in SITE_PASSWORDS:
-            # Check if maintenance mode is active
-            if maintenance_mode:
-                return render_template('login.html', 
-                    error='Site is currently under maintenance. Please try again later.',
-                    maintenance_mode=True)
-            session['authenticated'] = True
-            session['is_admin'] = False
-            # Set username based on password for cross-device data access - NO FALLBACK TO ANONYMOUS
-            if password in PASSWORD_TO_USERNAME:
-                session['username'] = PASSWORD_TO_USERNAME[password]
+        if not supabase_manager:
+            return render_template('login.html', error="Database not available")
+        
+        try:
+            # Check user credentials in Supabase
+            result = supabase_manager.supabase.table('users').select('*').eq('username', username).execute()
+            
+            if result.data and len(result.data) > 0:
+                user = result.data[0]
+                if check_password(user['password_hash'], password):
+                    # Login successful
+                    session['authenticated'] = True
+                    session['user_id'] = user['id']
+                    session['username'] = user['username']
+                    session['is_admin'] = user.get('is_admin', False)
+                    
+                    if user.get('is_admin', False):
+                        return redirect(url_for('admin_dashboard'))
+                    else:
+                        return redirect(url_for('index'))
+                else:
+                    return render_template('login.html', error="Invalid credentials")
             else:
-                # This should never happen if SITE_PASSWORDS and PASSWORD_TO_USERNAME are in sync
-                return render_template('login.html', error='Authentication error. Please contact administrator.')
-            return redirect(url_for('index'))
-        
-        else:
-            return render_template('login.html', error='Invalid password. Please try again.')
+                return render_template('login.html', error="Invalid credentials")
+                
+        except Exception as e:
+            return render_template('login.html', error=f"Login error: {str(e)}")
     
-    # Show maintenance message if maintenance mode is active
-    return render_template('login.html', maintenance_mode=maintenance_mode if maintenance_mode else None)
+    return render_template('login.html')
 
 @app.route('/admin')
 @login_required
