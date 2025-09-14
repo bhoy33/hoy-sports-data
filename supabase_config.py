@@ -26,21 +26,35 @@ class SupabaseManager:
     def __init__(self):
         """Initialize Supabase client with environment variables"""
         self.url = os.getenv('SUPABASE_URL')
-        self.key = os.getenv('SUPABASE_ANON_KEY')
+        self.anon_key = os.getenv('SUPABASE_ANON_KEY')
+        self.service_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
         
         if not SUPABASE_AVAILABLE:
             logger.warning("Supabase library not available")
             self.supabase = None
-        elif not self.url or not self.key:
+            self.supabase_admin = None
+        elif not self.url or not self.anon_key:
             logger.warning("Supabase credentials not found in environment variables")
             self.supabase = None
+            self.supabase_admin = None
         else:
             try:
-                self.supabase: Client = create_client(self.url, self.key)
+                # Regular client with anon key for standard operations
+                self.supabase: Client = create_client(self.url, self.anon_key)
                 logger.info("Supabase client initialized successfully")
+                
+                # Admin client with service role key for bypassing RLS
+                if self.service_key:
+                    self.supabase_admin: Client = create_client(self.url, self.service_key)
+                    logger.info("Supabase admin client initialized successfully")
+                else:
+                    self.supabase_admin = None
+                    logger.warning("Service role key not found - admin operations may fail")
+                    
             except Exception as e:
                 logger.error(f"Failed to initialize Supabase client: {e}")
                 self.supabase = None
+                self.supabase_admin = None
     
     def is_connected(self) -> bool:
         """Check if Supabase connection is available"""
@@ -93,8 +107,11 @@ class SupabaseManager:
     
     # Game Session Management
     def create_game_session(self, user_id: str, session_data: Dict) -> Optional[Dict]:
-        """Create a new game session"""
-        if not self.supabase:
+        """Create a new game session using admin client to bypass RLS"""
+        # Use admin client if available to bypass RLS, otherwise fall back to regular client
+        client = self.supabase_admin if self.supabase_admin else self.supabase
+        
+        if not client:
             return None
         
         try:
@@ -109,7 +126,7 @@ class SupabaseManager:
                 'status': 'active'
             }
             
-            result = self.supabase.table('game_sessions').insert(session_record).execute()
+            result = client.table('game_sessions').insert(session_record).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.error(f"Failed to create game session: {e}")
