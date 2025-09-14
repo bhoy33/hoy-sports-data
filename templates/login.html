@@ -128,13 +128,21 @@
         {% endif %}
         
         <form method="POST">
+            <div class="mb-3">
+                <label for="username" class="form-label">
+                    <i class="fas fa-user me-2"></i>Username
+                </label>
+                <input type="text" class="form-control" id="username" name="username" 
+                       placeholder="Enter your username" required autofocus>
+            </div>
+            
             <div class="mb-4">
                 <label for="password" class="form-label">
-                    <i class="fas fa-lock me-2"></i>Enter Access Password
+                    <i class="fas fa-lock me-2"></i>Password
                 </label>
                 <div class="password-input-group">
                     <input type="password" class="form-control" id="password" name="password" 
-                           placeholder="Enter password to access analytics" required autofocus>
+                           placeholder="Enter your password" required>
                     <button type="button" class="password-toggle" onclick="togglePassword()">
                         <i class="fas fa-eye" id="toggleIcon"></i>
                     </button>
@@ -174,8 +182,8 @@
             }
         }
         
-        // Auto-focus password field
-        document.getElementById('password').focus();
+        // Auto-focus username field
+        document.getElementById('username').focus();
     </script>
 </body>
 </html>
