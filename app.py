@@ -3715,33 +3715,50 @@ def get_box_stats():
                 }
             })
         
-        # Use the stored team stats from session (which include advanced analytics)
-        # instead of recalculating basic stats
-        team_stats = box_stats.get('team_stats', {
-            'total_plays': 0,
-            'efficient_plays': 0,
-            'explosive_plays': 0,
-            'negative_plays': 0,
-            'total_yards': 0,
-            'touchdowns': 0,
-            'turnovers': 0,
-            'interceptions': 0,
-            'efficiency_rate': 0.0,
-            'explosive_rate': 0.0,
-            'negative_rate': 0.0,
-            'nee_score': 0.0,
-            'avg_yards_per_play': 0.0,
-            'success_rate': 0.0
-        })
+        # Use the stored team stats from session (which include phase-separated analytics)
+        # Frontend expects phase-separated stats: offense, defense, special_teams
+        team_stats = box_stats.get('team_stats', {})
+        
+        # Ensure phase-separated structure exists
+        if 'offense' not in team_stats:
+            team_stats = {
+                'offense': {
+                    'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
+                    'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'interceptions': 0,
+                    'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
+                    'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0
+                },
+                'defense': {
+                    'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
+                    'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'interceptions': 0,
+                    'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
+                    'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0
+                },
+                'special_teams': {
+                    'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
+                    'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'interceptions': 0,
+                    'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
+                    'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0
+                },
+                'overall': {
+                    'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
+                    'total_yards': 0, 'touchdowns': 0, 'turnovers': 0, 'interceptions': 0,
+                    'efficiency_rate': 0.0, 'explosive_rate': 0.0, 'negative_rate': 0.0,
+                    'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0
+                }
+            }
         
         # Add basic play type counts for compatibility
-        team_stats['rushing_plays'] = len([p for p in box_stats['plays'] if p.get('play_type') == 'rush'])
-        team_stats['passing_plays'] = len([p for p in box_stats['plays'] if p.get('play_type') == 'pass'])
+        for phase in ['offense', 'defense', 'special_teams', 'overall']:
+            if phase in team_stats:
+                team_stats[phase]['rushing_plays'] = len([p for p in box_stats['plays'] 
+                                                        if p.get('play_type') == 'rush' and p.get('phase', 'offense') == phase])
+                team_stats[phase]['passing_plays'] = len([p for p in box_stats['plays'] 
+                                                        if p.get('play_type') == 'pass' and p.get('phase', 'offense') == phase])
         
-        print(f"DEBUG GET_STATS: Returning team stats: {team_stats}")
-        print(f"DEBUG GET_STATS: Team efficiency rate: {team_stats.get('efficiency_rate', 'NOT_FOUND')}")
-        print(f"DEBUG GET_STATS: Team explosive rate: {team_stats.get('explosive_rate', 'NOT_FOUND')}")
-        print(f"DEBUG GET_STATS: Team NEE score: {team_stats.get('nee_score', 'NOT_FOUND')}")
+        print(f"DEBUG GET_STATS: Defense explosive rate: {team_stats.get('defense', {}).get('explosive_rate', 'NOT_FOUND')}")
+        print(f"DEBUG GET_STATS: Defense efficiency rate: {team_stats.get('defense', {}).get('efficiency_rate', 'NOT_FOUND')}")
+        print(f"DEBUG GET_STATS: Defense NEE score: {team_stats.get('defense', {}).get('nee_score', 'NOT_FOUND')}")
         
         return jsonify({
             'success': True,
