@@ -132,6 +132,82 @@ class SupabaseManager:
             logger.error(f"Failed to create game session: {e}")
             return None
     
+    def save_game_session(self, user_id: str, session_data: Dict) -> bool:
+        """Save game session data to Supabase"""
+        try:
+            # Use admin client if available to bypass RLS, otherwise fall back to regular client
+            client = self.supabase_admin if self.supabase_admin else self.supabase
+            
+            if not client:
+                logger.error("No Supabase client available")
+                return False
+            
+            # Prepare the session data for insertion
+            session_record = {
+                'user_id': user_id,
+                'session_name': session_data.get('session_name', 'Unnamed Session'),
+                'game_date': session_data.get('game_date'),
+                'opponent': session_data.get('opponent', ''),
+                'location': session_data.get('location', ''),
+                'weather_conditions': session_data.get('weather_conditions', ''),
+                'game_type': session_data.get('game_type', 'regular'),
+                'status': 'active',
+                'box_stats': session_data.get('box_stats', {})
+            }
+            
+            result = client.table('game_sessions').insert(session_record).execute()
+            
+            if result.data:
+                logger.info(f"Game session saved successfully for user {user_id}")
+                return True
+            else:
+                logger.error(f"Failed to save game session: No data returned")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error saving game session to Supabase: {e}")
+            return False
+    
+    def get_user_rosters(self, user_id: str) -> List[Dict]:
+        """Get all rosters for a specific user from Supabase"""
+        try:
+            if not self.supabase:
+                logger.error("Supabase client not initialized")
+                return []
+            
+            result = self.supabase.table('rosters').select('*').eq('user_id', user_id).execute()
+            
+            if result.data:
+                logger.info(f"Retrieved {len(result.data)} rosters for user {user_id}")
+                return result.data
+            else:
+                logger.info(f"No rosters found for user {user_id}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error getting user rosters from Supabase: {e}")
+            return []
+    
+    def get_user_game_sessions(self, user_id: str) -> List[Dict]:
+        """Get all game sessions for a specific user from Supabase"""
+        try:
+            if not self.supabase:
+                logger.error("Supabase client not initialized")
+                return []
+            
+            result = self.supabase.table('game_sessions').select('*').eq('user_id', user_id).execute()
+            
+            if result.data:
+                logger.info(f"Retrieved {len(result.data)} game sessions for user {user_id}")
+                return result.data
+            else:
+                logger.info(f"No game sessions found for user {user_id}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error getting user game sessions from Supabase: {e}")
+            return []
+
     def get_user_sessions(self, user_id: str) -> List[Dict]:
         """Get all sessions for a user"""
         if not self.supabase:

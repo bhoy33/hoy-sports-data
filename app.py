@@ -4119,13 +4119,23 @@ def load_player_roster():
         # Get username from session
         username = session.get('username', 'anonymous')
         
-        # Create filename using consistent helper function
-        filename = create_safe_roster_filename(roster_name)
+        # Get user_id from Supabase
+        user_data = supabase_manager.get_user_by_username(username)
+        if not user_data:
+            return jsonify({'error': 'User not found'}), 404
         
-        # Load roster from file
-        roster_data, error = load_roster_data(username, filename)
+        user_id = user_data['id']
         
-        if error or not roster_data:
+        # Get rosters from Supabase and find the matching one
+        rosters_data = supabase_manager.get_user_rosters(user_id)
+        roster_data = None
+        
+        for roster in rosters_data:
+            if roster.get('roster_name') == roster_name:
+                roster_data = roster.get('roster_data', {})
+                break
+        
+        if not roster_data:
             return jsonify({'error': f'Roster "{roster_name}" not found'}), 404
         
         player_count = len(roster_data.get('players', {}))
@@ -4160,16 +4170,29 @@ def get_saved_rosters():
         # Get username from session
         username = session.get('username', 'anonymous')
         
-        # Get rosters from file storage
-        rosters_list = get_user_saved_rosters(username)
+        # Get user_id from Supabase
+        user_data = supabase_manager.get_user_by_username(username)
+        if not user_data:
+            return jsonify({'error': 'User not found'}), 404
         
-        # Add players data to each roster for frontend compatibility
-        for roster in rosters_list:
-            roster_data, error = load_roster_data(username, roster['filename'])
-            if roster_data and not error:
-                roster['players'] = roster_data.get('players', {})
-            else:
-                roster['players'] = {}
+        user_id = user_data['id']
+        
+        # Get rosters from Supabase
+        rosters_data = supabase_manager.get_user_rosters(user_id)
+        
+        # Convert Supabase roster format to frontend-expected format
+        rosters_list = []
+        for roster in rosters_data:
+            roster_item = {
+                'id': roster.get('id'),
+                'filename': roster.get('roster_name', 'Unnamed'),
+                'name': roster.get('roster_name', 'Unnamed'),
+                'created_at': roster.get('created_at'),
+                'players': roster.get('roster_data', {}).get('players', {})
+            }
+            rosters_list.append(roster_item)
+        
+        print(f"DEBUG: Retrieved {len(rosters_list)} rosters from Supabase for user {username}")
         
         return jsonify({
             'success': True,
@@ -4177,6 +4200,7 @@ def get_saved_rosters():
         })
         
     except Exception as e:
+        print(f"ERROR getting rosters from Supabase: {str(e)}")
         return jsonify({'error': f'Error getting rosters: {str(e)}'}), 500
 
 @app.route('/box_stats/delete_roster', methods=['POST'])
