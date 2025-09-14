@@ -420,6 +420,75 @@ class SupabaseManager:
             logger.error(f"Failed to get backup status: {e}")
             return []
     
+    def save_roster(self, user_id: str, roster_name: str, roster_data: Dict) -> bool:
+        """Save roster data to Supabase"""
+        if not self.supabase:
+            return False
+        
+        try:
+            roster_record = {
+                'user_id': user_id,
+                'roster_name': roster_name,
+                'roster_data': json.dumps(roster_data),
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            # Check if roster already exists for this user
+            existing = self.supabase.table('rosters').select('id').eq('user_id', user_id).eq('roster_name', roster_name).execute()
+            
+            if existing.data:
+                # Update existing roster
+                result = self.supabase.table('rosters').update({
+                    'roster_data': json.dumps(roster_data),
+                    'updated_at': datetime.now().isoformat()
+                }).eq('user_id', user_id).eq('roster_name', roster_name).execute()
+            else:
+                # Insert new roster
+                result = self.supabase.table('rosters').insert(roster_record).execute()
+            
+            return len(result.data) > 0
+        except Exception as e:
+            logger.error(f"Failed to save roster: {e}")
+            return False
+    
+    def save_game_session(self, user_id: str, game_name: str, game_data: Dict) -> bool:
+        """Save game session data to Supabase"""
+        if not self.supabase:
+            return False
+        
+        try:
+            # Create or update game session
+            session_record = {
+                'user_id': user_id,
+                'session_name': game_name,
+                'game_date': game_data.get('game_date', datetime.now().date().isoformat()),
+                'opponent': game_data.get('opponent', 'Unknown'),
+                'location': game_data.get('location'),
+                'weather_conditions': game_data.get('weather_conditions'),
+                'game_type': game_data.get('game_type', 'regular'),
+                'status': 'completed',
+                'session_data': json.dumps(game_data)
+            }
+            
+            # Check if session already exists
+            existing = self.supabase.table('game_sessions').select('id').eq('user_id', user_id).eq('session_name', game_name).execute()
+            
+            if existing.data:
+                # Update existing session
+                result = self.supabase.table('game_sessions').update({
+                    'session_data': json.dumps(game_data),
+                    'updated_at': datetime.now().isoformat()
+                }).eq('user_id', user_id).eq('session_name', game_name).execute()
+            else:
+                # Insert new session
+                result = self.supabase.table('game_sessions').insert(session_record).execute()
+            
+            return len(result.data) > 0
+        except Exception as e:
+            logger.error(f"Failed to save game session: {e}")
+            return False
+    
     # Migration and Data Recovery
     def migrate_session_data(self, session_data: Dict, user_id: str) -> Optional[str]:
         """Migrate existing session data to Supabase"""

@@ -3027,14 +3027,27 @@ def save_roster_data(username, roster_name, roster_data):
             print(f"WARNING: Blocked roster save for invalid username: '{username}'")
             return False, "Access denied"
         
-        # Primary: Save to database
+        # Primary: Save to Supabase
         database_success = False
         try:
-            database_success = db_manager.save_roster(username, roster_name, roster_data)
-            if database_success:
-                print(f"✓ Roster '{roster_name}' saved to database for {username}")
+            if supabase_manager and supabase_manager.is_connected():
+                # Get user_id from session or lookup by username
+                user_id = session.get('user_id')
+                if not user_id:
+                    # Lookup user_id by username
+                    user = supabase_manager.get_user_by_username(username)
+                    user_id = user['id'] if user else None
+                
+                if user_id:
+                    database_success = supabase_manager.save_roster(user_id, roster_name, roster_data)
+                    if database_success:
+                        print(f"✓ Roster '{roster_name}' saved to Supabase for {username}")
+                else:
+                    print(f"❌ Could not find user_id for username: {username}")
+            else:
+                print("❌ Supabase not available, using file backup only")
         except Exception as e:
-            print(f"❌ Database save failed for roster '{roster_name}': {e}")
+            print(f"❌ Supabase save failed for roster '{roster_name}': {e}")
         
         # Secondary: Save to file (always as backup)
         user_dir = get_user_rosters_dir(username)
@@ -3195,14 +3208,27 @@ def delete_roster_data(username, roster_filename):
 def save_game_data(username, game_name, game_data):
     """Save game data to database with file backup"""
     try:
-        # Primary: Save to database
+        # Primary: Save to Supabase
         database_success = False
         try:
-            database_success = db_manager.save_game(username, game_name, game_data)
-            if database_success:
-                print(f"✓ Game '{game_name}' saved to database for {username}")
+            if supabase_manager and supabase_manager.is_connected():
+                # Get user_id from session or lookup by username
+                user_id = session.get('user_id')
+                if not user_id:
+                    # Lookup user_id by username
+                    user = supabase_manager.get_user_by_username(username)
+                    user_id = user['id'] if user else None
+                
+                if user_id:
+                    database_success = supabase_manager.save_game_session(user_id, game_name, game_data)
+                    if database_success:
+                        print(f"✓ Game '{game_name}' saved to Supabase for {username}")
+                else:
+                    print(f"❌ Could not find user_id for username: {username}")
+            else:
+                print("❌ Supabase not available, using file backup only")
         except Exception as e:
-            print(f"❌ Database save failed for game '{game_name}': {e}")
+            print(f"❌ Supabase save failed for game '{game_name}': {e}")
         
         # Secondary: Save to file (always as backup)
         user_dir = get_user_games_dir(username)
