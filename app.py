@@ -4085,22 +4085,30 @@ def save_player_roster():
             if delete_success:
                 print(f"DEBUG: Removed old roster '{original_name}' due to rename")
         
+        # Get user_id from Supabase
+        user_data = supabase_manager.get_user_by_username(username)
+        if not user_data:
+            return jsonify({'error': 'User not found'}), 404
+        
+        user_id = user_data['id']
+        
         # Prepare roster data
         roster_data = {
             'players': player_profiles,
             'created_at': datetime.now().isoformat()
         }
         
-        # Save roster to file
-        success, result = save_roster_data(username, roster_name, roster_data)
+        # Save roster to Supabase
+        success = supabase_manager.save_roster(user_id, roster_name, roster_data)
         
         if success:
+            print(f"DEBUG: Successfully saved roster '{roster_name}' to Supabase for user {username}")
             return jsonify({
                 'success': True,
                 'message': f'Roster "{roster_name}" saved successfully with {len(player_profiles)} players'
             })
         else:
-            return jsonify({'error': f'Failed to save roster: {result}'}), 500
+            return jsonify({'error': f'Failed to save roster to database'}), 500
         
     except Exception as e:
         return jsonify({'error': f'Error saving roster: {str(e)}'}), 500
@@ -4214,18 +4222,26 @@ def delete_box_stats_roster():
         if not roster_name:
             return jsonify({'success': False, 'error': 'Roster name is required'})
         
-        # Get current rosters
-        rosters = session.get('saved_rosters', [])
+        # Get username from session
+        username = session.get('username', 'anonymous')
         
-        # Remove the specified roster
-        rosters = [r for r in rosters if r['name'] != roster_name]
-        session['saved_rosters'] = rosters
-        session.modified = True
+        # Get user_id from Supabase
+        user_data = supabase_manager.get_user_by_username(username)
+        if not user_data:
+            return jsonify({'error': 'User not found'}), 404
         
-        return jsonify({
-            'success': True,
-            'message': f'Roster "{roster_name}" deleted successfully'
-        })
+        user_id = user_data['id']
+        
+        # Delete roster from Supabase
+        success = supabase_manager.delete_roster(user_id, roster_name)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Roster "{roster_name}" deleted successfully'
+            })
+        else:
+            return jsonify({'success': False, 'error': f'Failed to delete roster "{roster_name}"'})
         
     except Exception as e:
         return jsonify({'success': False, 'error': f'Error deleting roster: {str(e)}'}), 500

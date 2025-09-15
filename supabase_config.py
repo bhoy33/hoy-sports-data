@@ -207,6 +207,26 @@ class SupabaseManager:
         except Exception as e:
             logger.error(f"Error getting user game sessions from Supabase: {e}")
             return []
+    
+    def delete_roster(self, user_id: str, roster_name: str) -> bool:
+        """Delete a roster for a specific user from Supabase"""
+        try:
+            if not self.supabase:
+                logger.error("Supabase client not initialized")
+                return False
+            
+            result = self.supabase.table('rosters').delete().eq('user_id', user_id).eq('roster_name', roster_name).execute()
+            
+            if result.data:
+                logger.info(f"Deleted roster '{roster_name}' for user {user_id}")
+                return True
+            else:
+                logger.warning(f"No roster found to delete: '{roster_name}' for user {user_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error deleting roster from Supabase: {e}")
+            return False
 
     def get_user_sessions(self, user_id: str) -> List[Dict]:
         """Get all sessions for a user"""
