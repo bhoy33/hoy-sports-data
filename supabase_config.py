@@ -215,7 +215,7 @@ class SupabaseManager:
                 logger.error("Supabase client not initialized")
                 return False
             
-            result = self.supabase.table('rosters').delete().eq('user_id', user_id).eq('roster_name', roster_name).execute()
+            result = self.supabase.table('rosters').delete().eq('user_id', user_id).eq('name', roster_name).execute()
             
             if result.data:
                 logger.info(f"Deleted roster '{roster_name}' for user {user_id}")
@@ -539,21 +539,21 @@ class SupabaseManager:
             return False
         
         try:
-            # Use correct schema: roster_name and roster_data columns
+            # Use actual schema: name and players columns (based on error log)
             roster_record = {
                 'user_id': user_id,
-                'roster_name': roster_name,  # Correct column name
-                'roster_data': roster_data,  # Correct column name - store as JSON object
+                'name': roster_name,  # Actual column name is 'name'
+                'players': json.dumps(roster_data),  # Actual column name is 'players', needs JSON string
             }
             
             # Check if roster already exists for this user
-            existing = self.supabase.table('rosters').select('id').eq('user_id', user_id).eq('roster_name', roster_name).execute()
+            existing = self.supabase.table('rosters').select('id').eq('user_id', user_id).eq('name', roster_name).execute()
             
             if existing.data:
                 # Update existing roster
                 result = self.supabase.table('rosters').update({
-                    'roster_data': roster_data,
-                }).eq('user_id', user_id).eq('roster_name', roster_name).execute()
+                    'players': json.dumps(roster_data),
+                }).eq('user_id', user_id).eq('name', roster_name).execute()
                 logger.info(f"Updated existing roster '{roster_name}' for user {user_id}")
             else:
                 # Insert new roster

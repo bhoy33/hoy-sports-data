@@ -4140,8 +4140,16 @@ def load_player_roster():
         roster_data = None
         
         for roster in rosters_data:
-            if roster.get('roster_name') == roster_name:
-                roster_data = roster.get('roster_data', {})
+            if roster.get('name') == roster_name:  # Use 'name' column
+                # Parse players data from JSON string
+                try:
+                    players_json = roster.get('players', '{}')
+                    if isinstance(players_json, str):
+                        roster_data = json.loads(players_json)
+                    elif isinstance(players_json, dict):
+                        roster_data = players_json
+                except (json.JSONDecodeError, AttributeError):
+                    roster_data = {}
                 break
         
         if not roster_data:
@@ -4192,12 +4200,24 @@ def get_saved_rosters():
         # Convert Supabase roster format to frontend-expected format
         rosters_list = []
         for roster in rosters_data:
+            # Parse players data from JSON string
+            players_data = {}
+            try:
+                players_json = roster.get('players', '{}')
+                if isinstance(players_json, str):
+                    parsed_data = json.loads(players_json)
+                    players_data = parsed_data.get('players', {})
+                elif isinstance(players_json, dict):
+                    players_data = players_json.get('players', {})
+            except (json.JSONDecodeError, AttributeError):
+                players_data = {}
+            
             roster_item = {
                 'id': roster.get('id'),
-                'filename': roster.get('roster_name', 'Unnamed'),
-                'name': roster.get('roster_name', 'Unnamed'),
+                'filename': roster.get('name', 'Unnamed'),  # Use 'name' column
+                'name': roster.get('name', 'Unnamed'),      # Use 'name' column
                 'created_at': roster.get('created_at'),
-                'players': roster.get('roster_data', {}).get('players', {})
+                'players': players_data
             }
             rosters_list.append(roster_item)
         
