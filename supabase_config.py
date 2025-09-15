@@ -539,27 +539,26 @@ class SupabaseManager:
             return False
         
         try:
-            # Use existing schema: id, name, players, user_id, created_at, updated_at
+            # Use correct schema: roster_name and roster_data columns
             roster_record = {
                 'user_id': user_id,
-                'name': roster_name,  # Use 'name' column instead of 'roster_name'
-                'players': json.dumps(roster_data),  # Use 'players' column instead of 'roster_data'
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
+                'roster_name': roster_name,  # Correct column name
+                'roster_data': roster_data,  # Correct column name - store as JSON object
             }
             
             # Check if roster already exists for this user
-            existing = self.supabase.table('rosters').select('id').eq('user_id', user_id).eq('name', roster_name).execute()
+            existing = self.supabase.table('rosters').select('id').eq('user_id', user_id).eq('roster_name', roster_name).execute()
             
             if existing.data:
                 # Update existing roster
                 result = self.supabase.table('rosters').update({
-                    'players': json.dumps(roster_data),
-                    'updated_at': datetime.now().isoformat()
-                }).eq('user_id', user_id).eq('name', roster_name).execute()
+                    'roster_data': roster_data,
+                }).eq('user_id', user_id).eq('roster_name', roster_name).execute()
+                logger.info(f"Updated existing roster '{roster_name}' for user {user_id}")
             else:
                 # Insert new roster
                 result = self.supabase.table('rosters').insert(roster_record).execute()
+                logger.info(f"Created new roster '{roster_name}' for user {user_id}")
             
             return len(result.data) > 0
         except Exception as e:
