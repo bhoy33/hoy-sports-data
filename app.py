@@ -3719,8 +3719,9 @@ def get_box_stats():
         # Frontend expects phase-separated stats: offense, defense, special_teams
         team_stats = box_stats.get('team_stats', {})
         
-        # Ensure phase-separated structure exists
+        # Ensure phase-separated structure exists - but preserve existing calculated values
         if 'offense' not in team_stats:
+            # Only create empty structure if no team_stats exist at all
             team_stats = {
                 'offense': {
                     'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0,
@@ -3747,6 +3748,9 @@ def get_box_stats():
                     'nee_score': 0.0, 'avg_yards_per_play': 0.0, 'success_rate': 0.0
                 }
             }
+        else:
+            # Preserve existing calculated team_stats - don't overwrite with zeros
+            print(f"DEBUG GET_STATS: Preserving existing team_stats with {len(team_stats)} phases")
         
         # Add basic play type counts for compatibility
         for phase in ['offense', 'defense', 'special_teams', 'overall']:
