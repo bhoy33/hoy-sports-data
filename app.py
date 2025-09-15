@@ -4108,7 +4108,8 @@ def save_player_roster():
                 'message': f'Roster "{roster_name}" saved successfully with {len(player_profiles)} players'
             })
         else:
-            return jsonify({'error': f'Failed to save roster to database'}), 500
+            print(f"ERROR: Failed to save roster '{roster_name}' to Supabase for user {username}")
+            return jsonify({'error': f'Failed to save roster "{roster_name}" to database. Check server logs for details.'}), 500
         
     except Exception as e:
         return jsonify({'error': f'Error saving roster: {str(e)}'}), 500

@@ -560,9 +560,16 @@ class SupabaseManager:
                 result = self.supabase.table('rosters').insert(roster_record).execute()
                 logger.info(f"Created new roster '{roster_name}' for user {user_id}")
             
-            return len(result.data) > 0
+            if result.data:
+                logger.info(f"Successfully saved roster '{roster_name}' for user {user_id}")
+                return True
+            else:
+                logger.error(f"No data returned when saving roster '{roster_name}' for user {user_id}")
+                return False
         except Exception as e:
-            logger.error(f"Failed to save roster: {e}")
+            logger.error(f"Exception saving roster '{roster_name}' for user {user_id}: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False
     
     def save_game_session(self, user_id: str, game_name: str, game_data: Dict) -> bool:
