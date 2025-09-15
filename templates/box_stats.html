@@ -239,6 +239,145 @@
             </div>
         </div>
         
+        <!-- Team Advanced Analytics Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Team Advanced Analytics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Overall Team Stats -->
+                            <div class="col-lg-6 mb-3">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0"><i class="fas fa-users me-2"></i>Overall Team Performance</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row text-center">
+                                            <div class="col-4">
+                                                <div class="stat-item">
+                                                    <div class="stat-label">Efficiency</div>
+                                                    <div class="stat-value">
+                                                        <span id="teamEfficiencyRate" class="h5 text-success">0.0%</span>
+                                                    </div>
+                                                    <div class="stat-detail">
+                                                        <small class="text-muted">
+                                                            <span id="teamEfficientPlays">0</span>/<span id="teamTotalPlaysForEfficiency">0</span> plays
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="stat-item">
+                                                    <div class="stat-label">Explosive</div>
+                                                    <div class="stat-value">
+                                                        <span id="teamExplosiveRate" class="h5 text-warning">0.0%</span>
+                                                    </div>
+                                                    <div class="stat-detail">
+                                                        <small class="text-muted">
+                                                            <span id="teamExplosivePlays">0</span>/<span id="teamTotalPlaysForExplosive">0</span> plays
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="stat-item">
+                                                    <div class="stat-label">Negative</div>
+                                                    <div class="stat-value">
+                                                        <span id="teamNegativeRate" class="h5 text-danger">0.0%</span>
+                                                    </div>
+                                                    <div class="stat-detail">
+                                                        <small class="text-muted">
+                                                            <span id="teamNegativePlays">0</span>/<span id="teamTotalPlaysForNegative">0</span> plays
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-6 text-center">
+                                                <div class="stat-item">
+                                                    <div class="stat-label">Avg Yards/Play</div>
+                                                    <div class="stat-value">
+                                                        <span id="teamAvgYardsPerPlay" class="h5 text-info">0.0</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6 text-center">
+                                                <div class="stat-item">
+                                                    <div class="stat-label">NEE Score</div>
+                                                    <div class="stat-value">
+                                                        <span id="teamNeeScore" class="h5 text-primary">0.0</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Phase Breakdown -->
+                            <div class="col-lg-6 mb-3">
+                                <div class="card border-secondary">
+                                    <div class="card-header bg-secondary text-white">
+                                        <h6 class="mb-0"><i class="fas fa-layer-group me-2"></i>Phase Breakdown</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <h6 class="text-primary"><i class="fas fa-football-ball me-1"></i>Offense</h6>
+                                                <div class="small">
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Efficiency:</span>
+                                                        <span id="offenseEfficiencyDisplay" class="text-success">0.0%</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Explosive:</span>
+                                                        <span id="offenseExplosiveDisplay" class="text-warning">0.0%</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Negative:</span>
+                                                        <span id="offenseNegativeDisplay" class="text-danger">0.0%</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>NEE:</span>
+                                                        <span id="offenseNeeDisplay" class="text-primary">0.0</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <h6 class="text-success"><i class="fas fa-shield-alt me-1"></i>Defense</h6>
+                                                <div class="small">
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Efficiency:</span>
+                                                        <span id="defenseEfficiencyDisplay" class="text-success">0.0%</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Explosive:</span>
+                                                        <span id="defenseExplosiveDisplay" class="text-warning">0.0%</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>Negative:</span>
+                                                        <span id="defenseNegativeDisplay" class="text-danger">0.0%</span>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span>NEE:</span>
+                                                        <span id="defenseNeeDisplay" class="text-primary">0.0</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Team Progression Graphs -->
         <div class="row mb-4">
             <div class="col-12">
@@ -3589,7 +3728,7 @@
         function updateTeamAdvancedAnalytics(teamStats) {
             console.log('Updating team advanced analytics:', teamStats);
             
-            // Update team efficiency rate with null checks
+            // Update overall team stats (uses overall stats from backend)
             const teamEfficiencyRate = document.getElementById('teamEfficiencyRate');
             const teamEfficientPlays = document.getElementById('teamEfficientPlays');
             const teamTotalPlaysForEfficiency = document.getElementById('teamTotalPlaysForEfficiency');
@@ -3623,6 +3762,31 @@
             // Update NEE score
             const teamNeeScore = document.getElementById('teamNeeScore');
             if (teamNeeScore) teamNeeScore.textContent = teamStats.nee_score || 0.0;
+            
+            // Update phase breakdown displays
+            if (teamStats.offense) {
+                const offenseEfficiencyDisplay = document.getElementById('offenseEfficiencyDisplay');
+                const offenseExplosiveDisplay = document.getElementById('offenseExplosiveDisplay');
+                const offenseNegativeDisplay = document.getElementById('offenseNegativeDisplay');
+                const offenseNeeDisplay = document.getElementById('offenseNeeDisplay');
+                
+                if (offenseEfficiencyDisplay) offenseEfficiencyDisplay.textContent = `${teamStats.offense.efficiency_rate || 0.0}%`;
+                if (offenseExplosiveDisplay) offenseExplosiveDisplay.textContent = `${teamStats.offense.explosive_rate || 0.0}%`;
+                if (offenseNegativeDisplay) offenseNegativeDisplay.textContent = `${teamStats.offense.negative_rate || 0.0}%`;
+                if (offenseNeeDisplay) offenseNeeDisplay.textContent = teamStats.offense.nee_score || 0.0;
+            }
+            
+            if (teamStats.defense) {
+                const defenseEfficiencyDisplay = document.getElementById('defenseEfficiencyDisplay');
+                const defenseExplosiveDisplay = document.getElementById('defenseExplosiveDisplay');
+                const defenseNegativeDisplay = document.getElementById('defenseNegativeDisplay');
+                const defenseNeeDisplay = document.getElementById('defenseNeeDisplay');
+                
+                if (defenseEfficiencyDisplay) defenseEfficiencyDisplay.textContent = `${teamStats.defense.efficiency_rate || 0.0}%`;
+                if (defenseExplosiveDisplay) defenseExplosiveDisplay.textContent = `${teamStats.defense.explosive_rate || 0.0}%`;
+                if (defenseNegativeDisplay) defenseNegativeDisplay.textContent = `${teamStats.defense.negative_rate || 0.0}%`;
+                if (defenseNeeDisplay) defenseNeeDisplay.textContent = teamStats.defense.nee_score || 0.0;
+            }
             
             // Add visual feedback for good performance
             const efficiencyElement = document.getElementById('teamEfficiencyRate');
