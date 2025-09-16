@@ -42,11 +42,16 @@ def main():
         print(f"❌ Connection failed: {e}")
         return
     
-    # Create a test user
-    username = "testuser"
-    password = "testpass123"
+    # Get user input
+    print("\nEnter user details:")
+    username = input("Username: ").strip()
+    password = input("Password: ").strip()
     
-    print(f"Creating user '{username}'...")
+    if not username or not password:
+        print("❌ Username and password are required")
+        return
+    
+    print(f"\nCreating user '{username}'...")
     
     try:
         # Check if user exists
@@ -69,7 +74,6 @@ def main():
         
         if result.data:
             print(f"✅ User '{username}' created successfully!")
-            print(f"   Password: {password}")
             print("   You can now login to the Railway app")
         else:
             print("❌ Failed to create user")

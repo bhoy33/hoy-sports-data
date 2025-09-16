@@ -2022,6 +2022,12 @@ def add_box_stats_play():
     try:
         data = request.get_json()
         
+        # Debug logging for incoming request data
+        print(f"DEBUG REQUEST: Full request data: {data}")
+        print(f"DEBUG REQUEST: Players field: {data.get('players')}")
+        print(f"DEBUG REQUEST: Phase field: {data.get('phase')}")
+        print(f"DEBUG REQUEST: Play type: {data.get('play_type')}")
+        
         # Get or create server-side session ID
         if 'server_session_id' not in session:
             session['server_session_id'] = str(uuid.uuid4())
@@ -2220,6 +2226,9 @@ def add_box_stats_play():
             if current_phase not in ['offense', 'defense', 'special_teams']:
                 current_phase = 'offense'  # Default to offense if phase not specified
             
+            # Debug logging for phase detection
+            print(f"DEBUG PHASE: Received phase='{data.get('phase')}', processed as '{current_phase}'")
+            
             # Get phase-specific team stats
             phase_team_stats = box_stats['team_stats'][current_phase]
             overall_team_stats = box_stats['team_stats']['overall']
@@ -2236,6 +2245,15 @@ def add_box_stats_play():
             
             # Track passing vs rushing yards and advanced analytics
             play_type = data.get('play_type', '').lower()
+            
+            # Map defensive play types to base types
+            if play_type == 'pass_defense':
+                play_type = 'pass'
+            elif play_type == 'run_defense':
+                play_type = 'rush'
+            
+            print(f"DEBUG PLAY_TYPE: Original='{data.get('play_type')}', Mapped='{play_type}'")
+            
             if play_type == 'pass':
                 phase_team_stats['passing_yards'] = phase_team_stats.get('passing_yards', 0) + yards_gained
                 phase_team_stats['passing_plays'] = phase_team_stats.get('passing_plays', 0) + 1
@@ -2277,6 +2295,15 @@ def add_box_stats_play():
             for player in play_data['players_involved']:
                 role = str(player.get('role', ''))
                 
+                # For defensive plays, infer role from play type if role is empty
+                if current_phase == 'defense' and not role:
+                    if play_type == 'pass':
+                        role = 'receiver'  # Offensive player who caught the pass
+                    elif play_type == 'rush':
+                        role = 'rusher'    # Offensive player who ran the ball
+                
+                print(f"DEBUG ROLE: Player #{player.get('number', 'N/A')} - Original role: '{player.get('role', '')}', Final role: '{role}'")
+                
                 # For team explosive calculation, don't count as explosive if ANY player on play has turnover
                 if not play_has_turnover and calculate_play_explosiveness(role, yards_gained, player, current_phase):
                     team_explosive_this_play = True
@@ -2298,10 +2325,17 @@ def add_box_stats_play():
                     overall_team_stats['turnovers'] = overall_team_stats.get('turnovers', 0) + 1
             
             # Debug logging for this play's calculations
-            print(f"DEBUG PLAY: Down {play_data.get('down')}, Distance {play_data.get('distance')}, Yards {yards_gained}")
+            print(f"DEBUG PLAY: Phase={current_phase}, Down {play_data.get('down')}, Distance {play_data.get('distance')}, Yards {yards_gained}")
             print(f"DEBUG PLAY: Efficient: {is_team_efficient}, Explosive: {team_explosive_this_play}, Negative: {team_negative_this_play}")
             player_roles = [f"{p.get('role', 'unknown')}-#{p.get('number', 'N/A')}" for p in play_data['players_involved']]
             print(f"DEBUG PLAY: Players involved: {player_roles}")
+            
+            # Debug individual player calculations
+            for player in play_data['players_involved']:
+                role = str(player.get('role', ''))
+                is_explosive = calculate_play_explosiveness(role, yards_gained, player, current_phase)
+                is_negative = calculate_play_negativeness(play_data, yards_gained, player, current_phase)
+                print(f"DEBUG PLAYER: #{player.get('number', 'N/A')} ({role}) - Explosive: {is_explosive}, Negative: {is_negative}")
             
             if team_explosive_this_play:
                 phase_team_stats['explosive_plays'] += 1
@@ -3316,14 +3350,17 @@ def get_user_saved_games(username):
                     with open(filepath, 'r') as f:
                         game_data = json.load(f)
                     
+                    # Handle both old and new save formats
+                    actual_game_data = game_data.get('game_data', game_data)
+                    
                     games.append({
                         'filename': filename,
-                        'game_name': game_data.get('game_info', {}).get('name', filename.replace('.json', '')),
-                        'opponent': game_data.get('game_info', {}).get('opponent', ''),
-                        'date': game_data.get('game_info', {}).get('date', ''),
+                        'game_name': game_data.get('game_name', actual_game_data.get('game_info', {}).get('name', filename.replace('.json', ''))),
+                        'opponent': actual_game_data.get('game_info', {}).get('opponent', ''),
+                        'date': actual_game_data.get('game_info', {}).get('date', ''),
                         'saved_at': game_data.get('saved_at', ''),
-                        'total_plays': len(game_data.get('plays', [])),
-                        'total_players': len(game_data.get('players', {}))
+                        'total_plays': len(actual_game_data.get('plays', [])),
+                        'total_players': len(actual_game_data.get('players', {}))
                     })
                 except Exception as e:
                     print(f"Error reading game file {filename}: {str(e)}")
@@ -4858,14 +4895,24 @@ def load_saved_game():
             session_id = server_session.create_session()
             session['server_session_id'] = session_id
         
+        # Extract the actual game data from the saved structure
+        # Saved games have structure: {'game_data': {...}, 'game_name': ..., etc}
+        actual_game_data = game_data.get('game_data', game_data)
+        
+        # Debug logging
+        print(f"DEBUG LOAD: Raw game_data keys: {list(game_data.keys())}")
+        print(f"DEBUG LOAD: Actual game_data keys: {list(actual_game_data.keys())}")
+        print(f"DEBUG LOAD: Plays count in actual_game_data: {len(actual_game_data.get('plays', []))}")
+        print(f"DEBUG LOAD: Players count in actual_game_data: {len(actual_game_data.get('players', {}))}")
+        
         # Load data into server-side session storage
         box_stats_data = {
             'box_stats': {
-                'plays': game_data.get('plays', []),
-                'players': game_data.get('players', {}),
-                'team_stats': game_data.get('team_stats', {}),
-                'game_info': game_data.get('game_info', {}),
-                'play_call_stats': game_data.get('play_call_stats', {}),
+                'plays': actual_game_data.get('plays', []),
+                'players': actual_game_data.get('players', {}),
+                'team_stats': actual_game_data.get('team_stats', {}),
+                'game_info': actual_game_data.get('game_info', {}),
+                'play_call_stats': actual_game_data.get('play_call_stats', {}),
                 'next_situation': {
                     'down': 1,
                     'distance': 10,
@@ -4873,6 +4920,9 @@ def load_saved_game():
                 }
             }
         }
+        
+        print(f"DEBUG LOAD: Final box_stats plays count: {len(box_stats_data['box_stats']['plays'])}")
+        print(f"DEBUG LOAD: Final box_stats players count: {len(box_stats_data['box_stats']['players'])}")
         
         # Apply backward compatibility for loaded game data
         # Convert old team_stats format to new phase-specific format if needed
@@ -4941,10 +4991,10 @@ def load_saved_game():
             'success': True,
             'message': f'Game loaded successfully',
             'game_data': {
-                'game_info': game_data.get('game_info', {}),
-                'total_plays': len(game_data.get('plays', [])),
-                'total_players': len(game_data.get('players', {})),
-                'team_stats': game_data.get('team_stats', {})
+                'game_info': actual_game_data.get('game_info', {}),
+                'total_plays': len(actual_game_data.get('plays', [])),
+                'total_players': len(actual_game_data.get('players', {})),
+                'team_stats': actual_game_data.get('team_stats', {})
             }
         })
         
