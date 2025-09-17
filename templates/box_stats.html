@@ -4614,15 +4614,17 @@
             fetch('/box_stats/saved_games')
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
+                if (data.games) {
                     displaySavedGames(data.games);
-                } else {
+                } else if (data.error) {
                     showAlert('Error loading saved games: ' + data.error, 'danger');
+                } else {
+                    showAlert('Error loading saved games: Invalid response format', 'danger');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showAlert('Error loading saved games: ' + error.message, 'danger');
+                showAlert('Error loading saved games: ' + (error.message || 'undefined'), 'danger');
             });
         }
 

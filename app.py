@@ -4869,32 +4869,36 @@ def get_saved_games():
         supabase_games = []
         
         # Try to get games from Supabase
-        if supabase_manager and supabase_manager.is_connected():
-            user_id = session.get('user_id')
-            if not user_id:
-                user = supabase_manager.get_user_by_username(username)
-                user_id = user['id'] if user else None
+        try:
+            if supabase_manager and supabase_manager.is_connected():
+                user_id = session.get('user_id')
+                if not user_id:
+                    user = supabase_manager.get_user_by_username(username)
+                    user_id = user['id'] if user else None
+                    if user_id:
+                        session['user_id'] = user_id
+                
                 if user_id:
-                    session['user_id'] = user_id
-            
-            if user_id:
-                try:
-                    supabase_sessions = supabase_manager.get_user_game_sessions(user_id)
-                    for session_data in supabase_sessions:
-                        box_stats = session_data.get('box_stats', {})
-                        supabase_games.append({
-                            'filename': f"supabase_{session_data.get('id', 'unknown')}.json",
-                            'game_name': session_data.get('session_name', 'Unknown Game'),
-                            'opponent': box_stats.get('game_info', {}).get('opponent', ''),
-                            'date': box_stats.get('game_info', {}).get('date', ''),
-                            'saved_at': session_data.get('created_at', ''),
-                            'total_plays': len(box_stats.get('plays', [])),
-                            'total_players': len(box_stats.get('players', {})),
-                            'source': 'supabase',
-                            'session_id': session_data.get('id')
-                        })
-                except Exception as e:
-                    print(f"Error getting Supabase games: {e}")
+                    try:
+                        supabase_sessions = supabase_manager.get_user_game_sessions(user_id)
+                        for session_data in supabase_sessions:
+                            box_stats = session_data.get('box_stats', {})
+                            supabase_games.append({
+                                'filename': f"supabase_{session_data.get('id', 'unknown')}.json",
+                                'game_name': session_data.get('session_name', 'Unknown Game'),
+                                'opponent': box_stats.get('game_info', {}).get('opponent', ''),
+                                'date': box_stats.get('game_info', {}).get('date', ''),
+                                'saved_at': session_data.get('created_at', ''),
+                                'total_plays': len(box_stats.get('plays', [])),
+                                'total_players': len(box_stats.get('players', {})),
+                                'source': 'supabase',
+                                'session_id': session_data.get('id')
+                            })
+                    except Exception as e:
+                        print(f"Error getting Supabase games: {e}")
+        except Exception as e:
+            print(f"Error in Supabase games section: {e}")
+            # Continue with local games only
         
         # Mark local games as such
         for game in local_games:
