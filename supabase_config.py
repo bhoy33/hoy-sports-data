@@ -132,13 +132,14 @@ class SupabaseManager:
             logger.error(f"Failed to create game session: {e}")
             return None
     
-    def save_game_session(self, user_id: str, session_data: Dict) -> bool:
+    def save_game_session(self, user_id: str, session_name: str, session_data: Dict) -> bool:
         """Save game session data to Supabase"""
         try:
-            # Use admin client if available to bypass RLS, otherwise fall back to regular client
-            client = self.supabase_admin if self.supabase_admin else self.supabase
+            # Must use admin client to bypass RLS for game_sessions table
+            client = self.supabase_admin
             
             if not client:
+                print("❌ Admin client required for game_sessions - service role key missing")
                 return False
             
             session_record = {
@@ -155,7 +156,7 @@ class SupabaseManager:
             print(f"  Session Name: {session_name}")
             print(f"  Box Stats Keys: {list(session_data.keys()) if isinstance(session_data, dict) else 'Not a dict'}")
             
-            result = self.supabase.table('game_sessions').insert(session_record).execute()
+            result = client.table('game_sessions').insert(session_record).execute()
             
             if result.data:
                 logger.info(f"Game session saved successfully for user {user_id}")
