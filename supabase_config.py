@@ -139,33 +139,36 @@ class SupabaseManager:
             client = self.supabase_admin if self.supabase_admin else self.supabase
             
             if not client:
-                logger.error("No Supabase client available")
                 return False
             
-            # Prepare the session data for insertion
             session_record = {
                 'user_id': user_id,
-                'session_name': session_data.get('session_name', 'Unnamed Session'),
-                'game_date': session_data.get('game_date'),
-                'opponent': session_data.get('opponent', ''),
-                'location': session_data.get('location', ''),
-                'weather_conditions': session_data.get('weather_conditions', ''),
-                'game_type': session_data.get('game_type', 'regular'),
+                'session_name': session_name,
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat(),
                 'status': 'active',
-                'box_stats': session_data.get('box_stats', {})
+                'box_stats': session_data
             }
             
-            result = client.table('game_sessions').insert(session_record).execute()
+            print(f"DEBUG: Saving game session to Supabase:")
+            print(f"  User ID: {user_id}")
+            print(f"  Session Name: {session_name}")
+            print(f"  Box Stats Keys: {list(session_data.keys()) if isinstance(session_data, dict) else 'Not a dict'}")
+            
+            result = self.supabase.table('game_sessions').insert(session_record).execute()
             
             if result.data:
                 logger.info(f"Game session saved successfully for user {user_id}")
+                print(f"✓ Game session '{session_name}' saved to Supabase with ID: {result.data[0].get('id')}")
                 return True
             else:
-                logger.error(f"Failed to save game session: No data returned")
+                logger.error(f"Failed to save game session for user {user_id}")
+                print(f"❌ Failed to save game session - no data returned")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error saving game session to Supabase: {e}")
+            logger.error(f"Error saving game session: {e}")
+            print(f"❌ Exception saving game session: {e}")
             return False
     
     def get_user_rosters(self, user_id: str) -> List[Dict]:

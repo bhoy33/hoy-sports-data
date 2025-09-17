@@ -3254,9 +3254,12 @@ def save_game_data(username, game_name, game_data):
                     user_id = user['id'] if user else None
                 
                 if user_id:
+                    print(f"DEBUG: Attempting to save game '{game_name}' to Supabase for user {user_id}")
                     database_success = supabase_manager.save_game_session(user_id, game_name, game_data)
                     if database_success:
                         print(f"✓ Game '{game_name}' saved to Supabase for {username}")
+                    else:
+                        print(f"❌ Failed to save game '{game_name}' to Supabase for {username}")
                 else:
                     print(f"❌ Could not find user_id for username: {username}")
             else:
@@ -4857,34 +4860,88 @@ def save_current_game():
 @app.route('/box_stats/saved_games', methods=['GET'])
 @login_required
 def get_saved_games():
-    """Get list of saved games for the current user"""
+    """Get list of saved games for the current user from both Supabase and local files"""
     try:
         username = session.get('username', 'anonymous')
-        games = get_user_saved_games(username)
         
-        return jsonify({
-            'success': True,
-            'games': games
-        })
+        # Get games from both sources
+        local_games = get_user_saved_games(username)
+        supabase_games = []
         
+        # Try to get games from Supabase
+        if supabase_manager and supabase_manager.is_connected():
+            user_id = session.get('user_id')
+            if not user_id:
+                user = supabase_manager.get_user_by_username(username)
+                user_id = user['id'] if user else None
+                if user_id:
+                    session['user_id'] = user_id
+            
+            if user_id:
+                try:
+                    supabase_sessions = supabase_manager.get_user_game_sessions(user_id)
+                    for session_data in supabase_sessions:
+                        box_stats = session_data.get('box_stats', {})
+                        supabase_games.append({
+                            'filename': f"supabase_{session_data.get('id', 'unknown')}.json",
+                            'game_name': session_data.get('session_name', 'Unknown Game'),
+                            'opponent': box_stats.get('game_info', {}).get('opponent', ''),
+                            'date': box_stats.get('game_info', {}).get('date', ''),
+                            'saved_at': session_data.get('created_at', ''),
+                            'total_plays': len(box_stats.get('plays', [])),
+                            'total_players': len(box_stats.get('players', {})),
+                            'source': 'supabase',
+                            'session_id': session_data.get('id')
+                        })
+                except Exception as e:
+                    print(f"Error getting Supabase games: {e}")
+        
+        # Mark local games as such
+        for game in local_games:
+            game['source'] = 'local'
+        
+        # Combine and sort by saved_at
+        all_games = local_games + supabase_games
+        all_games.sort(key=lambda x: x.get('saved_at', ''), reverse=True)
+        
+        return jsonify({'games': all_games})
     except Exception as e:
         return jsonify({'error': f'Error getting saved games: {str(e)}'}), 500
 
 @app.route('/box_stats/load_game', methods=['POST'])
 @login_required
 def load_saved_game():
-    """Load a saved game into the current session"""
+    """Load a saved game into the current session from either Supabase or local files"""
     try:
         data = request.get_json()
         filename = data.get('filename', '').strip()
+        source = data.get('source', 'local')
+        session_id_param = data.get('session_id')
         
         if not filename:
             return jsonify({'error': 'Filename is required'}), 400
         
         username = session.get('username', 'anonymous')
+        game_data = None
+        error = None
         
-        # Load game data
-        game_data, error = load_game_data(username, filename)
+        # Load from Supabase if source is supabase
+        if source == 'supabase' and session_id_param:
+            if supabase_manager and supabase_manager.is_connected():
+                try:
+                    supabase_session = supabase_manager.get_session_by_id(session_id_param)
+                    if supabase_session:
+                        game_data = supabase_session.get('box_stats', {})
+                        print(f"DEBUG: Loaded game from Supabase session {session_id_param}")
+                    else:
+                        error = "Game session not found in Supabase"
+                except Exception as e:
+                    error = f"Error loading from Supabase: {e}"
+            else:
+                error = "Supabase not available"
+        else:
+            # Load from local file
+            game_data, error = load_game_data(username, filename)
         
         if error:
             return jsonify({'error': f'Failed to load game: {error}'}), 500
