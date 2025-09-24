@@ -579,9 +579,14 @@ def logout_old():
     return redirect(url_for('login'))
 
 @app.route('/')
-@login_required
 def index():
-    """Analytics selection dashboard"""
+    """Public root: redirect to public home page"""
+    return redirect(url_for('public_home'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """Analytics selection dashboard (requires login)"""
     return render_template('analytics_menu.html')
 
 @app.route('/home')
