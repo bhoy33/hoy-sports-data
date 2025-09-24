@@ -584,6 +584,35 @@ def index():
     """Analytics selection dashboard"""
     return render_template('analytics_menu.html')
 
+@app.route('/home')
+def public_home():
+    """Public landing page for Logo Redesign update. Does not require login."""
+    try:
+        return render_template('home.html')
+    except Exception as e:
+        # Basic fallback to avoid breaking if template missing
+        return f"Home page unavailable: {str(e)}", 500
+
+@app.route('/tools/convert-logo')
+def convert_logo_tool():
+    """Temporary client-side SVG->PNG converter for the current logo asset."""
+    return render_template('svg_convert.html', svg_path=url_for('static', filename='img/20.svg'))
+
+@app.route('/tools/remove-bg')
+def remove_bg_tool():
+    """Temporary client-side PNG background remover for turning white pixels transparent."""
+    return render_template('png_remove_bg.html')
+
+@app.route('/tools/palette')
+def palette_tool():
+    """Client-side color palette extractor for the PNG logo."""
+    return render_template('palette.html', png_path=url_for('static', filename='img/20.png'))
+
+@app.route('/about')
+def about_page():
+    """Public About page where the site owner can provide the description."""
+    return render_template('about.html')
+
 @app.route('/analytics/offensive-hoy')
 @login_required
 def offensive_hoy_analysis():
@@ -2217,8 +2246,31 @@ def add_box_stats_play():
             next_situation = calculate_next_situation(play_data, box_stats['plays'])
         box_stats['next_situation'] = next_situation
         
+        # Handle penalty tracking separately
+        if data.get('play_type') == 'penalty':
+            penalty_side = data.get('penalty_side', 'offense')
+            penalty_yards = int(data.get('penalty_yards', 0))
+            current_phase = data.get('phase', 'offense').lower()
+            
+            # Track penalty yards when penalty is on our team (negative impact)
+            if penalty_side == 'offense':
+                # Our team committed the penalty - track as negative yards
+                phase_team_stats = box_stats['team_stats'][current_phase]
+                overall_team_stats = box_stats['team_stats']['overall']
+                
+                # Add penalty yards tracking
+                if 'penalty_yards' not in phase_team_stats:
+                    phase_team_stats['penalty_yards'] = 0
+                if 'penalty_yards' not in overall_team_stats:
+                    overall_team_stats['penalty_yards'] = 0
+                    
+                phase_team_stats['penalty_yards'] += penalty_yards
+                overall_team_stats['penalty_yards'] += penalty_yards
+                
+                print(f"DEBUG PENALTY TRACKING: Added {penalty_yards} penalty yards to {current_phase} phase")
+        
         # Update team-level analytics (skip penalties - they don't count as offensive plays)
-        if data.get('play_type') != 'penalty':
+        elif data.get('play_type') != 'penalty':
             yards_gained = int(play_data.get('yards_gained', 0))
             
             # Determine the phase for this play
@@ -3486,9 +3538,9 @@ def calculate_penalty_situation(current_play, all_plays):
         current_distance = int(current_play.get('distance', 10))
         current_field_position = current_play.get('field_position', 'OWN 25')
         penalty_yards = int(current_play.get('penalty_yards', 0))
-        penalty_on = current_play.get('penalty_on', 'offense')
+        penalty_side = current_play.get('penalty_side', 'offense')
         
-        print(f"DEBUG PENALTY: Input - down: {current_down}, distance: {current_distance}, field_position: {current_field_position}, penalty_yards: {penalty_yards}, penalty_on: {penalty_on}")
+        print(f"DEBUG PENALTY: Input - down: {current_down}, distance: {current_distance}, field_position: {current_field_position}, penalty_yards: {penalty_yards}, penalty_side: {penalty_side}")
         
         # Parse current field position
         field_parts = current_field_position.strip().split()
@@ -3503,7 +3555,7 @@ def calculate_penalty_situation(current_play, all_plays):
             yard_line = 25
         
         # Calculate field position change based on penalty
-        if penalty_on == 'offense':
+        if penalty_side == 'offense':
             # Offensive penalty - move ball back (negative yards for offense)
             effective_yards = -penalty_yards
         else:
@@ -3548,7 +3600,7 @@ def calculate_penalty_situation(current_play, all_plays):
         new_field_position = f"{new_side} {final_yard_line}"
         
         # Penalty down/distance logic
-        if penalty_on == 'defense':
+        if penalty_side == 'defense':
             # Defensive penalty - automatic first down
             new_down = 1
             new_distance = 10

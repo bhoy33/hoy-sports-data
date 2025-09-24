@@ -1,11 +1,37 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<!-- Brand theme overrides -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --gradient-start:#f81825; --gradient-end:#f2e5e5; --bg:#0A0E14; --card-bg:rgba(255,255,255,0.06); --text:#E9EEF6; --muted:#9FB0C4; --border:rgba(255,255,255,0.12); }
+  body { background:
+    radial-gradient(1200px 800px at 10% 0%, rgba(248,24,37,0.14), transparent 60%),
+    radial-gradient(1000px 600px at 100% 20%, rgba(242,229,229,0.12), transparent 55%),
+    radial-gradient(900px 500px at 50% 100%, rgba(248,24,37,0.08), transparent 60%), var(--bg) !important;
+    color: var(--text); font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  .navbar { background: rgba(10,14,20,0.85) !important; border-bottom:1px solid var(--border); backdrop-filter: blur(8px); }
+  .navbar .navbar-brand, .navbar .nav-link, .navbar .navbar-text { color: var(--text) !important; }
+  .nav-logo-wrap { width:28px; height:28px; margin-right:8px; padding:4px; background:#000; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.35); }
+  .nav-logo-wrap img { width:100%; height:100%; object-fit:contain; display:block; }
+  .hero-section { background: var(--card-bg) !important; color: var(--text) !important; border-bottom: 1px solid var(--border); }
+  .feature-icon { color: var(--gradient-start) !important; }
+  .card { background: var(--card-bg); border:1px solid var(--border); box-shadow: 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06); }
+  .card-header { background: var(--card-bg); color: var(--text); border-bottom: 1px solid var(--border); }
+  .btn-primary { background-color: var(--gradient-start); border-color: var(--gradient-start); }
+  .btn-primary:hover { background-color:#c8141e; border-color:#c8141e; }
+  .spinner-border.text-primary { color: var(--gradient-start) !important; }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Hero Section -->
 <section class="hero-section">
     <div class="container text-center">
-        <h1 class="hero-title">
-            <i class="fas fa-football-ball me-3"></i>
+        <h1 class="hero-title d-flex align-items-center justify-content-center">
+            <span class="nav-logo-wrap me-2"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo"></span>
             Hoy Sports Data
         </h1>
         <p class="hero-subtitle">

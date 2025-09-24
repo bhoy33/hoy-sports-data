@@ -3,125 +3,95 @@
 {% block title %}Analytics Dashboard - Hoy Sports Data{% endblock %}
 
 {% block extra_css %}
+<!-- Load Inter to match homepage -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
+    :root {
+        --gradient-start: #f81825; /* primary red */
+        --gradient-end: #f2e5e5;   /* soft tint */
+        --bg: #0A0E14;
+        --card-bg: rgba(255,255,255,0.06);
+        --text: #E9EEF6;
+        --muted: #9FB0C4;
+        --border: rgba(255,255,255,0.12);
+    }
+    body {
+        background:
+          radial-gradient(1200px 800px at 10% 0%, rgba(248,24,37,0.14), transparent 60%),
+          radial-gradient(1000px 600px at 100% 20%, rgba(242,229,229,0.12), transparent 55%),
+          radial-gradient(900px 500px at 50% 100%, rgba(248,24,37,0.08), transparent 60%),
+          var(--bg) !important;
+        background-attachment: fixed, fixed, fixed, scroll;
+        background-repeat: no-repeat;
+        color: var(--text);
+        font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+    /* Override base navbar to match brand scheme */
+    .navbar {
+        background: rgba(10,14,20,0.85) !important;
+        border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(8px);
+    }
+    .navbar .navbar-brand, .navbar .nav-link, .navbar .navbar-text, .navbar .nav-link i { color: var(--text) !important; }
     .analytics-header {
         text-align: center;
         margin-bottom: 40px;
         padding: 30px 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        color: var(--text);
         border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
     }
-    
-    .analytics-header h1 {
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
-    
+    .logo-wrap { width: 64px; height: 64px; margin: 0 auto 0.5rem; padding: 8px; background: #000; border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,0.35); }
+    .logo-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .card-logo-wrap { width: 56px; height: 56px; margin: 0 auto 14px; padding: 6px; background: #000; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+    .card-logo-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .analytics-header h1 { font-size: 2rem; font-weight: 800; margin-bottom: .25rem; }
+    .analytics-header p { color: var(--muted); margin-bottom: 0; }
     .analytics-card {
-        background: white;
-        border-radius: 15px;
-        padding: 30px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
         margin-bottom: 20px;
-        transition: all 0.3s ease;
-        border: 2px solid transparent;
+        transition: all 0.2s ease;
+        border: 1px solid var(--border);
         cursor: pointer;
         height: 100%;
+        color: var(--text);
     }
-    
-    .analytics-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-        border-color: #667eea;
-    }
-    
-    .analytics-card.available {
-        background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
-    }
-    
-    .analytics-card.coming-soon {
-        background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
-        opacity: 0.7;
-    }
-    
-    .analytics-card.coming-soon:hover {
-        transform: none;
-        cursor: not-allowed;
-    }
-    
-    .analytics-icon {
-        font-size: 3rem;
-        margin-bottom: 20px;
-        color: #667eea;
-    }
-    
-    .analytics-card.coming-soon .analytics-icon {
-        color: #999;
-    }
-    
-    .analytics-title {
-        font-size: 1.4rem;
-        font-weight: bold;
-        margin-bottom: 15px;
-        color: #333;
-    }
-    
-    .analytics-card.coming-soon .analytics-title {
-        color: #666;
-    }
-    
-    .analytics-description {
-        color: #666;
-        margin-bottom: 20px;
-        line-height: 1.6;
-    }
-    
-    .analytics-card.coming-soon .analytics-description {
-        color: #999;
-    }
-    
-    .analytics-status {
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: bold;
-        text-align: center;
-    }
-    
-    .status-available {
-        background-color: #d4edda;
-        color: #155724;
-    }
-    
-    .status-coming-soon {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-    
-    .user-info {
-        background: white;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 30px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        text-align: center;
-    }
-    
-    .logout-section {
-        text-align: center;
-        margin-top: 30px;
-    }
+    .analytics-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.2); }
+    .analytics-card.available { background: var(--card-bg); }
+    .analytics-card.coming-soon { opacity: 0.8; }
+    .analytics-card.coming-soon:hover { transform: none; cursor: not-allowed; }
+    /* Icons replaced by branded logo blocks */
+    .analytics-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+    .analytics-card.coming-soon .analytics-title { color: #bbb; }
+    .analytics-description { color: #ffffff; opacity: 0.9; margin-bottom: 16px; line-height: 1.6; }
+    .analytics-card.coming-soon .analytics-description { color: #cfcfcf; opacity: 0.7; }
+    .analytics-status { padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; text-align: center; }
+    .status-available { background-color: rgba(32, 201, 151, 0.18); color: #20C997; }
+    .status-coming-soon { background-color: rgba(255,255,255,0.10); color: #ddd; }
+    .user-info { background: var(--card-bg); border-radius: 10px; padding: 15px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); text-align: center; color: var(--text); border: 1px solid var(--border); }
+    .logout-section { text-align: center; margin-top: 30px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="analytics-header">
-        <i class="fas fa-chart-line fa-3x mb-3"></i>
+        <div class="logo-wrap">
+            <img src="{{ url_for('static', filename='img/20.png') }}" alt="Hoy Sports Data Logo" />
+        </div>
         <h1>Analytics Dashboard</h1>
         <p>Choose your analysis type to get started</p>
+        <div class="mt-2">
+            <span class="small" style="color: var(--muted);">Welcome back{% if session.username and session.username != 'anonymous' %}, <strong style="color: var(--text);">{{ session.username }}</strong>{% endif %}.</span>
+            <a href="/home" class="btn btn-sm btn-outline-light ms-3">← Home</a>
+        </div>
     </div>
     
     <div class="user-info">
@@ -136,11 +106,11 @@
     </div>
     
     <div class="row">
-        <!-- Offensive Self Scout Analysis (Hoy's Template) - Available -->
+        <!-- Offensive Self Scout Analysis (Hoy's Template) - Coming Soon -->
         <div class="col-lg-6 col-xl-4 mb-4">
-            <div class="analytics-card available" onclick="selectAnalytics('offensive_hoy')">
+            <div class="analytics-card coming-soon">
                 <div class="text-center">
-                    <i class="fas fa-football-ball analytics-icon"></i>
+                    <div class="card-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo" /></div>
                     <h3 class="analytics-title">Offensive Self Scout Analysis</h3>
                     <p class="text-muted mb-2">(Hoy's Template)</p>
                     <p class="analytics-description">
@@ -148,18 +118,18 @@
                         Includes play breakdowns, formation analysis, down & distance trends, 
                         and statistical comparisons.
                     </p>
-                    <div class="analytics-status status-available">
-                        <i class="fas fa-check-circle me-1"></i>Available Now
+                    <div class="analytics-status status-coming-soon">
+                        <i class="fas fa-clock me-1"></i>Coming Soon
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Defensive Self Scout Analysis (Hoy's Template) - Available -->
+        <!-- Defensive Self Scout Analysis (Hoy's Template) - Coming Soon -->
         <div class="col-lg-6 col-xl-4 mb-4">
-            <div class="analytics-card available" onclick="selectAnalytics('defensive_hoy')">
+            <div class="analytics-card coming-soon">
                 <div class="text-center">
-                    <i class="fas fa-shield-alt analytics-icon"></i>
+                    <div class="card-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo" /></div>
                     <h3 class="analytics-title">Defensive Self Scout Analysis</h3>
                     <p class="text-muted mb-2">(Hoy's Template)</p>
                     <p class="analytics-description">
@@ -167,8 +137,8 @@
                         Coverage analysis, pressure metrics, tackle efficiency, 
                         and defensive formation breakdowns.
                     </p>
-                    <div class="analytics-status status-available">
-                        <i class="fas fa-check-circle me-1"></i>Available Now
+                    <div class="analytics-status status-coming-soon">
+                        <i class="fas fa-clock me-1"></i>Coming Soon
                     </div>
                 </div>
             </div>
@@ -178,7 +148,7 @@
         <div class="col-lg-6 col-xl-4 mb-4">
             <div class="analytics-card available" onclick="selectAnalytics('box_stats')">
                 <div class="text-center">
-                    <i class="fas fa-football-ball analytics-icon"></i>
+                    <div class="card-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo" /></div>
                     <h3 class="analytics-title">In-Game Box Stats Analytics</h3>
                     <p class="text-muted mb-2">(Real-Time Player Tracking)</p>
                     <p class="analytics-description">
@@ -193,81 +163,13 @@
             </div>
         </div>
         
-        <!-- Offensive Self Scout Analysis (Hudl Excel Export) -->
-        <div class="col-lg-6 col-xl-4 mb-4">
-            {% if session.get('is_admin') %}
-            <div class="analytics-card available" onclick="selectAnalytics('offensive_hudl')">
-                <div class="text-center">
-                    <i class="fas fa-file-excel analytics-icon"></i>
-                    <h3 class="analytics-title">Offensive Self Scout Analysis</h3>
-                    <p class="text-muted mb-2">(Hudl Excel Export)</p>
-                    <p class="analytics-description">
-                        Offensive analysis with dynamic column recognition for any Hudl Excel export. 
-                        Upload your file and we'll automatically detect and categorize your stats.
-                    </p>
-                    <div class="analytics-status status-available">
-                        <i class="fas fa-check-circle me-1"></i>Available Now
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <div class="analytics-card coming-soon">
-                <div class="text-center">
-                    <i class="fas fa-file-excel analytics-icon"></i>
-                    <h3 class="analytics-title">Offensive Self Scout Analysis</h3>
-                    <p class="text-muted mb-2">(Hudl Excel Export)</p>
-                    <p class="analytics-description">
-                        Offensive analysis with dynamic column recognition for any Hudl Excel export. 
-                        Upload your file and we'll automatically detect and categorize your stats.
-                    </p>
-                    <div class="analytics-status status-coming-soon">
-                        <i class="fas fa-clock me-1"></i>Coming Soon
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-        
-        <!-- Defensive Self Scout Analysis (Hudl Excel Export) -->
-        <div class="col-lg-6 col-xl-4 mb-4">
-            {% if session.get('is_admin') %}
-            <div class="analytics-card available" onclick="selectAnalytics('defensive_hudl')">
-                <div class="text-center">
-                    <i class="fas fa-file-export analytics-icon"></i>
-                    <h3 class="analytics-title">Defensive Self Scout Analysis</h3>
-                    <p class="text-muted mb-2">(Hudl Excel Export)</p>
-                    <p class="analytics-description">
-                        Defensive analysis with smart column detection for Hudl Excel exports. 
-                        Automatically categorizes defensive stats and suggests relevant calculations.
-                    </p>
-                    <div class="analytics-status status-available">
-                        <i class="fas fa-check-circle me-1"></i>Available Now
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <div class="analytics-card coming-soon">
-                <div class="text-center">
-                    <i class="fas fa-file-export analytics-icon"></i>
-                    <h3 class="analytics-title">Defensive Self Scout Analysis</h3>
-                    <p class="text-muted mb-2">(Hudl Excel Export)</p>
-                    <p class="analytics-description">
-                        Defensive analysis with smart column detection for Hudl Excel exports. 
-                        Automatically categorizes defensive stats and suggests relevant calculations.
-                    </p>
-                    <div class="analytics-status status-coming-soon">
-                        <i class="fas fa-clock me-1"></i>Coming Soon
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-        </div>
+        <!-- Hudl Excel Export cards removed per Logo Redesign update -->
         
         <!-- Player Grade Analysis (Hoy's Template) - Coming Soon -->
         <div class="col-lg-6 col-xl-4 mb-4">
             <div class="analytics-card coming-soon">
                 <div class="text-center">
-                    <i class="fas fa-star analytics-icon"></i>
+                    <div class="card-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo" /></div>
                     <h3 class="analytics-title">Player Grade Analysis</h3>
                     <p class="text-muted mb-2">(Hoy's Template)</p>
                     <p class="analytics-description">
@@ -286,7 +188,7 @@
         <div class="col-lg-6 col-xl-4 mb-4">
             <div class="analytics-card coming-soon">
                 <div class="text-center">
-                    <i class="fas fa-plus-circle analytics-icon"></i>
+                    <div class="card-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo" /></div>
                     <h3 class="analytics-title">More Analytics</h3>
                     <p class="text-muted mb-2">(Future Features)</p>
                     <p class="analytics-description">
@@ -346,6 +248,17 @@ document.addEventListener('DOMContentLoaded', function() {
             alert(`${title} is coming soon! We're working hard to bring you this feature.`);
         });
     });
+
+    // Swap base navbar brand icon/text with branded logo tile + text
+    const brand = document.querySelector('.navbar .navbar-brand');
+    if (brand) {
+        brand.setAttribute('href', '/home');
+        brand.classList.add('d-flex','align-items-center');
+        brand.innerHTML = `
+            <span class="nav-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo"></span>
+            Hoy Sports Data
+        `;
+    }
 });
 </script>
 {% endblock %}

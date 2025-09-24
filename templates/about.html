@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About — Hoy Sports Data</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gradient-start: #f81825;
+      --gradient-end: #f2e5e5;
+      --bg: #0A0E14;
+      --card-bg: rgba(255,255,255,0.06);
+      --text: #E9EEF6;
+      --muted: #9FB0C4;
+      --border: rgba(255,255,255,0.12);
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(1200px 800px at 10% 0%, rgba(248,24,37,0.14), transparent 60%),
+        radial-gradient(1000px 600px at 100% 20%, rgba(242,229,229,0.12), transparent 55%),
+        radial-gradient(900px 500px at 50% 100%, rgba(248,24,37,0.08), transparent 60%),
+        var(--bg);
+      background-attachment: fixed, fixed, fixed, scroll;
+      background-repeat: no-repeat;
+      color: var(--text);
+    }
+    .topbar { backdrop-filter: blur(8px); background: rgba(10,14,20,0.75); border-bottom: 1px solid var(--border); }
+    .navbar-brand-img { width: 32px; height: 32px; object-fit: contain; }
+    .logo-wrap { width: 120px; height: 120px; margin: 0 auto; padding: 10px; background: #000; border-radius: 16px; box-shadow: 0 8px 22px rgba(0,0,0,0.35); }
+    .logo-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .page-title { font-weight: 800; }
+    .accent { color: var(--gradient-start); }
+    .glass-card { border-radius: 16px; background: var(--card-bg); border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06); }
+    .glass-card h1, .glass-card h2, .glass-card h3, .glass-card h4, .glass-card h5, .glass-card h6 { color: var(--gradient-start); }
+    .glass-card p, .glass-card li, .glass-card .text-muted, .glass-card label { color: #ffffff; opacity: 0.92; }
+    .form-control, textarea { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.18); }
+    .form-control::placeholder, textarea::placeholder { color: rgba(255,255,255,0.6); }
+    .btn-primary { background-color: var(--gradient-start); border-color: var(--gradient-start); }
+    .btn-primary:hover { background-color: #c8141e; border-color: #c8141e; }
+  </style>
+</head>
+<body>
+  <!-- Top navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark topbar">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center" href="/home">
+        <img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo" class="navbar-brand-img me-2"/>
+        <strong>Hoy Sports Data</strong>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navmain">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navmain">
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+          <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container py-5">
+    <div class="text-center mb-4">
+      <div class="logo-wrap mb-3">
+        <img src="{{ url_for('static', filename='img/20.png') }}" alt="Hoy Sports Data Logo" />
+      </div>
+      <h1 class="page-title">About <span class="accent">Hoy Sports Data</span></h1>
+      <p class="text-white">Learn more about our mission and how we support teams at every level.</p>
+    </div>
+
+    <div class="row g-4 justify-content-center">
+      <div class="col-lg-10">
+        <div class="glass-card p-4">
+          <h3 class="mb-3">Our Story</h3>
+          <div class="fs-6" style="white-space: pre-wrap; line-height: 1.8;">
+Hoy Sports Data, founded by Brayden Hoy in 2025, aims to provide affordable, high-speed, and easy-to-use analytics applications to every level of football. Our unique, in-game software helps to provide professional level data in seconds through easy input capable of being operated by any staff member with minimal training. Hoy, a former NCAA athlete and analyst, designs the software with low-staffed, low-budget teams in mind. HSD believes in personal relationships and communication, which is why we provide client representatives to each school using our software to help you execute, understand, and troubleshoot your software usage in order for your team to be more successful on gameday. Want more information? Schedule a meeting with our team under our "Contact" section.
+          </div>
+          <div class="mt-4">
+            <a href="/home#contact" class="btn btn-primary me-2">Contact Our Team</a>
+            <a href="/home" class="btn btn-outline-light">Back to Home</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

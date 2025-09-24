@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hoy Sports Data — Home</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gradient-start: #f81825; /* user primary */
+      --gradient-end: #f2e5e5;   /* user secondary */
+      --bg: #0A0E14;
+      --card-bg: rgba(255,255,255,0.06);
+      --text: #E9EEF6;
+      --muted: #9FB0C4;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(1200px 800px at 10% 0%, rgba(248,24,37,0.14), transparent 60%),
+        radial-gradient(1000px 600px at 100% 20%, rgba(242,229,229,0.12), transparent 55%),
+        radial-gradient(900px 500px at 50% 100%, rgba(248,24,37,0.08), transparent 60%),
+        var(--bg);
+      background-attachment: fixed, fixed, fixed, scroll;
+      background-repeat: no-repeat;
+      color: var(--text);
+    }
+    .hero {
+      padding: 6rem 0 4rem;
+      text-align: center;
+    }
+    .logo-wrap {
+      width: 160px; height: 160px; margin: 0 auto 1.25rem; padding: 12px;
+      background: #000; /* ensure logo sits on a black surface */
+      border-radius: 20px; box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+    }
+    .logo-wrap img { width: 100%; height: 100%; object-fit: contain; background: transparent; display: block; }
+    .brand-title { font-weight: 800; letter-spacing: 0.5px; font-size: 2.25rem; }
+    .brand-gradient { background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .brand-sub { color: var(--muted); max-width: 820px; margin: 0.5rem auto 0; }
+    .cta { margin-top: 2rem; }
+    .glass-card {
+      border-radius: 20px; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.085);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .grid { gap: 1.25rem; }
+    .card-link { text-decoration: none; color: inherit; display: block; }
+    .card-link:hover .glass-card { border-color: rgba(255,255,255,0.18); transform: translateY(-2px); transition: all .18s ease; }
+    .badge-gradient { background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end)); border: none; }
+    footer { color: var(--muted); }
+
+    /* Readability: headers red, descriptions white in content cards */
+    .glass-card h1,
+    .glass-card h2,
+    .glass-card h3,
+    .glass-card h4,
+    .glass-card h5,
+    .glass-card h6 { color: var(--gradient-start); }
+    .glass-card p,
+    .glass-card li,
+    .glass-card .text-muted,
+    .glass-card label { color: #ffffff; opacity: 0.92; }
+    .glass-card .form-control,
+    .glass-card .form-select,
+    .glass-card textarea { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.18); }
+    .glass-card .form-control::placeholder, .glass-card textarea::placeholder { color: rgba(255,255,255,0.6); }
+    /* Force helper/muted texts to white within cards */
+    .glass-card .form-text,
+    .glass-card small,
+    .glass-card .text-muted { color: #ffffff !important; opacity: 0.82; }
+    /* Ensure select dropdowns are readable */
+    .glass-card .form-select { color: #ffffff; background-color: rgba(255,255,255,0.06); }
+    .glass-card .form-select option { color: #000000; background-color: #ffffff; }
+
+    /* Button theming to match logo palette */
+    .btn-primary { background-color: var(--gradient-start); border-color: var(--gradient-start); }
+    .btn-primary:hover { background-color: #0B5ED7; border-color: #0B5ED7; }
+    .btn-success { background-color: var(--gradient-end); border-color: var(--gradient-end); color: #0b0f16; }
+    .btn-success:hover { background-color: #1aae82; border-color: #1aae82; color: #0b0f16; }
+    .btn-outline-light { color: var(--text); border-color: rgba(233,238,246,0.6); }
+    .btn-outline-light:hover { background: rgba(255,255,255,0.08); border-color: rgba(233,238,246,0.85); }
+
+    /* Beta badge/notice */
+    .beta-pill { display: inline-block; padding: 0.35rem 0.6rem; border-radius: 999px; font-weight: 600; font-size: .85rem; color: #0b0f16; background: var(--gradient-end); border: 1px solid rgba(255,255,255,0.25); }
+    .beta-note { color: #ffffff; opacity: 0.92; }
+  </style>
+</head>
+<body>
+  <!-- Top navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center" href="/home">
+        <img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo" style="width:32px;height:32px;object-fit:contain;" class="me-2"/>
+        <strong>Hoy Sports Data</strong>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navmain">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navmain">
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+          <li class="nav-item"><a class="nav-link" href="#custom">Custom</a></li>
+          <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
+          <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <main class="container">
+    <section class="hero">
+      <div class="logo-wrap">
+        <img src="{{ url_for('static', filename='img/20.png') }}" alt="Hoy Sports Data Logo" />
+      </div>
+      <h1 class="brand-title">Hoy <span class="brand-gradient">Sports Data</span></h1>
+      <p class="lead brand-sub">Bringing state of the art analysis software to all levels of football. Take your team to the next level with HSD applications.</p>
+      <div class="mt-3">
+        <span class="beta-pill me-2">Beta</span>
+        <span class="beta-note">We’re currently in beta. Want access? <a href="#contact" class="link-light">Contact us</a> to join the beta test team.</span>
+      </div>
+      <div class="cta">
+        <a href="/login" class="btn btn-lg btn-primary me-2">Sign In</a>
+        <a href="#contact" class="btn btn-lg btn-outline-light">Join Beta</a>
+      </div>
+    </section>
+
+    <!-- Custom Software Requests Section -->
+    <section class="my-5" id="custom">
+      <div class="row g-4">
+        <div class="col-lg-8 mx-auto">
+          <div class="glass-card p-4">
+            <h3 class="mb-3">Custom Software Requests</h3>
+            <p class="text-muted">Looking for a tailored analytics workflow or a new in-game tool? Tell us briefly what you need and we’ll reach out.</p>
+            <form onsubmit="return sendCustomEmail(this);">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Name</label>
+                  <input id="customName" type="text" class="form-control" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Email</label>
+                  <input id="customEmail" type="email" class="form-control" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Brief Description</label>
+                  <textarea id="customMessage" class="form-control" rows="4" placeholder="Describe your request in a few sentences..." required></textarea>
+                </div>
+                <div class="col-12">
+                  <button class="btn btn-primary" type="submit">Send Request</button>
+                  <a class="btn btn-outline-light ms-2" href="mailto:info@hoysportsdata.com?subject=Custom%20Software%20Request">Email Us</a>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features removed: welcome-only homepage until user login -->
+
+    <!-- About section moved to dedicated /about page -->
+
+    <!-- Contact & Login Section -->
+    <section class="my-5" id="contact">
+      <div class="row g-4">
+        <div class="col-lg-7">
+          <div class="glass-card p-4 h-100">
+            <h3 class="mb-3">Contact Us</h3>
+            <p class="text-muted">Have questions or want a walkthrough? Send us a note and we’ll get back shortly.</p>
+            <form onsubmit="return sendContactEmail(this);">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Name</label>
+                  <input id="contactName" type="text" class="form-control" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Email</label>
+                  <input id="contactEmail" type="email" class="form-control" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Message</label>
+                  <textarea id="contactMessage" class="form-control" rows="4" required></textarea>
+                </div>
+                <div class="col-12">
+                  <button class="btn btn-primary" type="submit">Send Message</button>
+                  <a class="btn btn-outline-light ms-2" href="mailto:info@hoysportsdata.com?subject=HSD%20Beta%20Access%20Request">Email Us</a>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="glass-card p-4">
+            <h5 class="mb-2">Login</h5>
+            <p class="text-muted">Already have an account? Access your analytics and saved sessions.</p>
+            <a href="/login" class="btn btn-success">Go to Login</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="container py-4 small">
+    <div class="d-flex justify-content-between align-items-center">
+      <span>&copy; <span id="year"></span> Hoy Sports Data</span>
+      <span class="text-muted">Logo Redesign preview</span>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    function sendContactEmail(form) {
+      const name = document.getElementById('contactName').value.trim();
+      const email = document.getElementById('contactEmail').value.trim();
+      const message = document.getElementById('contactMessage').value.trim();
+      const subject = encodeURIComponent('HSD Beta Access Request');
+      const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`);
+      const mailto = `mailto:info@hoysportsdata.com?subject=${subject}&body=${body}`;
+      window.location.href = mailto;
+      return false; // prevent default submit
+    }
+
+    function sendCustomEmail(form) {
+      const name = document.getElementById('customName').value.trim();
+      const email = document.getElementById('customEmail').value.trim();
+      const message = document.getElementById('customMessage').value.trim();
+      const subject = encodeURIComponent('Custom Software Request');
+      const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nRequest:\n${message}`);
+      const mailto = `mailto:info@hoysportsdata.com?subject=${subject}&body=${body}`;
+      window.location.href = mailto;
+      return false;
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

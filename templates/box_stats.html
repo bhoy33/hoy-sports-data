@@ -6,27 +6,61 @@
     <title>In-Game Box Stats Analytics - Hoy Sports Data</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Inter font to match site -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --gradient-start: #f81825;
+            --gradient-end: #f2e5e5;
+            --bg: #0A0E14;
+            --card-bg: rgba(255,255,255,0.06);
+            --text: #E9EEF6;
+            --muted: #9FB0C4;
+            --border: rgba(255,255,255,0.12);
+            /* Phase colors */
+            --phase-offense: #f81825;  /* red */
+            --phase-defense: #20C997;  /* teal/green */
+            --phase-special: #ffc107;  /* yellow */
+        }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+            background:
+              radial-gradient(1200px 800px at 10% 0%, rgba(248,24,37,0.14), transparent 60%),
+              radial-gradient(1000px 600px at 100% 20%, rgba(242,229,229,0.12), transparent 55%),
+              radial-gradient(900px 500px at 50% 100%, rgba(248,24,37,0.08), transparent 60%),
+              var(--bg);
+            background-attachment: fixed, fixed, fixed, scroll;
+            background-repeat: no-repeat;
+            color: var(--text);
+        }
         .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
         }
         .player-card {
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             border-radius: 10px;
             padding: 15px;
             margin-bottom: 10px;
-            background: #f8f9fa;
+            background: var(--card-bg);
+            color: var(--text);
         }
         .play-entry-form {
-            background: #ffffff;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
             border-radius: 15px;
             padding: 25px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.06);
             margin-bottom: 30px;
+            color: var(--text);
         }
         .stat-badge {
             display: inline-block;
@@ -34,32 +68,209 @@
             margin: 1px;
             font-size: 0.8em;
             border-radius: 3px;
-            background-color: #f8f9fa;
+            background-color: rgba(255,255,255,0.10);
+            color: var(--text);
         }
-        .text-purple {
-            color: #6f42c1 !important;
-        }
+        .text-purple { color: var(--gradient-end) !important; }
         .team-stats-overview {
-            background: linear-gradient(135deg, #ff7b7b 0%, #667eea 100%);
-            color: white;
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
         }
         .player-input-group {
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 15px;
-            background: #f8f9fa;
+            background: var(--card-bg);
+            color: var(--text);
         }
+
+        /* Navbar brand override */
+        .navbar { background: rgba(10,14,20,0.85) !important; border-bottom: 1px solid var(--border); backdrop-filter: blur(8px); }
+        .navbar .navbar-brand, .navbar .nav-link, .navbar .navbar-text { color: var(--text) !important; }
+        .nav-logo-wrap { width: 28px; height: 28px; margin-right: 8px; padding: 4px; background: #000; border-radius: 6px; display:inline-flex; align-items:center; justify-content:center; box-shadow: 0 4px 10px rgba(0,0,0,0.35); }
+        .nav-logo-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .hero-logo-wrap { width: 64px; height: 64px; margin-right: 12px; padding: 8px; background: #000; border-radius: 12px; display:inline-flex; align-items:center; justify-content:center; box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+        .hero-logo-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .section-logo-wrap { width: 40px; height: 40px; margin-right: 12px; padding: 6px; background: #000; border-radius: 10px; display:inline-flex; align-items:center; justify-content:center; box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+        .section-logo-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+        /* Brand color overrides for remaining Bootstrap components */
+        /* Phase color mapping */
+        .text-primary { color: var(--phase-offense) !important; }
+        .text-danger { color: var(--phase-defense) !important; }
+        .text-warning { color: var(--phase-special) !important; }
+        .bg-primary { background-color: rgba(248,24,37,0.18) !important; color: var(--text) !important; border: 1px solid var(--border); }
+        .bg-light, .bg-white { background-color: var(--card-bg) !important; color: var(--text) !important; }
+        .btn-primary { background-color: var(--gradient-start) !important; border-color: var(--gradient-start) !important; color: #fff !important; }
+        .btn-primary:hover { background-color: #c8141e !important; border-color: #c8141e !important; }
+        .btn-success { background-color: var(--gradient-start) !important; border-color: var(--gradient-start) !important; }
+        .btn-success:hover { background-color: #c8141e !important; border-color: #c8141e !important; }
+        .btn-outline-secondary { color: var(--text) !important; border-color: rgba(255,255,255,0.4) !important; }
+        .btn-outline-secondary:hover { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.7) !important; color: var(--text) !important; }
+        .btn-light { background: rgba(255,255,255,0.12) !important; border-color: rgba(255,255,255,0.2) !important; color: var(--text) !important; }
+        .btn-light:hover { background: rgba(255,255,255,0.18) !important; }
+
+        /* Form controls dark theme */
+        .form-control, .form-select { background: rgba(255,255,255,0.06) !important; color: #fff !important; border: 1px solid var(--border) !important; }
+        .form-control::placeholder { color: rgba(255,255,255,0.6) !important; }
+        label.form-label { color: var(--text); }
+        .form-text { color: var(--muted) !important; }
+
+        /* Tables dark theme */
+        .table { color: var(--text); }
+        .table-striped tbody tr:nth-of-type(odd) { background-color: rgba(255,255,255,0.03); }
+        .table-hover tbody tr:hover { background-color: rgba(255,255,255,0.06); }
+        .table thead { background: rgba(255,255,255,0.08); color: var(--text); }
+        .table.table-striped.table-hover tbody td { border-color: rgba(255,255,255,0.08); }
+
+        /* Heading icons to brand red */
+        h1 i, h2 i, h4 i { color: var(--gradient-start) !important; }
+
+        /* Generic cards and chart containers to dark theme */
+        .card { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); box-shadow: 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06); }
+        .card-header { background: var(--card-bg); color: var(--text); border-bottom: 1px solid var(--border); }
+        .chart-container { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); box-shadow: 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06); }
+        .alert { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); }
+
+        /* Game info section brand red gradient */
+        .game-info-section { background: linear-gradient(90deg, #f81825, #c8141e) !important; color: #ffffff !important; border: none !important; }
+
+        /* Ensure inputs remain dark on all states and when autofilled */
+        .form-control:focus,
+        .form-control:active,
+        .form-control:valid,
+        .form-control:invalid,
+        .form-select:focus,
+        .form-select:active {
+            background: rgba(255,255,255,0.06) !important;
+            color: #fff !important;
+            border-color: var(--border) !important;
+            outline: none !important;
+            box-shadow: 0 0 0 0.2rem rgba(248,24,37,0.15) !important;
+        }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        textarea:-webkit-autofill,
+        textarea:-webkit-autofill:hover,
+        textarea:-webkit-autofill:focus,
+        select:-webkit-autofill,
+        select:-webkit-autofill:hover,
+        select:-webkit-autofill:focus {
+            -webkit-text-fill-color: #ffffff !important;
+            -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.06) inset !important;
+            box-shadow: 0 0 0px 1000px rgba(255,255,255,0.06) inset !important;
+            caret-color: #ffffff !important;
+            transition: background-color 5000s ease-in-out 0s !important;
+        }
+
+        /* Player statistics text: force white for name/position/stats */
+        .player-card h5,
+        .player-card .position,
+        .player-card .stat,
+        .player-card .stat-value,
+        .player-card p,
+        .player-card small,
+        .player-card .text-muted,
+        .player-card label { color: #ffffff !important; opacity: 0.95; }
+
+        /* Down-specific analytics blocks: keep inputs dark */
+        [id*="down"],
+        [class*="down"] {
+            /* container text stays readable */
+            color: var(--text);
+        }
+        [id*="down"] .form-control,
+        [class*="down"] .form-control,
+        [id*="down"] .form-select,
+        [class*="down"] .form-select {
+            background: rgba(255,255,255,0.06) !important;
+            color: #fff !important;
+            border: 1px solid var(--border) !important;
+        }
+
+        /* Down-specific analytics and Detailed stats: force dark backgrounds and white text */
+        [id*="down"], [class*="down"], [id*="Down"], [class*="Down"],
+        [id*="detail"], [class*="detail"], [id*="Detail"], [class*="Detail"],
+        [id*="specific"], [class*="specific"], [id*="Specific"], [class*="Specific"] {
+            background-color: var(--card-bg) !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+        }
+        [id*="down"] .card, [class*="down"] .card,
+        [id*="detail"] .card, [class*="detail"] .card {
+            background-color: var(--card-bg) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+        }
+        /* Headers and labels within down/detail sections */
+        [id*="down"] h1, [id*="down"] h2, [id*="down"] h3, [id*="down"] h4, [id*="down"] h5,
+        [class*="down"] h1, [class*="down"] h2, [class*="down"] h3, [class*="down"] h4, [class*="down"] h5,
+        [id*="detail"] h1, [id*="detail"] h2, [id*="detail"] h3, [id*="detail"] h4, [id*="detail"] h5,
+        [class*="detail"] h1, [class*="detail"] h2, [class*="detail"] h3, [class*="detail"] h4, [class*="detail"] h5 {
+            color: var(--gradient-start) !important;
+        }
+        [id*="down"] .text-muted, [class*="down"] .text-muted,
+        [id*="detail"] .text-muted, [class*="detail"] .text-muted { color: #ffffff !important; opacity: 0.85; }
+        [id*="down"] .card-header, [class*="down"] .card-header,
+        [id*="detail"] .card-header, [class*="detail"] .card-header { background: var(--card-bg) !important; color: var(--text) !important; border-bottom: 1px solid var(--border) !important; }
+
+        /* Accordions and collapses in down/detail sections */
+        .accordion-item, .accordion-body { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); }
+        .accordion-button { background: var(--card-bg); color: var(--text); }
+        .accordion-button:not(.collapsed) { background: rgba(248,24,37,0.15); color: #fff; box-shadow: none; }
+        .accordion-button:focus { box-shadow: 0 0 0 .2rem rgba(248,24,37,0.2); }
+
+        /* List groups */
+        .list-group-item { background: var(--card-bg); color: var(--text); border-color: var(--border); }
+
+        /* Badges and stat items */
+        .badge { background: rgba(255,255,255,0.10); color: var(--text); border: 1px solid var(--border); }
+        .stat-item { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+        .stat-number { color: #fff; font-weight: 800; }
+        .stat-label { color: var(--muted); }
+
+        /* Team overview phase headers consistent colors */
+        .team-stats-overview h5 { color: var(--text); }
+        /* Offense/Defense/Special Teams badges consistency */
+        #offenseNeeScore { background-color: var(--phase-offense) !important; border-color: var(--phase-offense) !important; }
+        #defenseNeeScore { background-color: var(--phase-defense) !important; border-color: var(--phase-defense) !important; }
+        #specialTeamsEfficiencyRate, #specialTeamsExplosiveRate { background-color: var(--phase-special) !important; border-color: var(--phase-special) !important; color: #0b0f16 !important; }
+
+        /* Player stats: force names and numbers to white */
+        #playerStats, #playerProfilesContainer, .player-stats, .player-card {
+            color: #ffffff !important;
+        }
+        #playerStats h1, #playerStats h2, #playerStats h3, #playerStats h4, #playerStats h5, #playerStats h6,
+        #playerProfilesContainer h1, #playerProfilesContainer h2, #playerProfilesContainer h3, #playerProfilesContainer h4, #playerProfilesContainer h5, #playerProfilesContainer h6,
+        .player-stats h1, .player-stats h2, .player-stats h3, .player-stats h4, .player-stats h5, .player-stats h6,
+        .player-card h1, .player-card h2, .player-card h3, .player-card h4, .player-card h5, .player-card h6 { color: #ffffff !important; }
+        #playerStats .h1, #playerStats .h2, #playerStats .h3, #playerStats .h4, #playerStats .h5, #playerStats .h6,
+        #playerProfilesContainer .h1, #playerProfilesContainer .h2, #playerProfilesContainer .h3, #playerProfilesContainer .h4, #playerProfilesContainer .h5, #playerProfilesContainer .h6,
+        .player-stats .h1, .player-stats .h2, .player-stats .h3, .player-stats .h4, .player-stats .h5, .player-stats .h6,
+        .player-card .h1, .player-card .h2, .player-card .h3, .player-card .h4, .player-card .h5, .player-card .h6 { color: #ffffff !important; }
+        #playerStats strong, #playerProfilesContainer strong, .player-stats strong, .player-card strong { color: #ffffff !important; }
+
+        /* Player sections: ensure dark backgrounds for any nested cards/lists/tables */
+        [id*="player"], [class*="player"] { color: #ffffff !important; }
+        [id*="player"] .card, [class*="player"] .card { background: var(--card-bg) !important; color: #ffffff !important; border: 1px solid var(--border) !important; }
+        [id*="player"] .list-group-item, [class*="player"] .list-group-item { background: var(--card-bg) !important; color: #ffffff !important; border-color: var(--border) !important; }
+        [id*="player"] .table thead, [class*="player"] .table thead { background: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
+        [id*="player"] .table tbody tr, [class*="player"] .table tbody tr { color: #ffffff !important; }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-chart-line me-2"></i>Hoy Sports Data
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+                <span class="nav-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo"></span>
+                Hoy Sports Data
             </a>
             <div class="navbar-nav ms-auto">
                 {% if session.username and session.username != 'anonymous' %}
@@ -82,8 +293,8 @@
         <!-- Header -->
         <div class="row">
             <div class="col-12">
-                <h1 class="text-center mb-4">
-                    <i class="fas fa-football-ball me-3"></i>
+                <h1 class="text-center mb-4 d-flex align-items-center justify-content-center">
+                    <span class="hero-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo"></span>
                     In-Game Box Stats Analytics
                 </h1>
                 <p class="text-center text-muted mb-4">
@@ -95,11 +306,11 @@
         <!-- Game Information Section -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="game-info-section p-3 bg-primary text-white rounded">
+                <div class="game-info-section p-3 text-white rounded">
                     <div class="row align-items-center">
                         <div class="col-md-8">
                             <div class="d-flex align-items-center">
-                                <i class="fas fa-football-ball me-3 h4 mb-0"></i>
+                                <span class="section-logo-wrap"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo"></span>
                                 <div>
                                     <h5 class="mb-1" id="gameNameDisplay">Game Name Not Set</h5>
                                     <small class="opacity-75" id="gameDate">Click "Set Game Info" to name this game session</small>
@@ -124,7 +335,7 @@
             <!-- Offense Stats -->
             <div class="col-lg-4 col-md-12 mb-3">
                 <div class="team-stats-overview">
-                    <h5><i class="fas fa-football-ball me-2"></i>Offense</h5>
+                    <h5>Offense</h5>
                     <div class="row">
                         <div class="col-6">
                             <strong>Plays:</strong><br>
@@ -163,7 +374,7 @@
             <!-- Defense Stats -->
             <div class="col-lg-4 col-md-12 mb-3">
                 <div class="team-stats-overview">
-                    <h5><i class="fas fa-shield-alt me-2"></i>Defense</h5>
+                    <h5>Defense</h5>
                     <div class="row">
                         <div class="col-6">
                             <strong>Plays:</strong><br>
@@ -202,7 +413,7 @@
             <!-- Special Teams Stats -->
             <div class="col-lg-4 col-md-12 mb-3">
                 <div class="team-stats-overview">
-                    <h5><i class="fas fa-running me-2"></i>Special Teams</h5>
+                    <h5>Special Teams</h5>
                     <div class="row">
                         <div class="col-6">
                             <strong>Plays:</strong><br>
@@ -244,7 +455,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Team Advanced Analytics</h5>
+                        <h5 class="mb-0">Team Advanced Analytics</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -252,7 +463,7 @@
                             <div class="col-lg-6 mb-3">
                                 <div class="card border-info">
                                     <div class="card-header bg-info text-white">
-                                        <h6 class="mb-0"><i class="fas fa-users me-2"></i>Overall Team Performance</h6>
+                                        <h6 class="mb-0">Overall Team Performance</h6>
                                     </div>
                                     <div class="card-body">
                                         <div class="row text-center">
@@ -322,12 +533,12 @@
                             <div class="col-lg-6 mb-3">
                                 <div class="card border-secondary">
                                     <div class="card-header bg-secondary text-white">
-                                        <h6 class="mb-0"><i class="fas fa-layer-group me-2"></i>Phase Breakdown</h6>
+                                        <h6 class="mb-0">Phase Breakdown</h6>
                                     </div>
                                     <div class="card-body">
                                         <div class="row">
                                             <div class="col-6">
-                                                <h6 class="text-primary"><i class="fas fa-football-ball me-1"></i>Offense</h6>
+                                                <h6 class="text-primary">Offense</h6>
                                                 <div class="small">
                                                     <div class="d-flex justify-content-between">
                                                         <span>Efficiency:</span>
@@ -348,7 +559,7 @@
                                                 </div>
                                             </div>
                                             <div class="col-6">
-                                                <h6 class="text-success"><i class="fas fa-shield-alt me-1"></i>Defense</h6>
+                                                <h6 class="text-success">Defense</h6>
                                                 <div class="small">
                                                     <div class="d-flex justify-content-between">
                                                         <span>Efficiency:</span>
@@ -383,50 +594,38 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Team Progression Analytics</h5>
+                        <h5 class="mb-0">Team Progression Analytics</h5>
                     </div>
                     <div class="card-body">
                         <!-- Offense Progression -->
                         <div class="row mb-3">
                             <div class="col-12">
-                                <h6 class="text-primary"><i class="fas fa-football-ball me-2"></i>Offense Progression</h6>
+                                <h6 class="text-primary">Offense Progression</h6>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <button class="btn btn-outline-primary w-100" onclick="showPhaseNeeGraph('offense')">
-                                    <i class="fas fa-chart-area me-2"></i>NEE Progression
-                                </button>
+                                <button class="btn btn-outline-primary w-100" onclick="showPhaseNeeGraph('offense')">NEE Progression</button>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <button class="btn btn-outline-success w-100" onclick="showPhaseEfficiencyGraph('offense')">
-                                    <i class="fas fa-chart-line me-2"></i>Efficiency Progression
-                                </button>
+                                <button class="btn btn-outline-success w-100" onclick="showPhaseEfficiencyGraph('offense')">Efficiency Progression</button>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <button class="btn btn-outline-warning w-100" onclick="showPhaseExplosiveGraph('offense')">
-                                    <i class="fas fa-chart-bar me-2"></i>Explosive Progression
-                                </button>
+                                <button class="btn btn-outline-warning w-100" onclick="showPhaseExplosiveGraph('offense')">Explosive Progression</button>
                             </div>
                         </div>
                         
                         <!-- Defense Progression -->
                         <div class="row">
                             <div class="col-12">
-                                <h6 class="text-danger"><i class="fas fa-shield-alt me-2"></i>Defense Progression</h6>
+                                <h6 class="text-danger">Defense Progression</h6>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <button class="btn btn-outline-primary w-100" onclick="showPhaseNeeGraph('defense')">
-                                    <i class="fas fa-chart-area me-2"></i>NEE Progression
-                                </button>
+                                <button class="btn btn-outline-primary w-100" onclick="showPhaseNeeGraph('defense')">NEE Progression</button>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <button class="btn btn-outline-success w-100" onclick="showPhaseEfficiencyGraph('defense')">
-                                    <i class="fas fa-chart-line me-2"></i>Efficiency Progression
-                                </button>
+                                <button class="btn btn-outline-success w-100" onclick="showPhaseEfficiencyGraph('defense')">Efficiency Progression</button>
                             </div>
                             <div class="col-md-4 mb-2">
-                                <button class="btn btn-outline-warning w-100" onclick="showPhaseExplosiveGraph('defense')">
-                                    <i class="fas fa-chart-bar me-2"></i>Explosive Progression
-                                </button>
+                                <button class="btn btn-outline-warning w-100" onclick="showPhaseExplosiveGraph('defense')">Explosive Progression</button>
                             </div>
                         </div>
                     </div>
@@ -439,7 +638,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-gamepad me-2"></i>Game Management</h5>
+                        <h5 class="mb-0">Game Management</h5>
                         <div class="btn-group">
                             <button class="btn btn-success btn-sm" onclick="showSaveGameModal()">
                                 <i class="fas fa-save me-1"></i>Save Game
@@ -486,7 +685,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-sort-numeric-down me-2"></i>Down-Specific Analytics</h5>
+                        <h5 class="mb-0">Down-Specific Analytics</h5>
                         <div class="btn-group">
                             <button type="button" class="btn btn-info btn-sm" onclick="loadDownAnalytics()">
                                 <i class="fas fa-sync"></i> Refresh
@@ -510,7 +709,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Saved Rosters</h5>
+                        <h5 class="mb-0">Saved Rosters</h5>
                         <div>
                             <button type="button" class="btn btn-success btn-sm me-2" onclick="showSaveRosterModal()">
                                 <i class="fas fa-save"></i> Save Current Roster
@@ -534,10 +733,8 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-users me-2"></i>Current Player Profiles</h5>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="showAddPlayerModal()">
-                            <i class="fas fa-plus"></i> Add Player
-                        </button>
+                        <h5 class="mb-0">Current Player Profiles</h5>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="showAddPlayerModal()">Add Player</button>
                     </div>
                     <div class="card-body">
                         <div id="playerProfilesContainer">
@@ -553,14 +750,10 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Play Log Management</h5>
+                        <h5 class="mb-0">Play Log Management</h5>
                         <div class="btn-group">
-                            <button type="button" class="btn btn-success btn-sm" onclick="showAddPlayModal()">
-                                <i class="fas fa-plus"></i> Add Play
-                            </button>
-                            <button type="button" class="btn btn-info btn-sm" onclick="refreshPlayLog()">
-                                <i class="fas fa-sync"></i> Refresh
-                            </button>
+                            <button type="button" class="btn btn-success btn-sm" onclick="showAddPlayModal()">Add Play</button>
+                            <button type="button" class="btn btn-info btn-sm" onclick="refreshPlayLog()">Refresh</button>
                         </div>
                     </div>
                     <div class="card-body">
@@ -693,6 +886,68 @@
                             </div>
                         </div>
                         
+                        <!-- Penalty Details (shown when penalty is selected) -->
+                        <div id="penaltyDetails" class="row mt-3" style="display: none; border: 2px solid red; background-color: yellow; padding: 10px;">
+                            <div class="col-md-4">
+                                <label for="penaltyType" class="form-label">Penalty Type</label>
+                                <select class="form-select" id="penaltyType" name="penalty_type" onchange="updatePenaltyYards()">
+                                    <option value="">Select Penalty</option>
+                                    <optgroup label="🏈 Offensive Penalties">
+                                        <option value="false_start">False Start (5 yards)</option>
+                                        <option value="holding_offense">Holding - Offense (10 yards)</option>
+                                        <option value="illegal_formation">Illegal Formation (5 yards)</option>
+                                        <option value="illegal_motion">Illegal Motion (5 yards)</option>
+                                        <option value="illegal_shift">Illegal Shift (5 yards)</option>
+                                        <option value="offensive_pass_interference">Offensive Pass Interference (10 yards)</option>
+                                        <option value="intentional_grounding">Intentional Grounding (Loss of down + 10 yards)</option>
+                                        <option value="illegal_block_above_waist">Illegal Block Above Waist (15 yards)</option>
+                                        <option value="chop_block">Chop Block (15 yards)</option>
+                                        <option value="clipping">Clipping (15 yards)</option>
+                                    </optgroup>
+                                    <optgroup label="🛡️ Defensive Penalties">
+                                        <option value="offside">Offside (5 yards)</option>
+                                        <option value="encroachment">Encroachment (5 yards)</option>
+                                        <option value="neutral_zone_infraction">Neutral Zone Infraction (5 yards)</option>
+                                        <option value="holding_defense">Holding - Defense (5 yards + automatic 1st down)</option>
+                                        <option value="defensive_pass_interference">Defensive Pass Interference (Spot foul + automatic 1st down)</option>
+                                        <option value="illegal_contact">Illegal Contact (5 yards + automatic 1st down)</option>
+                                        <option value="roughing_passer">Roughing the Passer (15 yards + automatic 1st down)</option>
+                                        <option value="roughing_kicker">Roughing the Kicker (15 yards + automatic 1st down)</option>
+                                        <option value="face_mask">Face Mask (15 yards)</option>
+                                        <option value="unnecessary_roughness">Unnecessary Roughness (15 yards)</option>
+                                        <option value="targeting">Targeting (15 yards + ejection)</option>
+                                    </optgroup>
+                                    <optgroup label="⚡ Special Teams Penalties">
+                                        <option value="illegal_formation_st">Illegal Formation - ST (5 yards)</option>
+                                        <option value="offside_st">Offside - ST (5 yards)</option>
+                                        <option value="running_into_kicker">Running into Kicker (5 yards)</option>
+                                        <option value="kick_catch_interference">Kick Catch Interference (15 yards)</option>
+                                        <option value="illegal_block_st">Illegal Block - ST (10 yards)</option>
+                                    </optgroup>
+                                    <optgroup label="🔄 General Penalties">
+                                        <option value="unsportsmanlike_conduct">Unsportsmanlike Conduct (15 yards)</option>
+                                        <option value="delay_of_game">Delay of Game (5 yards)</option>
+                                        <option value="too_many_men">Too Many Men on Field (5 yards)</option>
+                                        <option value="illegal_substitution">Illegal Substitution (5 yards)</option>
+                                        <option value="personal_foul">Personal Foul (15 yards)</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="penaltySide" class="form-label">Penalty On</label>
+                                <select class="form-select" id="penaltySide" name="penalty_side">
+                                    <option value="" disabled selected>Select Side</option>
+                                    <option value="offense">Our Team (Offense)</option>
+                                    <option value="defense">Opponent (Defense)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="penaltyYards" class="form-label">Penalty Yards</label>
+                                <input type="number" class="form-control" id="penaltyYards" name="penalty_yards" placeholder="e.g., 5, 10, 15" min="0" max="50">
+                                <div class="form-text">Positive = against us, Negative = for us</div>
+                            </div>
+                        </div>
+
                         <!-- Play Call Row -->
                         <div class="row mt-3">
                             <div class="col-md-4">
@@ -721,36 +976,6 @@
                             </div>
                         </div>
                         
-                        <!-- Penalty Details (shown only when penalty is selected) -->
-                        <div class="row mt-3" id="penaltyDetails" style="display: none;">
-                            <div class="col-md-6">
-                                <label for="penaltyType" class="form-label">Penalty Type</label>
-                                <select class="form-select" id="penaltyType">
-                                    <option value="">Select Penalty</option>
-                                    <option value="false_start">False Start</option>
-                                    <option value="holding">Holding</option>
-                                    <option value="pass_interference">Pass Interference</option>
-                                    <option value="roughing_passer">Roughing the Passer</option>
-                                    <option value="delay_of_game">Delay of Game</option>
-                                    <option value="unsportsmanlike">Unsportsmanlike Conduct</option>
-                                    <option value="facemask">Facemask</option>
-                                    <option value="illegal_formation">Illegal Formation</option>
-                                    <option value="encroachment">Encroachment</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="penaltyYards" class="form-label">Penalty Yards</label>
-                                <input type="number" class="form-control" id="penaltyYards" value="0" placeholder="e.g., 5, 10, 15">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="penaltyOn" class="form-label">Penalty On</label>
-                                <select class="form-select" id="penaltyOn">
-                                    <option value="offense">Offense</option>
-                                    <option value="defense">Defense</option>
-                                </select>
-                            </div>
-                        </div>
                         
                         <!-- Auto-calculation status -->
                         <div class="row mt-2" id="autoCalculationStatus" style="display: none;">
@@ -1240,17 +1465,17 @@
                 
                 html += `
                     <div class="col-lg-6 mb-4">
-                        <div class="card border-${phaseColor}">
-                            <div class="card-header bg-${phaseColor} text-white">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-${phase === 'offense' ? 'arrow-right' : 'shield-alt'} me-2"></i>
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0" style="color: var(--gradient-start);">
+                                    <span class="section-logo-wrap me-2"><img src="{{ url_for('static', filename='img/20.png') }}" alt="Logo"></span>
                                     ${phaseTitle} Analytics by Down
                                 </h6>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
                                     <table class="table table-sm mb-0">
-                                        <thead class="table-light">
+                                        <thead>
                                             <tr>
                                                 <th>Down</th>
                                                 <th>Plays</th>
@@ -1349,7 +1574,7 @@
                 <div class="row mt-3">
                     <div class="col-12">
                         <div class="alert alert-info">
-                            <h6><i class="fas fa-info-circle me-2"></i>Analytics Legend</h6>
+                            <h6>Analytics Legend</h6>
                             <div class="row">
                                 <div class="col-md-3">
                                     <strong>Efficiency:</strong> Success rate based on down and distance
@@ -2555,7 +2780,7 @@
             if (playType === 'penalty') {
                 playData.penalty_type = document.getElementById('penaltyType').value;
                 playData.penalty_yards = parseInt(document.getElementById('penaltyYards').value) || 0;
-                playData.penalty_on = document.getElementById('penaltyOn').value;
+                playData.penalty_side = document.getElementById('penaltySide').value;
                 playData.yards_gained = 0; // Penalties don't count as offensive yards
                 playData.players_involved = []; // No players involved in penalties for stats
             } else {
@@ -3994,6 +4219,7 @@
                         <option value="pass">Pass</option>
                         <option value="kneel">Kneel Down</option>
                         <option value="spike">Spike</option>
+                        <option value="penalty">Penalty</option>
                     `;
                     break;
                 case 'defense':
@@ -4003,6 +4229,7 @@
                         <option value="interception_return">Interception Return</option>
                         <option value="fumble_return">Fumble Return</option>
                         <option value="safety">Safety</option>
+                        <option value="penalty">Penalty</option>
                     `;
                     break;
                 case 'special_teams':
@@ -4017,6 +4244,7 @@
                         <option value="onside_kick">Onside Kick</option>
                         <option value="fake_punt">Fake Punt</option>
                         <option value="fake_field_goal">Fake Field Goal</option>
+                        <option value="penalty">Penalty</option>
                     `;
                     break;
             }
@@ -4201,13 +4429,42 @@
             const playType = document.getElementById('playType').value;
             const yardsGainedField = document.getElementById('yardsGained');
             const resultField = document.getElementById('result');
+            const penaltyDetails = document.getElementById('penaltyDetails');
+            const penaltyTypeEl = document.getElementById('penaltyType');
+            const penaltySideEl = document.getElementById('penaltySide');
+            const penaltyYardsEl = document.getElementById('penaltyYards');
             
-            // Update yards gained field based on play type
-            if (['timeout', 'penalty'].includes(playType)) {
+            console.log('DEBUG: updatePlayTypeOptions called with playType:', playType);
+            console.log('DEBUG: penaltyDetails element:', penaltyDetails);
+            
+            // Show/hide penalty details based on play type
+            if (playType === 'penalty') {
+                console.log('DEBUG: Showing penalty details');
+                if (penaltyDetails) {
+                    penaltyDetails.style.display = 'block';
+                    penaltyDetails.style.visibility = 'visible';
+                    console.log('DEBUG: Penalty details should now be visible');
+                } else {
+                    console.error('ERROR: penaltyDetails element not found!');
+                }
+                yardsGainedField.style.display = 'none';
                 yardsGainedField.value = 0;
-                yardsGainedField.disabled = true;
+                // Prevent hidden required input from blocking submit
+                if (yardsGainedField) { yardsGainedField.required = false; yardsGainedField.disabled = true; }
+
+                // Enable and require penalty inputs
+                if (penaltyTypeEl) { penaltyTypeEl.disabled = false; penaltyTypeEl.required = true; }
+                if (penaltySideEl) { penaltySideEl.disabled = false; penaltySideEl.required = true; }
+                if (penaltyYardsEl) { penaltyYardsEl.disabled = false; penaltyYardsEl.required = true; }
             } else {
-                yardsGainedField.disabled = false;
+                console.log('DEBUG: Hiding penalty details');
+                penaltyDetails.style.display = 'none';
+                // Clear penalty fields
+                if (penaltyTypeEl) { penaltyTypeEl.value = ''; penaltyTypeEl.required = false; penaltyTypeEl.disabled = true; }
+                if (penaltySideEl) { penaltySideEl.value = ''; penaltySideEl.required = false; penaltySideEl.disabled = true; }
+                if (penaltyYardsEl) { penaltyYardsEl.value = ''; penaltyYardsEl.required = false; penaltyYardsEl.disabled = true; }
+                // Restore yards gained field usability
+                if (yardsGainedField) { yardsGainedField.disabled = false; yardsGainedField.required = true; yardsGainedField.style.display = 'block'; }
             }
             
             // Update result options based on play type and phase
@@ -4217,8 +4474,61 @@
             selectedPlayersForPlay = [];
             updateSelectedPlayersDisplay();
             
-            // Show/hide penalty specific fields
-            togglePenaltyMode();
+            // Show/hide yards gained field based on play type
+            if (playType === 'timeout' || playType === 'penalty') {
+                yardsGainedField.style.display = 'none';
+                yardsGainedField.value = 0;
+                resultField.style.display = 'none';
+            } else {
+                yardsGainedField.style.display = 'block';
+                resultField.style.display = 'block';
+            }
+        }
+        
+        function updatePenaltyYards() {
+            const penaltyType = document.getElementById('penaltyType').value;
+            const penaltyYardsField = document.getElementById('penaltyYards');
+            
+            // Auto-populate penalty yards based on penalty type
+            const penaltyYards = {
+                'false_start': 5,
+                'holding_offense': 10,
+                'illegal_formation': 5,
+                'illegal_motion': 5,
+                'illegal_shift': 5,
+                'offensive_pass_interference': 10,
+                'intentional_grounding': 10,
+                'illegal_block_above_waist': 15,
+                'chop_block': 15,
+                'clipping': 15,
+                'offside': 5,
+                'encroachment': 5,
+                'neutral_zone_infraction': 5,
+                'holding_defense': 5,
+                'defensive_pass_interference': 15, // Spot foul, but default to 15
+                'illegal_contact': 5,
+                'roughing_passer': 15,
+                'roughing_kicker': 15,
+                'face_mask': 15,
+                'unnecessary_roughness': 15,
+                'targeting': 15,
+                'illegal_formation_st': 5,
+                'offside_st': 5,
+                'running_into_kicker': 5,
+                'kick_catch_interference': 15,
+                'illegal_block_st': 10,
+                'unsportsmanlike_conduct': 15,
+                'delay_of_game': 5,
+                'too_many_men': 5,
+                'illegal_substitution': 5,
+                'personal_foul': 15
+            };
+            
+            if (penaltyYards[penaltyType]) {
+                penaltyYardsField.value = penaltyYards[penaltyType];
+            } else {
+                penaltyYardsField.value = '';
+            }
         }
         
         function updateResultOptionsForPlayType(playType) {
@@ -5166,8 +5476,8 @@
             document.getElementById('editPlayCall').value = play.play_call || '';
             document.getElementById('editYardsGained').value = play.yards_gained || 0;
 
-            // Update play type options based on phase
-            updatePlayTypeOptions();
+            // Update play type options based on phase (edit modal)
+            updateEditPlayTypeOptions();
 
             // Populate players
             const playersContainer = document.getElementById('editPlayersContainer');
@@ -5384,7 +5694,7 @@
             }
         }
 
-        function updatePlayTypeOptions() {
+        function updateEditPlayTypeOptions() {
             const phase = document.getElementById('editPhase').value;
             const playTypeSelect = document.getElementById('editPlayType');
             
@@ -5594,7 +5904,7 @@
                             </div>
                             <div class="col-md-2">
                                 <label for="editPhase" class="form-label">Phase</label>
-                                <select class="form-select" id="editPhase" required onchange="updatePlayTypeOptions()">
+                                <select class="form-select" id="editPhase" required onchange="updateEditPlayTypeOptions()">
                                     <option value="">Select Phase</option>
                                     <option value="offense">Offense</option>
                                     <option value="defense">Defense</option>

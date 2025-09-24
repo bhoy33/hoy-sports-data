@@ -1,0 +1,353 @@
+{
+  "game_name": "Test 1",
+  "username": "HSD",
+  "saved_at": "2025-09-16T17:16:52.172672",
+  "version": "2.0",
+  "database_saved": false,
+  "game_data": {
+    "plays": [
+      {
+        "play_number": 1,
+        "down": 1,
+        "distance": 10,
+        "field_position": "OWN 25",
+        "play_type": "rush",
+        "play_call": "Stretch",
+        "result": "",
+        "yards_gained": 4,
+        "players_involved": [
+          {
+            "id": "player_8",
+            "number": 7,
+            "name": "Swinea",
+            "position": "RB",
+            "role": "rusher",
+            "touchdown": false,
+            "fumble": false,
+            "completion": false,
+            "interception": false,
+            "tackle": false,
+            "sack": false,
+            "interception_def": false,
+            "pass_breakup": false,
+            "fumble_recovery": false,
+            "forced_fumble": false,
+            "tackle_for_loss": false,
+            "defensive_td": false,
+            "return_yards": 0,
+            "field_goal_made": false,
+            "extra_point_made": false,
+            "punt_return": false,
+            "kickoff_return": false,
+            "coverage_tackle": false,
+            "blocked_kick": false,
+            "special_teams_td": false
+          }
+        ],
+        "timestamp": "2025-09-16T21:16:45.441Z",
+        "phase": "offense"
+      }
+    ],
+    "players": {
+      "7": {
+        "number": 7,
+        "name": "Swinea",
+        "position": "RB",
+        "rushing_attempts": 1,
+        "rushing_yards": 4,
+        "receptions": 0,
+        "receiving_yards": 0,
+        "passing_attempts": 0,
+        "passing_completions": 0,
+        "passing_yards": 0,
+        "touchdowns": 0,
+        "fumbles": 0,
+        "interceptions": 0,
+        "tackles_solo": 0,
+        "defensive_td": 0,
+        "return_yards": 0,
+        "tackles_total": 0,
+        "sacks": 0,
+        "qb_hits": 0,
+        "interceptions_def": 0,
+        "pass_breakups": 0,
+        "fumble_recoveries": 0,
+        "forced_fumbles": 0,
+        "defensive_tds": 0,
+        "tackles_for_loss": 0,
+        "field_goals_made": 0,
+        "field_goals_attempted": 0,
+        "extra_points_made": 0,
+        "extra_points_attempted": 0,
+        "punts": 0,
+        "punt_yards": 0,
+        "kickoff_returns": 0,
+        "kickoff_return_yards": 0,
+        "punt_returns": 0,
+        "punt_return_yards": 0,
+        "blocked_kicks": 0,
+        "coverage_tackles": 0,
+        "total_plays": 1,
+        "efficient_plays": 1,
+        "explosive_plays": 0,
+        "negative_plays": 0,
+        "efficiency_rate": 100.0,
+        "explosive_rate": 0.0,
+        "negative_rate": 0.0,
+        "nee_score": 100.0,
+        "nee_progression": [
+          {
+            "play": 2,
+            "nee": 100.0
+          }
+        ],
+        "efficiency_progression": [
+          {
+            "play": 2,
+            "efficiency": 100.0
+          }
+        ],
+        "avg_yards_progression": [],
+        "explosive_progression": [
+          {
+            "play": 2,
+            "explosive_rate": 0.0
+          }
+        ]
+      }
+    },
+    "game_info": {
+      "name": "Test 1",
+      "created_at": "2025-09-16T17:16:51.859424"
+    },
+    "team_stats": {
+      "total_plays": 0,
+      "efficient_plays": 0,
+      "explosive_plays": 0,
+      "total_yards": 0,
+      "efficiency_rate": 0.0,
+      "explosive_rate": 0.0,
+      "avg_yards_per_play": 0.0,
+      "success_rate": 0.0,
+      "offense": {
+        "total_plays": 1,
+        "efficient_plays": 1,
+        "explosive_plays": 0,
+        "negative_plays": 0,
+        "total_yards": 4,
+        "passing_yards": 0,
+        "rushing_yards": 4,
+        "passing_plays": 0,
+        "rushing_plays": 1,
+        "passing_efficient_plays": 0,
+        "rushing_efficient_plays": 1,
+        "passing_explosive_plays": 0,
+        "rushing_explosive_plays": 0,
+        "passing_negative_plays": 0,
+        "rushing_negative_plays": 0,
+        "touchdowns": 0,
+        "turnovers": 0,
+        "interceptions": 0,
+        "efficiency_rate": 100.0,
+        "explosive_rate": 0.0,
+        "negative_rate": 0.0,
+        "nee_score": 100.0,
+        "avg_yards_per_play": 4.0,
+        "success_rate": 100.0,
+        "nee_progression": [
+          {
+            "play": 2,
+            "nee": 100.0
+          }
+        ],
+        "efficiency_progression": [
+          {
+            "play": 2,
+            "efficiency": 100.0
+          }
+        ],
+        "avg_yards_progression": [
+          {
+            "play": 2,
+            "avg_yards": 4.0
+          }
+        ],
+        "passing_efficiency_rate": 0.0,
+        "passing_explosive_rate": 0.0,
+        "passing_negative_rate": 0.0,
+        "passing_avg_yards": 0.0,
+        "passing_nee_score": 0.0,
+        "rushing_efficiency_rate": 100.0,
+        "rushing_explosive_rate": 0.0,
+        "rushing_negative_rate": 0.0,
+        "rushing_avg_yards": 4.0,
+        "rushing_nee_score": 100.0,
+        "explosive_progression": [
+          {
+            "play": 2,
+            "explosive_rate": 0.0
+          }
+        ]
+      },
+      "defense": {
+        "total_plays": 0,
+        "efficient_plays": 0,
+        "explosive_plays": 0,
+        "negative_plays": 0,
+        "total_yards": 0,
+        "passing_yards": 0,
+        "rushing_yards": 0,
+        "passing_plays": 0,
+        "rushing_plays": 0,
+        "passing_efficient_plays": 0,
+        "rushing_efficient_plays": 0,
+        "passing_explosive_plays": 0,
+        "rushing_explosive_plays": 0,
+        "passing_negative_plays": 0,
+        "rushing_negative_plays": 0,
+        "touchdowns": 0,
+        "turnovers": 0,
+        "interceptions": 0,
+        "efficiency_rate": 0.0,
+        "explosive_rate": 0.0,
+        "negative_rate": 0.0,
+        "nee_score": 0.0,
+        "avg_yards_per_play": 0.0,
+        "success_rate": 0.0,
+        "nee_progression": [],
+        "efficiency_progression": [],
+        "avg_yards_progression": []
+      },
+      "special_teams": {
+        "total_plays": 0,
+        "efficient_plays": 0,
+        "explosive_plays": 0,
+        "negative_plays": 0,
+        "total_yards": 0,
+        "passing_yards": 0,
+        "rushing_yards": 0,
+        "passing_plays": 0,
+        "rushing_plays": 0,
+        "passing_efficient_plays": 0,
+        "rushing_efficient_plays": 0,
+        "passing_explosive_plays": 0,
+        "rushing_explosive_plays": 0,
+        "passing_negative_plays": 0,
+        "rushing_negative_plays": 0,
+        "touchdowns": 0,
+        "turnovers": 0,
+        "interceptions": 0,
+        "efficiency_rate": 0.0,
+        "explosive_rate": 0.0,
+        "negative_rate": 0.0,
+        "nee_score": 0.0,
+        "avg_yards_per_play": 0.0,
+        "success_rate": 0.0,
+        "nee_progression": [],
+        "efficiency_progression": [],
+        "avg_yards_progression": []
+      },
+      "overall": {
+        "total_plays": 1,
+        "efficient_plays": 1,
+        "explosive_plays": 0,
+        "negative_plays": 0,
+        "total_yards": 4,
+        "passing_yards": 0,
+        "rushing_yards": 4,
+        "passing_plays": 0,
+        "rushing_plays": 1,
+        "passing_efficient_plays": 0,
+        "rushing_efficient_plays": 1,
+        "passing_explosive_plays": 0,
+        "rushing_explosive_plays": 0,
+        "passing_negative_plays": 0,
+        "rushing_negative_plays": 0,
+        "touchdowns": 0,
+        "turnovers": 0,
+        "interceptions": 0,
+        "efficiency_rate": 100.0,
+        "explosive_rate": 0.0,
+        "negative_rate": 0.0,
+        "nee_score": 100.0,
+        "avg_yards_per_play": 4.0,
+        "success_rate": 100.0,
+        "nee_progression": [
+          {
+            "play": 2,
+            "nee": 100.0
+          }
+        ],
+        "efficiency_progression": [
+          {
+            "play": 2,
+            "efficiency": 100.0
+          }
+        ],
+        "avg_yards_progression": [
+          {
+            "play": 2,
+            "avg_yards": 4.0
+          }
+        ],
+        "passing_efficiency_rate": 0.0,
+        "passing_explosive_rate": 0.0,
+        "passing_negative_rate": 0.0,
+        "passing_avg_yards": 0.0,
+        "passing_nee_score": 0.0,
+        "rushing_efficiency_rate": 100.0,
+        "rushing_explosive_rate": 0.0,
+        "rushing_negative_rate": 0.0,
+        "rushing_avg_yards": 4.0,
+        "rushing_nee_score": 100.0,
+        "explosive_progression": [
+          {
+            "play": 2,
+            "explosive_rate": 0.0
+          }
+        ]
+      }
+    },
+    "play_call_stats": {
+      "offense": {
+        "Stretch": {
+          "total_plays": 1,
+          "total_yards": 4,
+          "efficient_plays": 1,
+          "explosive_plays": 0,
+          "negative_plays": 0,
+          "touchdowns": 0,
+          "turnovers": 0,
+          "first_downs": 0,
+          "avg_yards_per_play": 4.0,
+          "efficiency_rate": 100.0,
+          "explosive_rate": 0.0,
+          "negative_rate": 0.0,
+          "nee_score": 100.0,
+          "success_rate": 100,
+          "play_type_breakdown": {
+            "rush": 1
+          },
+          "down_breakdown": {
+            "1": 1,
+            "2": 0,
+            "3": 0,
+            "4": 0
+          },
+          "distance_breakdown": {
+            "short": 0,
+            "medium": 0,
+            "long": 1
+          }
+        }
+      }
+    },
+    "next_situation": {
+      "down": 2,
+      "distance": 6,
+      "field_position": "OWN 29",
+      "auto_calculated": true,
+      "reason": "Next down: 2 & 6"
+    }
+  }
+}
