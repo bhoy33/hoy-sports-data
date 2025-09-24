@@ -494,7 +494,7 @@ def admin_required(f):
             return render_template('error.html', 
                                  error_title='Access Denied',
                                  error_message='Admin access required for this feature.',
-                                 back_url=url_for('index')), 403
+                                 back_url=url_for('dashboard')), 403
         return f(*args, **kwargs)
     return decorated_function
 
@@ -530,7 +530,7 @@ def login():
                     if user.get('is_admin', False):
                         return redirect(url_for('admin_dashboard'))
                     else:
-                        return redirect(url_for('index'))
+                        return redirect(url_for('dashboard'))
                 else:
                     return render_template('login.html', error="Invalid credentials")
             else:
@@ -547,7 +547,8 @@ def admin_dashboard():
     """Admin dashboard with maintenance mode controls"""
     # Check if user is admin
     if not session.get('is_admin', False):
-        return redirect(url_for('index'))
+        # Non-admins should go to the authenticated dashboard, not home
+        return redirect(url_for('dashboard'))
     
     return render_template('admin.html', maintenance_mode=maintenance_mode)
 
