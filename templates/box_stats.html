@@ -128,6 +128,10 @@
         .table-hover tbody tr:hover { background-color: rgba(255,255,255,0.06); }
         .table thead { background: rgba(255,255,255,0.08); color: var(--text); }
         .table.table-striped.table-hover tbody td { border-color: rgba(255,255,255,0.08); }
+        /* Ensure all table text (including strong) stays white */
+        .table td, .table th { color: var(--text) !important; }
+        .table td strong, .table th strong { color: var(--text) !important; }
+        .table tbody tr:nth-of-type(odd) td, .table tbody tr:nth-of-type(odd) th { color: var(--text) !important; }
 
         /* Heading icons to brand red */
         h1 i, h2 i, h4 i { color: var(--gradient-start) !important; }
@@ -154,6 +158,9 @@
             outline: none !important;
             box-shadow: 0 0 0 0.2rem rgba(248,24,37,0.15) !important;
         }
+        /* Keep selects dark and readable */
+        .form-select { background: rgba(255,255,255,0.06) !important; color: #fff !important; border: 1px solid var(--border) !important; }
+        .form-select option { color: #000; background: #fff; }
         input:-webkit-autofill,
         input:-webkit-autofill:hover,
         input:-webkit-autofill:focus,
@@ -226,6 +233,13 @@
         .accordion-button { background: var(--card-bg); color: var(--text); }
         .accordion-button:not(.collapsed) { background: rgba(248,24,37,0.15); color: #fff; box-shadow: none; }
         .accordion-button:focus { box-shadow: 0 0 0 .2rem rgba(248,24,37,0.2); }
+
+        /* Modal theming: Save/Load Game dialogs */
+        .modal-content { background: var(--card-bg) !important; color: var(--text) !important; border: 1px solid var(--border) !important; }
+        .modal-header, .modal-footer { border-color: var(--border) !important; }
+        .modal-title { color: var(--text) !important; }
+        .modal-body .form-control, .modal-body .form-select { background: rgba(255,255,255,0.06) !important; color: #fff !important; border: 1px solid var(--border) !important; }
+        .modal-body label, .modal-body small, .modal-body .text-muted { color: var(--text) !important; opacity: 0.9; }
 
         /* List groups */
         .list-group-item { background: var(--card-bg); color: var(--text); border-color: var(--border); }

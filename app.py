@@ -6526,9 +6526,6 @@ class PDFExporter:
         ]))
         story.append(analytics_table)
         
-        doc.build(story)
-        buffer.seek(0)
-        return buffer
     
     def export_down_analytics(self, username, down_analytics):
         """Export down-specific analytics to PDF"""
