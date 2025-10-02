@@ -577,25 +577,47 @@ class SupabaseManager:
             return False
     
     def save_game_session(self, user_id: str, game_name: str, game_data: Dict) -> bool:
-        """Save game session data to Supabase using existing schema"""
-        if not self.supabase:
+        """Upsert full game session (including box_stats) into Supabase.
+        Uses admin client if available to bypass RLS; falls back to anon client otherwise."""
+        # Prefer admin client so deploys don't drop writes due to RLS
+        client = self.supabase_admin if self.supabase_admin else self.supabase
+        if not client:
             return False
-        
         try:
-            # Use the create_game_session method which matches existing schema
-            session_record = self.create_game_session(user_id, {
+            # Build record; assume game_sessions has columns: user_id (uuid/text), session_name (text),
+            # box_stats (jsonb), created_at, updated_at, opponent, game_date, location
+            now_iso = datetime.now().isoformat()
+            record = {
+                'user_id': user_id,
                 'session_name': game_name,
-                'game_date': game_data.get('game_date', datetime.now().date().isoformat()),
-                'opponent': game_data.get('opponent', 'Unknown'),
-                'location': game_data.get('location'),
-                'weather_conditions': game_data.get('weather_conditions'),
-                'game_type': game_data.get('game_type', 'regular')
+                'box_stats': game_data,  # store full JSON
+                'updated_at': now_iso,
+            }
+            # Optional metadata if present in game_data
+            gi = game_data.get('game_info', {}) if isinstance(game_data, dict) else {}
+            record.update({
+                'opponent': gi.get('opponent') or game_data.get('opponent'),
+                'location': gi.get('location') or game_data.get('location'),
+                'game_date': gi.get('date') or game_data.get('game_date') or datetime.now().date().isoformat(),
             })
-            
-            return session_record is not None
+            # Upsert to avoid duplicate rows per (user_id, session_name)
+            # Ensure a unique index exists on (user_id, session_name) in Supabase.
+            result = client.table('game_sessions').upsert(record, on_conflict='user_id,session_name').execute()
+            return bool(result.data)
         except Exception as e:
-            logger.error(f"Failed to save game session: {e}")
+            logger.error(f"Failed to upsert game session: {e}")
             return False
+
+    def get_game_session_by_name(self, user_id: str, game_name: str) -> Optional[Dict]:
+        """Fetch a single game session by user and name, including box_stats JSON."""
+        if not self.supabase:
+            return None
+        try:
+            result = self.supabase.table('game_sessions').select('*').eq('user_id', user_id).eq('session_name', game_name).limit(1).execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            logger.error(f"Failed to fetch game session by name: {e}")
+            return None
     
     # Migration and Data Recovery
     def migrate_session_data(self, session_data: Dict, user_id: str) -> Optional[str]:

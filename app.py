@@ -480,6 +480,9 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        import os
+        if os.environ.get('DEV_AUTH_BYPASS') == '1':
+            return f(*args, **kwargs)
         if not session.get('authenticated'):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
@@ -511,8 +514,16 @@ def login():
         if not username or not password:
             return render_template('login.html', error="Username and password required")
         
+        import os
+        # Dev bypass: allow local login without Supabase when enabled
+        if os.environ.get('DEV_AUTH_BYPASS') == '1':
+            session['authenticated'] = True
+            session['user_id'] = 'dev-user'
+            session['username'] = username or 'dev'
+            session['is_admin'] = False
+            return redirect(url_for('dashboard'))
         if not supabase_manager:
-            return render_template('login.html', error="Database not available")
+                return render_template('login.html', error="Database not available")
         
         try:
             # Check user credentials in Supabase
@@ -2217,6 +2228,19 @@ def add_box_stats_play():
             'timestamp': data.get('timestamp'),
             'phase': data.get('phase', 'offense').lower()  # Store the phase in play data
         }
+
+        # Normalize and persist canonical play_type for downstream analytics
+        try:
+            pt_raw = str(play_data.get('play_type', '')).lower()
+        except Exception:
+            pt_raw = ''
+        if pt_raw == 'pass_defense':
+            pt_norm = 'pass'
+        elif pt_raw == 'run_defense' or pt_raw == 'run':
+            pt_norm = 'rush'
+        else:
+            pt_norm = pt_raw
+        play_data['play_type'] = pt_norm
         
         # DEBUG: Log the incoming data to diagnose player selection issue
         print(f"DEBUG PLAY SUBMISSION: Received data: {data}")
@@ -2224,7 +2248,7 @@ def add_box_stats_play():
         print(f"DEBUG PLAY SUBMISSION: Players involved data: {play_data['players_involved']}")
         
         # Add penalty-specific data if this is a penalty
-        if data.get('play_type') == 'penalty':
+        if play_data.get('play_type') == 'penalty':
             play_data.update({
                 'penalty_type': data.get('penalty_type'),
                 'penalty_yards': data.get('penalty_yards', 0),
@@ -2246,14 +2270,14 @@ def add_box_stats_play():
                 print(f"WARNING: Large session detected with {play_count} plays - consider implementing data archiving")
         
         # Calculate next play situation based on play type
-        if data.get('play_type') == 'penalty':
+        if play_data.get('play_type') == 'penalty':
             next_situation = calculate_penalty_situation(play_data, box_stats['plays'])
         else:
             next_situation = calculate_next_situation(play_data, box_stats['plays'])
         box_stats['next_situation'] = next_situation
         
         # Handle penalty tracking separately
-        if data.get('play_type') == 'penalty':
+        if play_data.get('play_type') == 'penalty':
             penalty_side = data.get('penalty_side', 'offense')
             penalty_yards = int(data.get('penalty_yards', 0))
             current_phase = data.get('phase', 'offense').lower()
@@ -2276,7 +2300,7 @@ def add_box_stats_play():
                 print(f"DEBUG PENALTY TRACKING: Added {penalty_yards} penalty yards to {current_phase} phase")
         
         # Update team-level analytics (skip penalties - they don't count as offensive plays)
-        elif data.get('play_type') != 'penalty':
+        elif play_data.get('play_type') != 'penalty':
             yards_gained = int(play_data.get('yards_gained', 0))
             
             # Determine the phase for this play
@@ -2302,12 +2326,15 @@ def add_box_stats_play():
             is_team_efficient = calculate_play_efficiency(play_data, yards_gained, None, current_phase)
             
             # Track passing vs rushing yards and advanced analytics
-            play_type = data.get('play_type', '').lower()
+            play_type = play_data.get('play_type', '').lower()
             
             # Map defensive play types to base types
             if play_type == 'pass_defense':
                 play_type = 'pass'
             elif play_type == 'run_defense':
+                play_type = 'rush'
+            elif play_type == 'run':
+                # Normalize synonym
                 play_type = 'rush'
             
             print(f"DEBUG PLAY_TYPE: Original='{data.get('play_type')}', Mapped='{play_type}'")
@@ -2390,11 +2417,23 @@ def add_box_stats_play():
             
             # Debug individual player calculations
             for player in play_data['players_involved']:
-                role = str(player.get('role', ''))
-                is_explosive = calculate_play_explosiveness(role, yards_gained, player, current_phase)
+                role = str(player.get('role', '')).lower()
+                norm_role = 'rusher' if role in ['ball_carrier', 'rusher'] else role
+                is_explosive = calculate_play_explosiveness(norm_role, yards_gained, player, current_phase)
                 is_negative = calculate_play_negativeness(play_data, yards_gained, player, current_phase)
                 print(f"DEBUG PLAYER: #{player.get('number', 'N/A')} ({role}) - Explosive: {is_explosive}, Negative: {is_negative}")
             
+            # Fallbacks when no players are attached or no per-player flags triggered
+            if not team_explosive_this_play:
+                # Infer primary role from play_type for explosive calc (handle synonyms)
+                inferred_role = 'rusher' if ('rush' in play_type or 'run' in play_type) else ('receiver' if 'pass' in play_type else '')
+                if inferred_role and not play_has_turnover:
+                    if calculate_play_explosiveness(inferred_role, yards_gained, None, current_phase):
+                        team_explosive_this_play = True
+            if not team_negative_this_play:
+                if calculate_play_negativeness(play_data, yards_gained, {}, current_phase):
+                    team_negative_this_play = True
+
             if team_explosive_this_play:
                 phase_team_stats['explosive_plays'] += 1
                 overall_team_stats['explosive_plays'] += 1
@@ -2541,8 +2580,10 @@ def add_box_stats_play():
         overall_success_percentage = min(100.0, overall_team_stats['efficiency_rate'] + overall_team_stats['explosive_rate'])
         overall_team_stats['success_rate'] = round(overall_success_percentage, 1)
         
-        # Mark session as modified
+        # Mark session as modified and persist updated stats to server-side storage
         session.modified = True
+        box_stats_data['box_stats'] = box_stats
+        server_session.save_session_data(session_id, box_stats_data)
         
         # Update player stats (skip penalties - they don't affect individual player stats)
         if data.get('play_type') != 'penalty':
@@ -2911,6 +2952,10 @@ def add_box_stats_play():
                     
                     # Note: Advanced analytics for QB will be handled in the main player loop if QB is in players_involved
         
+        # Final safeguard: fully recompute stats to ensure consistency across all views
+        # This guarantees explosive/negative rates are reflected even if any incremental path missed an update
+        recalculate_all_stats(box_stats)
+
         # Save updated data to server-side storage before returning
         server_session.save_session_data(session_id, box_stats_data)
         
@@ -2925,7 +2970,11 @@ def add_box_stats_play():
             'play_count': len(box_stats['plays']),
             'message': 'Play added successfully',
             'next_situation': box_stats.get('next_situation', {}),
-            'team_stats': box_stats['team_stats']
+            'team_stats': box_stats['team_stats'],
+            # Debug fields surfaced to the client for verification
+            'debug_play_type_mapped': play_type,
+            'debug_team_explosive': bool(team_explosive_this_play),
+            'debug_team_negative': bool(team_negative_this_play)
         })
         
     except Exception as e:
@@ -3034,7 +3083,8 @@ def calculate_play_explosiveness(role, yards_gained, player_data=None, phase='of
             elif role in ['receiver', 'passer']:
                 return yards_gained >= 15  # Allowed big passing gain
             else:
-                return False
+                # Unknown role: apply conservative rushing threshold
+                return yards_gained >= 10
         else:
             # For offense, explosive means big gains
             if role == 'rusher':
@@ -3042,7 +3092,8 @@ def calculate_play_explosiveness(role, yards_gained, player_data=None, phase='of
             elif role in ['receiver', 'passer']:
                 return yards_gained >= 15
             else:
-                return False
+                # Unknown role: default to rushing threshold so plays without players still count
+                return yards_gained >= 10
                 
     except (ValueError, TypeError):
         return False
@@ -3526,7 +3577,8 @@ def update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is
             stats['efficiency_rate'] = round((stats['efficient_plays'] / total_plays) * 100, 1)
             stats['explosive_rate'] = round((stats['explosive_plays'] / total_plays) * 100, 1)
             stats['negative_rate'] = round((stats['negative_plays'] / total_plays) * 100, 1)
-            stats['nee_score'] = round(stats['efficiency_rate'] + stats['explosive_rate'] - stats['negative_rate'], 1)
+            # Phase-aware NEE: offense = eff + explosive - negative; defense = eff + negative - explosive
+            stats['nee_score'] = calculate_nee_score(stats['efficiency_rate'], stats['explosive_rate'], stats['negative_rate'], phase)
             
             # Success rate: plays that result in first downs, touchdowns, or are efficient/explosive
             successful_plays = stats['first_downs'] + stats['touchdowns'] + max(0, stats['efficient_plays'] - stats['first_downs'] - stats['touchdowns'])
@@ -3949,33 +4001,55 @@ def get_down_analytics():
                 elif play_type == 'rush':
                     down_stats['rushing_efficient'] += 1
             
-            # Check for explosive plays (no turnovers)
+            # Check for explosive plays (no turnovers). Include play-level fallback when no players or no flags fire.
             play_has_turnover = False
             for player in play.get('players_involved', []):
                 if player.get('fumble', False) or player.get('interception', False):
                     play_has_turnover = True
                     break
             
+            explosive_found = False
             if not play_has_turnover:
                 for player in play.get('players_involved', []):
                     role = str(player.get('role', ''))
                     if calculate_play_explosiveness(role, yards_gained, player, phase):
+                        explosive_found = True
                         down_stats['explosive_plays'] += 1
                         if play_type == 'pass':
                             down_stats['passing_explosive'] += 1
                         elif play_type == 'rush':
                             down_stats['rushing_explosive'] += 1
                         break
+                # Fallback: infer from play_type when no players or no per-player explosive flagged
+                if not explosive_found:
+                    inferred_role = 'rusher' if ('rush' in play_type or 'run' in play_type) else ('receiver' if 'pass' in play_type else '')
+                    if inferred_role:
+                        if calculate_play_explosiveness(inferred_role, yards_gained, None, phase):
+                            explosive_found = True
+                            down_stats['explosive_plays'] += 1
+                            if play_type == 'pass':
+                                down_stats['passing_explosive'] += 1
+                            elif play_type == 'rush':
+                                down_stats['rushing_explosive'] += 1
             
-            # Check for negative plays
+            # Check for negative plays with player-level scan then play-level fallback
+            negative_found = False
             for player in play.get('players_involved', []):
                 if calculate_play_negativeness(play, yards_gained, player, phase):
+                    negative_found = True
                     down_stats['negative_plays'] += 1
                     if play_type == 'pass':
                         down_stats['passing_negative'] += 1
                     elif play_type == 'rush':
                         down_stats['rushing_negative'] += 1
                     break
+            if not negative_found:
+                if calculate_play_negativeness(play, yards_gained, {}, phase):
+                    down_stats['negative_plays'] += 1
+                    if play_type == 'pass':
+                        down_stats['passing_negative'] += 1
+                    elif play_type == 'rush':
+                        down_stats['rushing_negative'] += 1
         
         # Calculate rates and NEE scores for each down
         for phase in ['offense', 'defense']:
@@ -5170,9 +5244,32 @@ def edit_play():
         
         # Store original play for comparison
         original_play = box_stats['plays'][play_index].copy()
-        
-        # Update the play
-        box_stats['plays'][play_index] = play_data
+
+        # Sanitize key fields
+        if isinstance(play_data.get('play_call', None), str):
+            play_data['play_call'] = play_data['play_call'].strip()
+            if play_data['play_call'] == '':
+                play_data['play_call'] = 'Unknown'
+
+        # Merge: update only provided fields, preserve others
+        def deep_merge(dst, src):
+            for k, v in src.items():
+                if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                    deep_merge(dst[k], v)
+                else:
+                    dst[k] = v
+            return dst
+
+        print(f"DEBUG EDIT: Incoming play_call: {play_data.get('play_call')} (index {play_index})")
+        merged_play = deep_merge(original_play, play_data or {})
+
+        # If players_involved provided as a non-empty list, replace; if empty or omitted, keep existing
+        if 'players_involved' in play_data and isinstance(play_data['players_involved'], list):
+            if len(play_data['players_involved']) > 0:
+                merged_play['players_involved'] = play_data['players_involved']
+
+        box_stats['plays'][play_index] = merged_play
+        print(f"DEBUG EDIT: Saved play_call: {box_stats['plays'][play_index].get('play_call')} (index {play_index})")
         
         # Recalculate all stats since play data changed
         recalculate_all_stats(box_stats)
@@ -5401,6 +5498,18 @@ def recalculate_all_stats(box_stats):
                         phase_team_stats['turnovers'] = phase_team_stats.get('turnovers', 0) + 1
                         overall_team_stats['turnovers'] = overall_team_stats.get('turnovers', 0) + 1
                 
+                # Fallbacks: if no players or no flags fired, infer at play level
+                if not play_has_turnover and not team_explosive_this_play:
+                    pt_inf = str(play.get('play_type', '')).lower()
+                    inferred_role = 'rusher' if ('rush' in pt_inf or 'run' in pt_inf) else ('receiver' if 'pass' in pt_inf else '')
+                    if inferred_role:
+                        if calculate_play_explosiveness(inferred_role, yards_gained, None, current_phase):
+                            team_explosive_this_play = True
+                
+                if not team_negative_this_play:
+                    if calculate_play_negativeness(play, yards_gained, {}, current_phase):
+                        team_negative_this_play = True
+                
                 if team_explosive_this_play:
                     phase_team_stats['explosive_plays'] += 1
                     overall_team_stats['explosive_plays'] += 1
@@ -5428,9 +5537,21 @@ def recalculate_all_stats(box_stats):
                 player_key = f"{player.get('name', 'Unknown')}_{player.get('number', 0)}"
                 
                 if player_key not in box_stats['players']:
+                    # Infer a basic position if not provided
+                    provided_position = str(player.get('position', '')).strip()
+                    role_hint = str(player.get('role', '')).lower()
+                    inferred_position = ''
+                    if not provided_position:
+                        if role_hint in ['ball_carrier', 'rusher']:
+                            inferred_position = 'RB'
+                        elif role_hint == 'receiver':
+                            inferred_position = 'WR'
+                        elif role_hint == 'passer':
+                            inferred_position = 'QB'
                     box_stats['players'][player_key] = {
                         'name': player.get('name', 'Unknown'),
                         'number': player.get('number', 0),
+                        'position': provided_position or inferred_position or 'Unknown',
                         'total_plays': 0,
                         'rushing_yards': 0,
                         'passing_yards': 0,
@@ -5449,17 +5570,36 @@ def recalculate_all_stats(box_stats):
                     }
                 
                 player_stats = box_stats['players'][player_key]
-                role = player.get('role', '')
+                raw_role = str(player.get('role', '')).lower()
+                # Infer role from play_type if missing
+                if not raw_role:
+                    pt_inf = str(play.get('play_type', '')).lower()
+                    if 'rush' in pt_inf or 'run' in pt_inf:
+                        raw_role = 'ball_carrier'
+                    elif 'pass' in pt_inf:
+                        raw_role = 'receiver'
+                # Normalize for explosive calc and rushing yard attribution
+                role_for_yards = raw_role
+                role_for_explosive = 'rusher' if raw_role in ['ball_carrier', 'rusher'] else raw_role
                 yards_gained = int(play.get('yards_gained', 0))
+
+                # If position still unknown, try to update it from inferred role
+                if not player_stats.get('position') or player_stats.get('position') == 'Unknown':
+                    if role_for_yards in ['ball_carrier', 'rusher']:
+                        player_stats['position'] = 'RB'
+                    elif role_for_yards == 'receiver':
+                        player_stats['position'] = 'WR'
+                    elif role_for_yards == 'passer':
+                        player_stats['position'] = 'QB'
                 
                 # Update player stats based on role
                 player_stats['total_plays'] += 1
                 
-                if role == 'ball_carrier':
+                if role_for_yards in ['ball_carrier', 'rusher']:
                     player_stats['rushing_yards'] += yards_gained
-                elif role == 'passer':
+                elif role_for_yards == 'passer':
                     player_stats['passing_yards'] += yards_gained
-                elif role == 'receiver':
+                elif role_for_yards == 'receiver':
                     player_stats['receiving_yards'] += yards_gained
                 
                 # Update special stats
@@ -5512,27 +5652,64 @@ def recalculate_all_stats(box_stats):
             play_call_data['count'] += 1
             play_call_data['total_yards'] += int(play.get('yards_gained', 0))
             
-            # Check if play was efficient/explosive/negative for any player
+            # Determine team-level efficiency/explosive/negative once per play
             yards_gained = int(play.get('yards_gained', 0))
-            for player in play.get('players_involved', []):
-                if calculate_play_efficiency(play, yards_gained, player, current_phase):
-                    play_call_data['efficient_plays'] += 1
-                    break
-            
-            for player in play.get('players_involved', []):
-                if calculate_play_explosiveness(player.get('role', ''), yards_gained, player, current_phase):
-                    play_call_data['explosive_plays'] += 1
-                    break
-            
-            for player in play.get('players_involved', []):
-                if calculate_play_negativeness(play, yards_gained, player, current_phase):
-                    play_call_data['negative_plays'] += 1
-                    break
-            
+            # Efficient: use play-level calculation
+            team_efficient = calculate_play_efficiency(play, yards_gained, None, current_phase)
+            if team_efficient:
+                play_call_data['efficient_plays'] += 1
+            # Explosive: infer primary role from play_type if needed
+            pt = str(play.get('play_type', '')).lower()
+            inferred_role = 'rusher' if ('run' in pt or 'rush' in pt) else ('receiver' if 'pass' in pt else '')
+            if inferred_role:
+                team_explosive = calculate_play_explosiveness(inferred_role, yards_gained, None, current_phase)
+            else:
+                # If play_type is missing, use a conservative offense default
+                team_explosive = calculate_play_explosiveness('rusher', yards_gained, None, current_phase)
+            if team_explosive:
+                play_call_data['explosive_plays'] += 1
+            # Negative: use play-level negative calc
+            team_negative = calculate_play_negativeness(play, yards_gained, {}, current_phase)
+            if team_negative:
+                play_call_data['negative_plays'] += 1
+
+            # Count first downs (for success rate) and touchdowns
+            try:
+                current_distance = int(play.get('distance', 10))
+            except (TypeError, ValueError):
+                current_distance = 10
+            result_text = str(play.get('result', '')).lower()
+            if 'first_down' in result_text or yards_gained >= current_distance:
+                play_call_data['first_downs'] = play_call_data.get('first_downs', 0) + 1
+
             # Count touchdowns
             for player in play.get('players_involved', []):
                 if player.get('touchdown', False):
                     play_call_data['touchdowns'] += 1
+
+        # Normalize play_call_stats: compute derived fields for each phase and play call
+        for phase_key in ['offense', 'defense', 'special_teams']:
+            phase_calls = box_stats['play_call_stats'].get(phase_key, {})
+            for pc_name, pc_stats in phase_calls.items():
+                # Map for backward compatibility
+                total_plays = pc_stats.get('count', pc_stats.get('total_plays', 0))
+                total_yards = pc_stats.get('total_yards', 0)
+                efficient = pc_stats.get('efficient_plays', 0)
+                explosive = pc_stats.get('explosive_plays', 0)
+                negative = pc_stats.get('negative_plays', 0)
+                touchdowns = pc_stats.get('touchdowns', 0)
+                first_downs = pc_stats.get('first_downs', 0)
+
+                pc_stats['total_plays'] = total_plays
+                pc_stats['count'] = total_plays  # maintain compatibility for UI expecting 'count'
+                pc_stats['avg_yards_per_play'] = round(total_yards / total_plays, 1) if total_plays > 0 else 0.0
+                pc_stats['efficiency_rate'] = round((efficient / total_plays) * 100, 1) if total_plays > 0 else 0.0
+                pc_stats['explosive_rate'] = round((explosive / total_plays) * 100, 1) if total_plays > 0 else 0.0
+                pc_stats['negative_rate'] = round((negative / total_plays) * 100, 1) if total_plays > 0 else 0.0
+                # Phase-aware NEE for play calls: offense = eff + explosive - negative; defense = eff + negative - explosive
+                pc_stats['nee_score'] = calculate_nee_score(pc_stats['efficiency_rate'], pc_stats['explosive_rate'], pc_stats['negative_rate'], phase_key)
+                successful = first_downs + touchdowns + max(0, efficient - first_downs - touchdowns)
+                pc_stats['success_rate'] = round(min(100, (successful / total_plays) * 100), 1) if total_plays > 0 else 0.0
         
         # Update team rates after recalculating all plays
         def update_team_rates(stats, phase='offense'):
@@ -6480,6 +6657,10 @@ class PDFExporter:
         else:
             story.append(Paragraph("No play call data available", self.normal_style))
     
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+
     def _add_play_call_table(self, story, play_call_stats, phase='offense'):
         """Helper method to add a play call analytics table to the PDF"""
         headers = ['Play Call', 'Count', 'Total Yards', 'Avg Yards', 'Efficiency %', 'Explosive %', 'NEE Score', 'TDs']
@@ -6901,13 +7082,19 @@ def export_pdf(export_type):
             return jsonify({'error': 'Invalid export type'}), 400
         
         print(f"DEBUG: PDF generated successfully, filename: {filename}")
+        # Validate buffer
+        if pdf_buffer is None:
+            print("ERROR: PDF buffer is None after generation")
+            return jsonify({'error': 'Failed to generate PDF buffer'}), 500
+        try:
+            pdf_buffer.seek(0)
+        except Exception as e:
+            print(f"WARNING: Could not seek PDF buffer: {e}")
         
-        return send_file(
-            pdf_buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype='application/pdf'
-        )
+        return send_file(pdf_buffer,
+                         as_attachment=True,
+                         download_name=filename,
+                         mimetype='application/pdf')
         
     except Exception as e:
         print(f"ERROR: PDF export failed: {str(e)}")

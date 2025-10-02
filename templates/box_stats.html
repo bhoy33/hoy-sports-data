@@ -277,7 +277,14 @@
         [id*="player"] .list-group-item, [class*="player"] .list-group-item { background: var(--card-bg) !important; color: #ffffff !important; border-color: var(--border) !important; }
         [id*="player"] .table thead, [class*="player"] .table thead { background: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
         [id*="player"] .table tbody tr, [class*="player"] .table tbody tr { color: #ffffff !important; }
-    </style>
+    
+        /* Force white text for player stat badges and names */
+        .player-card .stat-badge { color: #fff !important; background: rgba(255,255,255,0.08); border: 1px solid var(--border); border-radius: 6px; }
+        .player-card .text-dark { color: #fff !important; }
+        .player-card h6 strong { color: #fff !important; }
+        .player-card small, .player-card .text-secondary { color: #E9EEF6 !important; opacity: 0.85; }
+
+        </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -473,78 +480,8 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <!-- Overall Team Stats -->
-                            <div class="col-lg-6 mb-3">
-                                <div class="card border-info">
-                                    <div class="card-header bg-info text-white">
-                                        <h6 class="mb-0">Overall Team Performance</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row text-center">
-                                            <div class="col-4">
-                                                <div class="stat-item">
-                                                    <div class="stat-label">Efficiency</div>
-                                                    <div class="stat-value">
-                                                        <span id="teamEfficiencyRate" class="h5 text-success">0.0%</span>
-                                                    </div>
-                                                    <div class="stat-detail">
-                                                        <small class="text-muted">
-                                                            <span id="teamEfficientPlays">0</span>/<span id="teamTotalPlaysForEfficiency">0</span> plays
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-4">
-                                                <div class="stat-item">
-                                                    <div class="stat-label">Explosive</div>
-                                                    <div class="stat-value">
-                                                        <span id="teamExplosiveRate" class="h5 text-warning">0.0%</span>
-                                                    </div>
-                                                    <div class="stat-detail">
-                                                        <small class="text-muted">
-                                                            <span id="teamExplosivePlays">0</span>/<span id="teamTotalPlaysForExplosive">0</span> plays
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-4">
-                                                <div class="stat-item">
-                                                    <div class="stat-label">Negative</div>
-                                                    <div class="stat-value">
-                                                        <span id="teamNegativeRate" class="h5 text-danger">0.0%</span>
-                                                    </div>
-                                                    <div class="stat-detail">
-                                                        <small class="text-muted">
-                                                            <span id="teamNegativePlays">0</span>/<span id="teamTotalPlaysForNegative">0</span> plays
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row mt-3">
-                                            <div class="col-6 text-center">
-                                                <div class="stat-item">
-                                                    <div class="stat-label">Avg Yards/Play</div>
-                                                    <div class="stat-value">
-                                                        <span id="teamAvgYardsPerPlay" class="h5 text-info">0.0</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-6 text-center">
-                                                <div class="stat-item">
-                                                    <div class="stat-label">NEE Score</div>
-                                                    <div class="stat-value">
-                                                        <span id="teamNeeScore" class="h5 text-primary">0.0</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
                             <!-- Phase Breakdown -->
-                            <div class="col-lg-6 mb-3">
+                            <div class="col-12 mb-3">
                                 <div class="card border-secondary">
                                     <div class="card-header bg-secondary text-white">
                                         <h6 class="mb-0">Phase Breakdown</h6>
@@ -1875,9 +1812,24 @@
                 return;
             }
 
+            // Sort by jersey number (ascending). Non-numeric/missing numbers go last.
+            const sorted = playersInPosition.slice().sort((a, b) => {
+                const an = Number(a?.number);
+                const bn = Number(b?.number);
+                const aValid = Number.isFinite(an);
+                const bValid = Number.isFinite(bn);
+                if (aValid && bValid) return an - bn;
+                if (aValid && !bValid) return -1;
+                if (!aValid && bValid) return 1;
+                return 0;
+            });
+
             let html = '<option value="">Select a player</option>';
-            playersInPosition.forEach(player => {
-                html += `<option value="${player.id}">#${player.number} ${player.name} (${player.position})</option>`;
+            sorted.forEach(player => {
+                const num = (player.number !== undefined && player.number !== null && `${player.number}`.trim() !== '') ? `#${player.number}` : '#?';
+                const name = player.name || 'Unknown';
+                const pos = player.position ? ` (${player.position})` : '';
+                html += `<option value="${player.id}">${num} ${name}${pos}</option>`;
             });
             
             playerSelect.innerHTML = html;
@@ -2816,6 +2768,15 @@
                 console.log('Full server response:', data);
                 showLoading(false);
                 if (data.success) {
+                    // Debug: show server-side detection for explosive/negative without players
+                    if ('debug_team_explosive' in data || 'debug_team_negative' in data) {
+                        console.log('[Server Debug] play_type(mapped)=', data.debug_play_type_mapped,
+                                    'explosive=', data.debug_team_explosive,
+                                    'negative=', data.debug_team_negative);
+                        const dbgMsg = `Type: ${data.debug_play_type_mapped} | Explosive: ${data.debug_team_explosive} | Negative: ${data.debug_team_negative}`;
+                        // Non-blocking info toast
+                        showAlert(`Server flags — ${dbgMsg}`, 'info');
+                    }
                     showAlert('Play added successfully! Next situation auto-calculated.', 'success');
                     
                     // Update play number
@@ -5610,14 +5571,27 @@
             
             // Add players from current roster (playerProfiles)
             if (playerProfiles && Object.keys(playerProfiles).length > 0) {
-                Object.values(playerProfiles).forEach(player => {
+                // Sort by jersey number (ascending), undefined/NaN last
+                const playersSorted = Object.values(playerProfiles).slice().sort((a, b) => {
+                    const an = Number(a?.number);
+                    const bn = Number(b?.number);
+                    const aValid = Number.isFinite(an);
+                    const bValid = Number.isFinite(bn);
+                    if (aValid && bValid) return an - bn;
+                    if (aValid && !bValid) return -1;
+                    if (!aValid && bValid) return 1;
+                    return 0;
+                });
+                playersSorted.forEach(player => {
                     const option = document.createElement('option');
                     option.value = JSON.stringify({
                         name: player.name,
                         number: player.number,
                         position: player.position
                     });
-                    option.textContent = `#${player.number} ${player.name} (${player.position})`;
+                    const num = (player.number !== undefined && player.number !== null && `${player.number}`.trim() !== '') ? `#${player.number}` : '#?';
+                    const pos = player.position ? ` (${player.position})` : '';
+                    option.textContent = `${num} ${player.name || 'Unknown'}${pos}`;
                     rosterSelect.appendChild(option);
                 });
             } else {
@@ -5757,7 +5731,7 @@
                 distance: parseInt(document.getElementById('editDistance').value),
                 field_position: document.getElementById('editFieldPosition').value,
                 play_type: document.getElementById('editPlayType').value,
-                play_call: document.getElementById('editPlayCall').value,
+                play_call: document.getElementById('editPlayCall').value.trim(),
                 yards_gained: parseFloat(document.getElementById('editYardsGained').value)
             };
             
@@ -5768,9 +5742,21 @@
             playerDivs.forEach(playerDiv => {
                 const name = playerDiv.querySelector('input[name="playerName"]').value;
                 const number = playerDiv.querySelector('input[name="playerNumber"]').value;
-                const role = playerDiv.querySelector('select[name="playerRole"]').value;
+                let role = playerDiv.querySelector('select[name="playerRole"]').value;
                 
-                if (name && role) {
+                // If role not selected but a name is provided, infer a sensible default from play type
+                if (name && !role) {
+                    const playType = (document.getElementById('editPlayType').value || '').toLowerCase();
+                    if (playType.includes('rush') || playType === 'run') {
+                        role = 'ball_carrier';
+                    } else if (playType.includes('pass')) {
+                        role = 'receiver';
+                    } else {
+                        role = 'participant';
+                    }
+                }
+                
+                if (name) {
                     const player = {
                         name: name,
                         number: number ? parseInt(number) : null,
