@@ -684,10 +684,17 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Current Player Profiles</h5>
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-sm btn-outline-secondary me-2" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#playerProfilesCollapse"
+                                    aria-expanded="false" aria-controls="playerProfilesCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <h5 class="mb-0">Current Player Profiles</h5>
+                        </div>
                         <button type="button" class="btn btn-primary btn-sm" onclick="showAddPlayerModal()">Add Player</button>
                     </div>
-                    <div class="card-body">
+                    <div id="playerProfilesCollapse" class="card-body collapse">
                         <div id="playerProfilesContainer">
                             <p class="text-muted">No player profiles created yet. Add players to get started.</p>
                         </div>
@@ -701,13 +708,20 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Play Log Management</h5>
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-sm btn-outline-secondary me-2" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#playLogCollapse"
+                                    aria-expanded="false" aria-controls="playLogCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <h5 class="mb-0">Play Log Management</h5>
+                        </div>
                         <div class="btn-group">
                             <button type="button" class="btn btn-success btn-sm" onclick="showAddPlayModal()">Add Play</button>
                             <button type="button" class="btn btn-info btn-sm" onclick="refreshPlayLog()">Refresh</button>
                         </div>
                     </div>
-                    <div class="card-body">
+                    <div id="playLogCollapse" class="card-body collapse">
                         <div class="table-responsive">
                             <table class="table table-striped table-hover" id="playLogTable">
                                 <thead class="table-dark">
@@ -798,10 +812,10 @@
                             </div>
                             <div class="col-md-3">
                                 <label for="fieldPosition" class="form-label">
-                                    Field Position 
+                                    Field Position (signed)
                                     <span id="fieldPosAutoIndicator" class="badge bg-success ms-1 d-none">AUTO</span>
                                 </label>
-                                <input type="text" class="form-control" id="fieldPosition" placeholder="e.g., OWN 25" required>
+                                <input type="number" class="form-control" id="fieldPosition" placeholder="-25 for OWN 25, 25 for OPP 25" required>
                             </div>
                             <div class="col-md-3">
                                 <label for="playType" class="form-label">Play Type</label>
@@ -908,9 +922,10 @@
                                 <input type="text" class="form-control" id="playCall" placeholder="e.g., Power O, Slant, PA Boot">
                                 <div class="form-text">Track which plays you're running for analytics</div>
                             </div>
-                            <div class="col-md-4">
-                                <label for="yardsGained" class="form-label">Yards Gained</label>
-                                <input type="number" class="form-control" id="yardsGained" value="0" required>
+                            <div class="col-md-4" id="newFieldPosGroup">
+                                <label for="newFieldPosition" class="form-label">New Field Position (signed)</label>
+                                <input type="number" class="form-control" id="newFieldPosition" placeholder="-20 for OWN 20, 15 for OPP 15">
+                                <div class="form-text">Auto-calculates yards gained from current field position</div>
                             </div>
                             <div class="col-md-4">
                                 <label for="result" class="form-label">Result</label>
@@ -1011,7 +1026,7 @@
                         
                         <div class="row mt-4">
                             <div class="col-12 text-center">
-                                <button type="submit" class="btn btn-primary btn-lg">
+                                <button type="button" class="btn btn-primary btn-lg" onclick="addPlay()">
                                     <i class="fas fa-save me-2"></i>Add Play
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary btn-lg ms-2" onclick="clearForm()">
@@ -1382,6 +1397,47 @@
         let nextPlayerId = 1; // Counter for unique player IDs
         let selectedPlayersForPlay = [];
 
+        // Field position conversions
+        function fieldStringToSigned(fp) {
+            if (fp == null) return 25;
+            if (typeof fp === 'number') return parseInt(fp);
+            const s = String(fp).trim().toUpperCase();
+            const parts = s.split(/\s+/);
+            if (parts.length >= 2) {
+                const side = parts[0];
+                let yard = parseInt(parts[1]) || 25;
+                if (side === 'OWN') return -Math.abs(yard);
+                if (side === 'OPP') return Math.abs(yard);
+            }
+            // If it's already a signed number as string
+            const asNum = parseInt(s);
+            if (!isNaN(asNum)) return asNum;
+            return 25;
+        }
+        function signedToFieldString(n) {
+            const val = parseInt(n);
+            if (isNaN(val)) return 'OPP 25';
+            const side = val < 0 ? 'OWN' : 'OPP';
+            const yard = Math.max(1, Math.min(50, Math.abs(val)));
+            return `${side} ${yard}`;
+        }
+
+        // Compute yards gained from signed field positions using offense-oriented field coordinate
+        // Map to 0..100 where 0 = own goal line, 100 = opponent goal line
+        // OWN y -> pos = y; OPP y -> pos = 100 - y
+        function computeYardsFromSigned(startSigned, endSigned) {
+            const s = parseInt(startSigned);
+            const e = parseInt(endSigned);
+            if (isNaN(s) || isNaN(e)) return 0;
+            const sSideOwn = s < 0;
+            const sYard = Math.max(1, Math.min(50, Math.abs(s)));
+            const sPos = sSideOwn ? sYard : (100 - sYard);
+            const eSideOwn = e < 0;
+            const eYard = Math.max(1, Math.min(50, Math.abs(e)));
+            const ePos = eSideOwn ? eYard : (100 - eYard);
+            return ePos - sPos;
+        }
+
         // Down Analytics Functions
         function loadDownAnalytics() {
             console.log('Loading down analytics...');
@@ -1680,6 +1736,9 @@
                 }
             }
         }
+
+        // Ensure global binding for inline onclick
+        window.addPlay = addPlay;
 
         function updatePlayerProfilesDisplay() {
             const container = document.getElementById('playerProfilesContainer');
@@ -2057,11 +2116,13 @@
             addPlay();
         });
 
-        // Collect player data from selected players
+        // Collect player data from selected roster picks and manual inputs
         function collectPlayerData() {
             console.log('DEBUG: Collecting player data from selectedPlayersForPlay:', selectedPlayersForPlay);
             console.log('DEBUG: selectedPlayersForPlay length:', selectedPlayersForPlay.length);
-            const collectedData = selectedPlayersForPlay.map(player => ({
+
+            // 1) From roster-selected players (existing flow)
+            const fromRoster = selectedPlayersForPlay.map(player => ({
                 id: player.id,
                 number: player.number,
                 name: player.name,
@@ -2091,8 +2152,60 @@
                 blocked_kick: player.blocked_kick,
                 special_teams_td: player.special_teams_td
             }));
-            console.log('Collected player data for submission:', collectedData);
-            return collectedData;
+
+            // 2) From manual input groups (if user typed players directly)
+            const fromManual = [];
+            const manualGroups = document.querySelectorAll('#playersContainer .player-input-group');
+            manualGroups.forEach(group => {
+                const numEl = group.querySelector('.player-number');
+                const nameEl = group.querySelector('.player-name');
+                const posEl = group.querySelector('.player-position');
+                const roleEl = group.querySelector('.player-role');
+                const tdEl = group.querySelector('.player-touchdown');
+                const fumEl = group.querySelector('.player-fumble');
+                const compEl = group.querySelector('.player-completion');
+
+                const name = nameEl ? nameEl.value.trim() : '';
+                const numberRaw = numEl ? numEl.value : '';
+                const number = numberRaw !== '' ? parseInt(numberRaw) : null;
+                const position = posEl ? posEl.value.trim() : '';
+                const role = roleEl ? roleEl.value : '';
+
+                // Only include if at least a name or number is provided
+                if (name || Number.isFinite(number)) {
+                    fromManual.push({
+                        id: null,
+                        number,
+                        name,
+                        position,
+                        role,
+                        touchdown: tdEl ? tdEl.checked : false,
+                        fumble: fumEl ? fumEl.checked : false,
+                        completion: compEl ? compEl.checked : false,
+                        interception: false,
+                        tackle: false,
+                        sack: false,
+                        interception_def: false,
+                        pass_breakup: false,
+                        fumble_recovery: false,
+                        forced_fumble: false,
+                        tackle_for_loss: false,
+                        defensive_td: false,
+                        return_yards: 0,
+                        field_goal_made: false,
+                        extra_point_made: false,
+                        punt_return: false,
+                        kickoff_return: false,
+                        coverage_tackle: false,
+                        blocked_kick: false,
+                        special_teams_td: false
+                    });
+                }
+            });
+
+            const collected = [...fromRoster, ...fromManual];
+            console.log('Collected player data for submission:', collected);
+            return collected;
         }
 
         // Clear form after submission
@@ -2114,7 +2227,7 @@
 
         // Load and display stats
         function loadStats() {
-            return fetch('/box_stats/get_stats')
+            return fetch('/box_stats/get_stats', { credentials: 'same-origin' })
             .then(response => response.json())
             .then(data => {
                 console.log('loadStats response:', data);
@@ -2219,6 +2332,15 @@
         function updatePlayerStats(players) {
             const container = document.getElementById('playerStatsContainer');
             const editStatsBtn = document.getElementById('editStatsBtn');
+            try {
+                console.log('updatePlayerStats called. Players keys:', players ? Object.keys(players).length : 0);
+                if (players) {
+                    const sample = Object.values(players).slice(0, 2);
+                    console.log('Sample players for render:', sample);
+                }
+            } catch (e) {
+                console.warn('updatePlayerStats debug error:', e);
+            }
             
             if (!players || Object.keys(players).length === 0) {
                 container.innerHTML = '<p class="text-center text-muted">No player statistics yet. Add some plays to see player stats!</p>';
@@ -2236,87 +2358,131 @@
             
             let html = '<div class="row">';
             
-            Object.values(players).forEach(player => {
-                const displayName = player.name && player.name.trim() ? player.name : `Player #${player.number}`;
+            Object.entries(players).forEach(([pKey, pVal]) => {
+                const player = pVal || {};
+                // Normalize common field name variants
+                const number = (player.number != null) ? player.number : (!isNaN(parseInt(pKey)) ? parseInt(pKey) : '');
+                const name = (player.name && String(player.name).trim()) ? player.name : '';
+                const position = player.position || 'Unknown Position';
+                const rushAtt = (player.rushing_attempts ?? player.carries ?? 0) || 0;
+                const rushYds = (player.rushing_yards ?? player.rush_yards ?? 0) || 0;
+                const rec = (player.receptions ?? player.catches ?? 0) || 0;
+                const recYds = (player.receiving_yards ?? player.rec_yards ?? 0) || 0;
+                const passAtt = (player.passing_attempts ?? player.attempts ?? 0) || 0;
+                const passComp = (player.passing_completions ?? player.completions ?? 0) || 0;
+                const passYds = (player.passing_yards ?? player.pass_yards ?? 0) || 0;
+                const tds = (player.touchdowns ?? player.tds ?? 0) || 0;
+                const fumbles = (player.fumbles ?? 0) || 0;
+                const intsOff = (player.interceptions ?? 0) || 0;
+                const tacklesSolo = (player.tackles_solo ?? 0) || 0;
+                const tacklesAst = (player.tackles_assisted ?? 0) || 0;
+                const tacklesTot = (player.tackles_total ?? (tacklesSolo + tacklesAst)) || 0;
+                const sacks = (player.sacks ?? 0) || 0;
+                const intsDef = (player.interceptions_def ?? 0) || 0;
+                const pbus = (player.pass_breakups ?? 0) || 0;
+                const fr = (player.fumble_recoveries ?? 0) || 0;
+                const ff = (player.forced_fumbles ?? 0) || 0;
+                const tfl = (player.tackles_for_loss ?? 0) || 0;
+                const defTds = (player.defensive_tds ?? 0) || 0;
+                const retYds = (player.return_yards ?? 0) || 0;
+                const fgm = (player.field_goals_made ?? 0) || 0;
+                const fga = (player.field_goals_attempted ?? 0) || 0;
+                const xpm = (player.extra_points_made ?? 0) || 0;
+                const xpa = (player.extra_points_attempted ?? 0) || 0;
+                const punts = (player.punts ?? 0) || 0;
+                const puntYds = (player.punt_yards ?? 0) || 0;
+                const kr = (player.kickoff_returns ?? 0) || 0;
+                const krYds = (player.kickoff_return_yards ?? 0) || 0;
+                const pr = (player.punt_returns ?? 0) || 0;
+                const prYds = (player.punt_return_yards ?? 0) || 0;
+                const covTackles = (player.coverage_tackles ?? 0) || 0;
+                const blocks = (player.blocked_kicks ?? 0) || 0;
+                const efficiencyRate = player.efficiency_rate ?? 0;
+                const explosiveRate = player.explosive_rate ?? 0;
+                const negativeRate = player.negative_rate ?? 0;
+                const neeScore = player.nee_score ?? 0;
+                const totalPlays = player.total_plays ?? 0;
+                
+                const displayName = name ? name : `Player #${number}`;
                 html += `
                     <div class="col-md-6 col-lg-4 mb-3">
                         <div class="player-card">
-                            <h6 class="text-dark"><strong>#${player.number} ${displayName}</strong></h6>
-                            <small class="text-secondary">${player.position || 'Unknown Position'}</small>
+                            <h6 class="text-dark"><strong>#${number} ${displayName}</strong></h6>
+                            <small class="text-secondary">${position}</small>
                             <div class="mt-2">
                                 <!-- Offensive Stats -->
-                                ${player.rushing_attempts > 0 ? `<span class="stat-badge text-dark">Rush: ${player.rushing_attempts} att, ${player.rushing_yards} yds</span>` : ''}
-                                ${player.receptions > 0 ? `<span class="stat-badge text-dark">Rec: ${player.receptions} rec, ${player.receiving_yards} yds</span>` : ''}
-                                ${player.passing_attempts > 0 ? `<span class="stat-badge text-dark">Pass: ${player.passing_completions}/${player.passing_attempts}, ${player.passing_yards} yds</span>` : ''}
-                                ${player.touchdowns > 0 ? `<span class="stat-badge text-success">TD: ${player.touchdowns}</span>` : ''}
-                                ${(player.interceptions || 0) > 0 ? `<span class="stat-badge text-warning">INT: ${player.interceptions}</span>` : ''}
-                                ${(player.fumbles || 0) > 0 ? `<span class="stat-badge text-danger">Fumbles: ${player.fumbles}</span>` : ''}
+                                ${(rushAtt) > 0 ? `<span class="stat-badge text-dark">Rush: ${rushAtt} att, ${rushYds} yds</span>` : ''}
+                                ${(rec) > 0 ? `<span class="stat-badge text-dark">Rec: ${rec} rec, ${recYds} yds</span>` : ''}
+                                ${(passAtt) > 0 ? `<span class="stat-badge text-dark">Pass: ${passComp}/${passAtt}, ${passYds} yds</span>` : ''}
+                                ${(tds) > 0 ? `<span class="stat-badge text-success">TD: ${tds}</span>` : ''}
+                                ${(intsOff) > 0 ? `<span class="stat-badge text-warning">INT: ${intsOff}</span>` : ''}
+                                ${(fumbles) > 0 ? `<span class="stat-badge text-danger">Fumbles: ${fumbles}</span>` : ''}
                                 
                                 <!-- Defensive Stats -->
-                                ${(player.tackles_total || 0) > 0 ? `<span class="stat-badge text-primary">Tackles: ${player.tackles_solo || 0}+${player.tackles_assisted || 0}=${player.tackles_total}</span>` : ''}
-                                ${(player.sacks || 0) > 0 ? `<span class="stat-badge text-primary">Sacks: ${player.sacks}</span>` : ''}
-                                ${(player.interceptions_def || 0) > 0 ? `<span class="stat-badge text-primary">INT: ${player.interceptions_def}${(player.return_yards || 0) > 0 ? `, ${player.return_yards} ret yds` : ''}</span>` : ''}
-                                ${(player.pass_breakups || 0) > 0 ? `<span class="stat-badge text-primary">PBU: ${player.pass_breakups}</span>` : ''}
-                                ${(player.fumble_recoveries || 0) > 0 ? `<span class="stat-badge text-primary">FR: ${player.fumble_recoveries}${(player.return_yards || 0) > 0 && (player.interceptions_def || 0) === 0 ? `, ${player.return_yards} ret yds` : ''}</span>` : ''}
-                                ${(player.forced_fumbles || 0) > 0 ? `<span class="stat-badge text-primary">FF: ${player.forced_fumbles}</span>` : ''}
-                                ${(player.tackles_for_loss || 0) > 0 ? `<span class="stat-badge text-primary">TFL: ${player.tackles_for_loss}</span>` : ''}
-                                ${(player.defensive_tds || 0) > 0 ? `<span class="stat-badge text-success">Def TD: ${player.defensive_tds}</span>` : ''}
+                                ${(tacklesTot) > 0 ? `<span class="stat-badge text-primary">Tackles: ${tacklesSolo}+${tacklesAst}=${tacklesTot}</span>` : ''}
+                                ${(sacks) > 0 ? `<span class="stat-badge text-primary">Sacks: ${sacks}</span>` : ''}
+                                ${(intsDef) > 0 ? `<span class="stat-badge text-primary">INT: ${intsDef}${(retYds) > 0 ? `, ${retYds} ret yds` : ''}</span>` : ''}
+                                ${(pbus) > 0 ? `<span class="stat-badge text-primary">PBU: ${pbus}</span>` : ''}
+                                ${(fr) > 0 ? `<span class="stat-badge text-primary">FR: ${fr}${(retYds) > 0 && (intsDef) === 0 ? `, ${retYds} ret yds` : ''}</span>` : ''}
+                                ${(ff) > 0 ? `<span class="stat-badge text-primary">FF: ${ff}</span>` : ''}
+                                ${(tfl) > 0 ? `<span class="stat-badge text-primary">TFL: ${tfl}</span>` : ''}
+                                ${(defTds) > 0 ? `<span class="stat-badge text-success">Def TD: ${defTds}</span>` : ''}
                                 
                                 <!-- Special Teams Stats -->
-                                ${(player.field_goals_attempted || 0) > 0 ? `<span class="stat-badge text-info">FG: ${player.field_goals_made || 0}/${player.field_goals_attempted}</span>` : ''}
-                                ${(player.extra_points_attempted || 0) > 0 ? `<span class="stat-badge text-info">XP: ${player.extra_points_made || 0}/${player.extra_points_attempted}</span>` : ''}
-                                ${(player.punts || 0) > 0 ? `<span class="stat-badge text-info">Punts: ${player.punts}, ${player.punt_yards || 0} yds</span>` : ''}
-                                ${(player.kickoff_returns || 0) > 0 ? `<span class="stat-badge text-info">KR: ${player.kickoff_returns}, ${player.kickoff_return_yards || 0} yds</span>` : ''}
-                                ${(player.punt_returns || 0) > 0 ? `<span class="stat-badge text-info">PR: ${player.punt_returns}, ${player.punt_return_yards || 0} yds</span>` : ''}
-                                ${(player.coverage_tackles || 0) > 0 ? `<span class="stat-badge text-info">Coverage: ${player.coverage_tackles} tackles</span>` : ''}
-                                ${(player.blocked_kicks || 0) > 0 ? `<span class="stat-badge text-info">Blocks: ${player.blocked_kicks}</span>` : ''}
+                                ${(fga) > 0 ? `<span class=\"stat-badge text-info\">FG: ${fgm}/${fga}</span>` : ''}
+                                ${(xpa) > 0 ? `<span class=\"stat-badge text-info\">XP: ${xpm}/${xpa}</span>` : ''}
+                                ${(punts) > 0 ? `<span class=\"stat-badge text-info\">Punts: ${punts}, ${puntYds} yds</span>` : ''}
+                                ${(kr) > 0 ? `<span class=\"stat-badge text-info\">KR: ${kr}, ${krYds} yds</span>` : ''}
+                                ${(pr) > 0 ? `<span class=\"stat-badge text-info\">PR: ${pr}, ${prYds} yds</span>` : ''}
+                                ${(covTackles) > 0 ? `<span class=\"stat-badge text-info\">Coverage: ${covTackles} tackles</span>` : ''}
+                                ${(blocks) > 0 ? `<span class=\"stat-badge text-info\">Blocks: ${blocks}</span>` : ''}
                             </div>
-                            ${(player.rushing_attempts > 0 || player.receptions > 0 || player.passing_attempts > 0) ? `
+                            ${(rushAtt > 0 || rec > 0 || passAtt > 0) ? `
                             <div class="mt-2 pt-2 border-top">
                                 <small class="text-primary"><strong>Advanced Analytics:</strong></small><br>
                                 <span class="stat-badge text-success" title="Efficiency Rate: 1st down ≥4yds, 2nd down ≥50% distance, 3rd/4th down converted">
-                                    <i class="fas fa-chart-line"></i> Efficiency: ${player.efficiency_rate || 0}%
+                                    <i class="fas fa-chart-line"></i> Efficiency: ${efficiencyRate || 0}%
                                 </span>
                                 <span class="stat-badge text-warning" title="Explosive Rate: Rush ≥10yds, Pass ≥15yds">
-                                    <i class="fas fa-rocket"></i> Explosive: ${player.explosive_rate || 0}%
+                                    <i class="fas fa-rocket"></i> Explosive: ${explosiveRate || 0}%
                                 </span>
                                 <span class="stat-badge text-danger" title="Negative Rate: Negative yards or turnovers">
-                                    <i class="fas fa-arrow-down"></i> Negative: ${player.negative_rate || 0}%
+                                    <i class="fas fa-arrow-down"></i> Negative: ${negativeRate || 0}%
                                 </span>
                                 <span class="stat-badge text-purple" title="NEE Score: Net Explosive Efficiency (Efficiency + Explosive - Negative)">
-                                    <i class="fas fa-star"></i> NEE: ${player.nee_score || 0}
+                                    <i class="fas fa-star"></i> NEE: ${neeScore || 0}
                                 </span>
                                 <span class="stat-badge text-info" title="Total plays involved in">
-                                    <i class="fas fa-play"></i> Plays: ${player.total_plays || 0}
+                                    <i class="fas fa-play"></i> Plays: ${totalPlays || 0}
                                 </span>
                             </div>
                             ` : ''}
                             <div class="mt-2 text-center">
                                 <div class="btn-group mb-1" role="group">
-                                    <button class="btn btn-outline-primary btn-sm" onclick="showPlayerNeeGraph('${player.id || player.number}')" title="View NEE Progression Graph">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="showPlayerNeeGraph('${player.id || number}')" title="View NEE Progression Graph">
                                         <i class="fas fa-chart-line me-1"></i>NEE
                                     </button>
-                                    <button class="btn btn-outline-primary btn-sm" onclick="downloadPlayerChart('${player.id || player.number}', 'nee')" title="Download NEE Chart">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="downloadPlayerChart('${player.id || number}', 'nee')" title="Download NEE Chart">
                                         <i class="fas fa-download"></i>
                                     </button>
                                 </div>
                                 <div class="btn-group mb-1" role="group">
-                                    <button class="btn btn-outline-success btn-sm" onclick="showPlayerEfficiencyGraph('${player.id || player.number}')" title="View Efficiency Progression Graph">
+                                    <button class="btn btn-outline-success btn-sm" onclick="showPlayerEfficiencyGraph('${player.id || number}')" title="View Efficiency Progression Graph">
                                         <i class="fas fa-chart-line me-1"></i>Efficiency
                                     </button>
-                                    <button class="btn btn-outline-success btn-sm" onclick="downloadPlayerChart('${player.id || player.number}', 'efficiency')" title="Download Efficiency Chart">
+                                    <button class="btn btn-outline-success btn-sm" onclick="downloadPlayerChart('${player.id || number}', 'efficiency')" title="Download Efficiency Chart">
                                         <i class="fas fa-download"></i>
                                     </button>
                                 </div>
                                 <div class="btn-group mb-1" role="group">
-                                    <button class="btn btn-outline-danger btn-sm" onclick="showPlayerExplosiveGraph('${player.id || player.number}')" title="View Explosive Rate Progression Graph">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="showPlayerExplosiveGraph('${player.id || number}')" title="View Explosive Rate Progression Graph">
                                         <i class="fas fa-chart-line me-1"></i>Explosive
                                     </button>
-                                    <button class="btn btn-outline-danger btn-sm" onclick="downloadPlayerChart('${player.id || player.number}', 'explosive')" title="Download Explosive Chart">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="downloadPlayerChart('${player.id || number}', 'explosive')" title="Download Explosive Chart">
                                         <i class="fas fa-download"></i>
                                     </button>
                                 </div>
-                                <button class="btn btn-outline-secondary btn-sm" onclick="exportPlayerPDF('${player.id || player.number}')" title="Download Player Analytics PDF">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="exportPlayerPDF('${player.id || number}')" title="Download Player Analytics PDF">
                                     <i class="fas fa-file-pdf me-1"></i>PDF
                                 </button>
                             </div>
@@ -2608,7 +2774,10 @@
                 // Update form fields with auto-calculated values
                 document.getElementById('down').value = nextSituation.down;
                 document.getElementById('distance').value = nextSituation.distance;
-                document.getElementById('fieldPosition').value = nextSituation.field_position;
+                const signedFP = fieldStringToSigned(nextSituation.field_position);
+                document.getElementById('fieldPosition').value = signedFP;
+                const newFPInput = document.getElementById('newFieldPosition');
+                if (newFPInput) newFPInput.value = signedFP;
                 
                 console.log('Form fields updated:', {
                     down: nextSituation.down,
@@ -2703,7 +2872,7 @@
             const penaltyDetails = document.getElementById('penaltyDetails');
             const playersSection = document.querySelector('.col-md-6:has(#positionFilter)').parentElement;
             const resultField = document.getElementById('result');
-            const yardsField = document.getElementById('yardsGained');
+            const newFieldPosGroup = document.getElementById('newFieldPosGroup');
             
             if (playType === 'penalty') {
                 // Show penalty details
@@ -2712,7 +2881,7 @@
                 playersSection.style.display = 'none';
                 // Update field labels for penalties
                 resultField.placeholder = 'e.g., Accepted, Declined';
-                yardsField.style.display = 'none'; // Hide regular yards field for penalties
+                if (newFieldPosGroup) newFieldPosGroup.style.display = 'none';
             } else {
                 // Hide penalty details
                 penaltyDetails.style.display = 'none';
@@ -2720,37 +2889,72 @@
                 playersSection.style.display = 'block';
                 // Reset field labels
                 resultField.placeholder = 'e.g., Complete, Incomplete, Tackle';
-                yardsField.style.display = 'block'; // Show regular yards field
+                if (newFieldPosGroup) newFieldPosGroup.style.display = 'block';
             }
         }
 
         // Enhanced add play function with automation feedback
         function addPlay() {
-            // Apply intelligent auto-detection before collecting player data
-            applyIntelligentAutoDetection();
-            
-            const playType = document.getElementById('playType').value;
-            let playData = {
+            console.log('[AddPlay] Clicked');
+            try {
+                // Preflight: ensure required elements exist
+                const requiredIds = ['playNumber','down','distance','fieldPosition','playCall','result','playType'];
+                for (const id of requiredIds) {
+                    const el = document.getElementById(id);
+                    if (!el) {
+                        console.error(`[AddPlay] Missing DOM element #${id}`);
+                        (typeof showAlert === 'function' ? showAlert : (msg=>alert(msg)))(`Form field missing: ${id}. Please reload the page.`, 'danger');
+                        return;
+                    }
+                }
+                // Apply intelligent auto-detection before collecting player data
+                applyIntelligentAutoDetection();
+                
+                const playType = document.getElementById('playType').value;
+                if (!playType) {
+                    (typeof showAlert === 'function' ? showAlert : (msg=>alert(msg)))('Please select a Play Type.', 'warning');
+                    return;
+                }
+                let playData = {
                 play_number: parseInt(document.getElementById('playNumber').value),
                 down: parseInt(document.getElementById('down').value),
                 distance: parseInt(document.getElementById('distance').value),
-                field_position: document.getElementById('fieldPosition').value,
+                field_position: fieldStringToSigned(document.getElementById('fieldPosition').value),
                 play_type: playType,
                 play_call: document.getElementById('playCall').value.trim() || null,
                 result: document.getElementById('result').value,
-                phase: getCurrentPhase(),
+                phase: (typeof getCurrentPhase === 'function' ? getCurrentPhase() : 'offense'),
                 timestamp: new Date().toISOString()
-            };
+                };
             
             // Handle penalty vs regular play data
             if (playType === 'penalty') {
                 playData.penalty_type = document.getElementById('penaltyType').value;
                 playData.penalty_yards = parseInt(document.getElementById('penaltyYards').value) || 0;
                 playData.penalty_side = document.getElementById('penaltySide').value;
-                playData.yards_gained = 0; // Penalties don't count as offensive yards
+                playData.yards_gained = 0; // Penalties don't count as offensive yards (handled separately)
                 playData.players_involved = []; // No players involved in penalties for stats
             } else {
-                playData.yards_gained = parseInt(document.getElementById('yardsGained').value) || 0;
+                // Validate new field position exists
+                const newFPInput = document.getElementById('newFieldPosition');
+                const newFPVal = newFPInput ? newFPInput.value : '';
+                if (newFPVal === '' || isNaN(parseInt(newFPVal))) {
+                    showAlert('Please enter the New Field Position (signed) to auto-calc yards gained.', 'warning');
+                    if (newFPInput) newFPInput.focus();
+                    showLoading(false);
+                    return;
+                }
+                // Compute yards_gained from start and new field positions
+                const fpEl = document.getElementById('fieldPosition');
+                if (!fpEl) {
+                    console.error('[AddPlay] Missing #fieldPosition element');
+                    (typeof showAlert === 'function' ? showAlert : (msg=>alert(msg)))('Form field missing: fieldPosition. Please reload the page.', 'danger');
+                    showLoading(false);
+                    return;
+                }
+                const startSigned = fieldStringToSigned(fpEl.value);
+                const endSigned = fieldStringToSigned(newFPVal);
+                playData.yards_gained = computeYardsFromSigned(startSigned, endSigned);
                 playData.players_involved = collectPlayerData();
             }
 
@@ -2761,6 +2965,7 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'same-origin',
                 body: JSON.stringify(playData)
             })
             .then(response => response.json())
@@ -2800,7 +3005,10 @@
                         
                         document.getElementById('down').value = data.next_situation.down || 1;
                         document.getElementById('distance').value = data.next_situation.distance || 10;
-                        document.getElementById('fieldPosition').value = data.next_situation.field_position || 'OWN 25';
+                        const signedNextFP = fieldStringToSigned(data.next_situation.field_position || 'OWN 25');
+                        document.getElementById('fieldPosition').value = signedNextFP;
+                        const newFP = document.getElementById('newFieldPosition');
+                        if (newFP) newFP.value = signedNextFP;
                         
                         // Show visual feedback
                         ['down', 'distance', 'fieldPosition'].forEach(fieldId => {
@@ -2816,6 +3024,8 @@
                     } else {
                         console.log('No next_situation in response!');
                     }
+                    // Immediately refresh stats and UI so the new play and player analytics show up
+                    loadBoxStats().catch(console.error);
                     
                     // Update team advanced analytics if provided
                     if (data.team_stats) {
@@ -2835,16 +3045,21 @@
             })
             .catch(error => {
                 showLoading(false);
-                console.error('Error:', error);
+                console.error('[AddPlay] fetch error:', error);
                 showAlert('Error adding play: ' + error.message, 'danger');
             });
+            } catch (err) {
+                console.error('[AddPlay] exception before fetch:', err);
+                showAlert('Add Play failed: ' + (err && err.message ? err.message : err), 'danger');
+            }
         }
 
         // Clear form but keep automated values for next play
         function clearFormForNextPlay() {
             // Clear only player-specific and result fields
             document.getElementById('result').value = '';
-            document.getElementById('yardsGained').value = '0';
+            const newFP = document.getElementById('newFieldPosition');
+            if (newFP) newFP.value = '';
             document.getElementById('playType').value = '';
             
             // Clear selected players for next play
@@ -2867,9 +3082,18 @@
 
         // Intelligent auto-detection for play types and player roles
         function applyIntelligentAutoDetection() {
-            const playType = document.getElementById('playType').value.toLowerCase();
-            const result = document.getElementById('result').value.toLowerCase();
-            const yardsGained = parseInt(document.getElementById('yardsGained').value) || 0;
+            const playTypeEl = document.getElementById('playType');
+            const resultEl = document.getElementById('result');
+            const fpEl = document.getElementById('fieldPosition');
+            const newFpEl = document.getElementById('newFieldPosition');
+            const playType = (playTypeEl && playTypeEl.value ? playTypeEl.value : '').toLowerCase();
+            const result = (resultEl && resultEl.value ? resultEl.value : '').toLowerCase();
+            let yardsGained = 0;
+            if (fpEl && newFpEl && newFpEl.value !== '') {
+                const startSigned = fieldStringToSigned(fpEl.value);
+                const endSigned = fieldStringToSigned(newFpEl.value);
+                yardsGained = computeYardsFromSigned(startSigned, endSigned);
+            }
             
             // Check for touchdown scenarios
             const isTouchdown = result.includes('touchdown') || result.includes('td') || result.includes('score');
@@ -4992,9 +5216,18 @@
 
         // NEE Progression Graph Functions
         let neeChart = null;
+        // Reuse a single modal instance to avoid aria-hidden/focus issues
+        let graphModalInstance = null;
+        function getGraphModal() {
+            const el = document.getElementById('neeGraphModal');
+            if (!graphModalInstance) {
+                graphModalInstance = bootstrap.Modal.getOrCreateInstance(el);
+            }
+            return graphModalInstance;
+        }
 
         function showTeamNeeGraph() {
-            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const modal = getGraphModal();
             document.getElementById('neeGraphModalTitle').textContent = 'Team NEE Progression';
             
             // Show loading
@@ -5011,6 +5244,7 @@
                         displayProgressionGraph(data.nee_progression, 'Team NEE', data.current_nee, 'nee', '', 'rgb(75, 192, 192)');
                     } else {
                         showAlert('Error loading team NEE data: ' + data.error, 'danger');
+                        if (document.activeElement) document.activeElement.blur();
                         modal.hide();
                     }
                 })
@@ -5022,7 +5256,7 @@
         }
 
         function showPlayerNeeGraph(playerNumber) {
-            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const modal = getGraphModal();
             
             // Show loading
             document.getElementById('neeGraphLoading').style.display = 'block';
@@ -5040,6 +5274,7 @@
                         displayProgressionGraph(data.nee_progression, `#${data.player_number} ${data.player_name} NEE`, data.current_nee, 'nee', '', 'rgb(75, 192, 192)');
                     } else {
                         showAlert('Error loading player NEE data: ' + data.error, 'danger');
+                        if (document.activeElement) document.activeElement.blur();
                         modal.hide();
                     }
                 })
@@ -5052,7 +5287,7 @@
 
         // Phase-specific progression graphs
         function showPhaseNeeGraph(phase) {
-            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const modal = getGraphModal();
             const phaseTitle = phase.charAt(0).toUpperCase() + phase.slice(1);
             document.getElementById('neeGraphModalTitle').textContent = `${phaseTitle} NEE Progression`;
             
@@ -5070,6 +5305,7 @@
                         displayProgressionGraph(data.nee_progression, `${phaseTitle} NEE`, data.current_nee, 'nee', '', 'rgb(54, 162, 235)');
                     } else {
                         showAlert(`Error loading ${phase} NEE data: ` + data.error, 'danger');
+                        if (document.activeElement) document.activeElement.blur();
                         modal.hide();
                     }
                 })
@@ -5081,7 +5317,7 @@
         }
 
         function showPhaseEfficiencyGraph(phase) {
-            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const modal = getGraphModal();
             const phaseTitle = phase.charAt(0).toUpperCase() + phase.slice(1);
             document.getElementById('neeGraphModalTitle').textContent = `${phaseTitle} Efficiency Progression`;
             
@@ -5099,6 +5335,7 @@
                         displayProgressionGraph(data.efficiency_progression, `${phaseTitle} Efficiency`, data.current_efficiency, 'efficiency', '%', 'rgb(40, 167, 69)');
                     } else {
                         showAlert(`Error loading ${phase} efficiency data: ` + data.error, 'danger');
+                        if (document.activeElement) document.activeElement.blur();
                         modal.hide();
                     }
                 })
@@ -5110,7 +5347,7 @@
         }
 
         function showPhaseExplosiveGraph(phase) {
-            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const modal = getGraphModal();
             const phaseTitle = phase.charAt(0).toUpperCase() + phase.slice(1);
             document.getElementById('neeGraphModalTitle').textContent = `${phaseTitle} Explosive Rate Progression`;
             
@@ -5128,6 +5365,7 @@
                         displayProgressionGraph(data.explosive_progression, `${phaseTitle} Explosive Rate`, data.current_explosive_rate, 'explosive', '%', 'rgb(255, 193, 7)');
                     } else {
                         showAlert(`Error loading ${phase} explosive rate data: ` + data.error, 'danger');
+                        if (document.activeElement) document.activeElement.blur();
                         modal.hide();
                     }
                 })
@@ -5140,7 +5378,7 @@
 
         // Team Average Yards Graph
         function showTeamAvgYardsGraph() {
-            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const modal = getGraphModal();
             document.getElementById('neeGraphModalTitle').textContent = 'Team Average Yards Progression';
             
             // Show loading
@@ -5157,6 +5395,7 @@
                         displayProgressionGraph(data.avg_yards_progression, 'Team Avg Yards', data.current_avg_yards, 'avg_yards', ' yds', 'rgb(255, 193, 7)');
                     } else {
                         showAlert('Error loading team avg yards data: ' + data.error, 'danger');
+                        if (document.activeElement) document.activeElement.blur();
                         modal.hide();
                     }
                 })
@@ -5169,7 +5408,7 @@
 
         // Player Efficiency Graph
         function showPlayerEfficiencyGraph(playerNumber) {
-            const modal = new bootstrap.Modal(document.getElementById('neeGraphModal'));
+            const modal = getGraphModal();
             
             // Show loading
             document.getElementById('neeGraphLoading').style.display = 'block';
@@ -5187,6 +5426,7 @@
                         displayProgressionGraph(data.efficiency_progression, `#${data.player_number} ${data.player_name} Efficiency`, data.current_efficiency, 'efficiency', '%', 'rgb(40, 167, 69)');
                     } else {
                         showAlert('Error loading player efficiency data: ' + data.error, 'danger');
+                        if (document.activeElement) document.activeElement.blur();
                         modal.hide();
                     }
                 })
@@ -5446,7 +5686,7 @@
             document.getElementById('editPhase').value = play.phase || 'offense';
             document.getElementById('editDown').value = play.down || '';
             document.getElementById('editDistance').value = play.distance || '';
-            document.getElementById('editFieldPosition').value = play.field_position || '';
+            document.getElementById('editFieldPosition').value = fieldStringToSigned(play.field_position || 'OPP 25');
             document.getElementById('editPlayType').value = play.play_type || '';
             document.getElementById('editPlayCall').value = play.play_call || '';
             document.getElementById('editYardsGained').value = play.yards_gained || 0;
@@ -5729,7 +5969,7 @@
                 phase: document.getElementById('editPhase').value,
                 down: document.getElementById('editDown').value,
                 distance: parseInt(document.getElementById('editDistance').value),
-                field_position: document.getElementById('editFieldPosition').value,
+                field_position: fieldStringToSigned(document.getElementById('editFieldPosition').value),
                 play_type: document.getElementById('editPlayType').value,
                 play_call: document.getElementById('editPlayCall').value.trim(),
                 yards_gained: parseFloat(document.getElementById('editYardsGained').value)
@@ -5926,8 +6166,8 @@
                                 <input type="number" class="form-control" id="editDistance" min="1" max="99" required>
                             </div>
                             <div class="col-md-4">
-                                <label for="editFieldPosition" class="form-label">Field Position</label>
-                                <input type="text" class="form-control" id="editFieldPosition" placeholder="e.g., Own 25, Opp 40" required>
+                                <label for="editFieldPosition" class="form-label">Field Position (signed)</label>
+                                <input type="number" class="form-control" id="editFieldPosition" placeholder="-25 for OWN 25, 25 for OPP 25" required>
                             </div>
                         </div>
 

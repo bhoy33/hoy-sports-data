@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 import pandas as pd
 import os
 import json
@@ -8,8 +8,6 @@ import uuid
 import altair as alt
 from functools import wraps
 import pickle
-from datetime import datetime
-import hashlib
 import io
 import base64
 from reportlab.lib.pagesizes import letter, A4
@@ -222,6 +220,7 @@ class ServerSideSession:
 
 # Initialize Flask app
 app = Flask(__name__)
+app.config['JSON_SORT_KEYS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.secret_key = 'hoysportsdata_secret_key_2025'  # For session management
@@ -423,7 +422,7 @@ def recalculate_session_stats(session_id):
             }), 404
         
         # Force recalculation with updated defensive logic
-        recalculate_all_stats(box_stats)
+        # # recalculate_all_stats(box_stats)  # temporarily disabled  # temporarily disabled to preserve per-player increments
         
         # Update rates for all phases
         for phase in ['offense', 'defense', 'special_teams', 'overall']:
@@ -2055,11 +2054,53 @@ def generate_offensive_analysis(df):
 # IN-GAME BOX STATS ANALYTICS ROUTES
 # =====================================
 
+def _resolve_player(players: dict, player_number_or_key: str):
+    """Resolve a player entry from `players` by key or jersey number or name alias.
+    Returns (key, player_dict) or (None, None)."""
+    if not isinstance(players, dict):
+        return None, None
+    # 1) Direct key match
+    lookup = str(player_number_or_key)
+    if lookup in players:
+        return lookup, players[lookup]
+    # 2) Match by numeric jersey number value
+    try:
+        num = int(player_number_or_key)
+    except (TypeError, ValueError):
+        num = None
+    if num is not None:
+        for k, v in players.items():
+            # Some players may not have number
+            if v is not None and isinstance(v, dict) and v.get('number') == num:
+                return k, v
+    # 3) Support name-based keys (e.g., 'name:John Doe') or name equality
+    candidate = str(player_number_or_key).strip().lower()
+    for k, v in players.items():
+        if not isinstance(v, dict):
+            continue
+        pname = str(v.get('name', '')).strip().lower()
+        if k.startswith('name:'):
+            kname = k.split(':', 1)[1].strip().lower()
+            if candidate and (candidate == kname or candidate == pname):
+                return k, v
+        else:
+            if candidate and candidate == pname:
+                return k, v
+    return None, None
+
 @app.route('/analytics/box-stats')
 @login_required
 def box_stats_analytics():
     """In-Game Box Stats Analytics main page"""
     return render_template('box_stats.html')
+
+# Convenience redirects for common URLs
+@app.route('/box_stats', methods=['GET'])
+@app.route('/box-stats', methods=['GET'])
+@login_required
+def box_stats_redirect():
+    # Redirect to the canonical analytics route
+    return redirect(url_for('box_stats_analytics'))
 
 @app.route('/box_stats/add_play', methods=['POST'])
 @login_required
@@ -2214,6 +2255,21 @@ def add_box_stats_play():
         if 'play_call_stats' not in box_stats:
             box_stats['play_call_stats'] = {}
         
+        # Normalize players array: prefer 'players_involved', fallback to legacy 'players'
+        players_involved = data.get('players_involved')
+        # If single-object, wrap into list
+        if isinstance(players_involved, dict):
+            players_involved = [players_involved]
+        # If empty or invalid, fallback to legacy 'players'
+        if not players_involved or (isinstance(players_involved, list) and len(players_involved) == 0):
+            legacy_players = data.get('players')
+            if isinstance(legacy_players, dict):
+                legacy_players = [legacy_players]
+            if legacy_players and isinstance(legacy_players, list):
+                players_involved = legacy_players
+            else:
+                players_involved = []
+
         # Extract play data
         play_data = {
             'play_number': data.get('play_number'),
@@ -2224,7 +2280,7 @@ def add_box_stats_play():
             'play_call': data.get('play_call'),  # Optional play call field
             'result': data.get('result'),
             'yards_gained': data.get('yards_gained', 0),
-            'players_involved': data.get('players_involved', []),
+            'players_involved': players_involved,
             'timestamp': data.get('timestamp'),
             'phase': data.get('phase', 'offense').lower()  # Store the phase in play data
         }
@@ -2626,14 +2682,20 @@ def add_box_stats_play():
             for player in play_data['players_involved']:
                 player_num = player.get('number')
                 print(f"DEBUG: Processing player - raw data: {player}")
-                if player_num:
-                    # Ensure player_num is a string for consistent session storage
+                # Fallback: if number missing, use name as key to avoid dropping stats
+                player_key = None
+                if player_num is not None and player_num != "":
                     player_key = str(player_num)
+                else:
+                    pname = str(player.get('name', '')).strip()
+                    if pname:
+                        player_key = f"name:{pname}"
+                if player_key:
                     print(f"DEBUG: Player key: {player_key}, Player number: {player_num}")
                     if player_key not in box_stats['players']:
                         box_stats['players'][player_key] = {
-                            'number': int(player_num),  # Store as int for display
-                            'name': str(player.get('name', f'Player #{player_num}')),
+                            'number': int(player_num) if str(player_num).isdigit() else None,
+                            'name': str(player.get('name', f'Player #{player_num if player_num else "?"}')),
                             'position': str(player.get('position', '')),
                             # Offensive stats
                             'rushing_attempts': 0,
@@ -2706,9 +2768,37 @@ def add_box_stats_play():
                         if field not in player_stats:
                             player_stats[field] = default_value
                     
-                    role = str(player.get('role', ''))
-                    
-                    # Update basic stats based on role
+                    # Normalize role from UI to canonical values
+                    raw_role = str(player.get('role', '')).strip().lower()
+                    role_map = {
+                        # offense
+                        'ball_carrier': 'rusher', 'runner': 'rusher', 'rush': 'rusher',
+                        'wr': 'receiver', 'rec': 'receiver', 'catch': 'receiver',
+                        'qb': 'passer', 'quarterback': 'passer', 'thrower': 'passer',
+                        # defense
+                        'tackle': 'tackler', 'tk': 'tackler', 'tacklesolo': 'tackler',
+                        'assist_tackle': 'assist', 'assist': 'assist',
+                        'sack': 'sacker', 'sacker': 'sacker',
+                        'int': 'interceptor', 'interception': 'interceptor', 'interceptor': 'interceptor',
+                        'pbu': 'pass_breakup'
+                    }
+                    role = role_map.get(raw_role, raw_role)
+                    # If defensive phase and role missing, infer from play_type
+                    if (not role) and current_phase == 'defense':
+                        base_pt = play_data.get('play_type', '')
+                        if base_pt == 'pass':
+                            role = 'receiver'
+                        elif base_pt == 'rush':
+                            role = 'rusher'
+                    # Passing play inference for offense/special teams
+                    if (not role) and is_passing_play:
+                        pos = str(player.get('position', '')).strip().upper()
+                        if pos == 'QB':
+                            role = 'passer'
+                        elif yards_gained > 0:
+                            role = 'receiver'
+
+                    # Update basic stats based on normalized role
                     if role == 'rusher':
                         player_stats['rushing_attempts'] += 1
                         player_stats['rushing_yards'] += yards_gained
@@ -2737,6 +2827,7 @@ def add_box_stats_play():
                         player_stats['tackles_for_loss'] += 1
                     elif role == 'interceptor':
                         player_stats['interceptions_def'] += 1
+                        player_stats['return_yards'] += max(0, player.get('return_yards', yards_gained if yards_gained > 0 else 0))
                         if player.get('touchdown', False):
                             player_stats['defensive_tds'] += 1
                     elif role == 'fumble_forcer':
@@ -2952,9 +3043,8 @@ def add_box_stats_play():
                     
                     # Note: Advanced analytics for QB will be handled in the main player loop if QB is in players_involved
         
-        # Final safeguard: fully recompute stats to ensure consistency across all views
-        # This guarantees explosive/negative rates are reflected even if any incremental path missed an update
-        recalculate_all_stats(box_stats)
+        # Final safeguard disabled temporarily to preserve per-player stats after add
+        # recalculate_all_stats(box_stats)
 
         # Save updated data to server-side storage before returning
         server_session.save_session_data(session_id, box_stats_data)
@@ -2974,7 +3064,9 @@ def add_box_stats_play():
             # Debug fields surfaced to the client for verification
             'debug_play_type_mapped': play_type,
             'debug_team_explosive': bool(team_explosive_this_play),
-            'debug_team_negative': bool(team_negative_this_play)
+            'debug_team_negative': bool(team_negative_this_play),
+            'player_count': len(box_stats.get('players', {})),
+            'player_keys_sample': list(box_stats.get('players', {}).keys())[:5]
         })
         
     except Exception as e:
@@ -3520,7 +3612,7 @@ def update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is
                 'nee_score': 0.0,
                 'success_rate': 0.0,
                 'play_type_breakdown': {},
-                'down_breakdown': {1: 0, 2: 0, 3: 0, 4: 0},
+                'down_breakdown': {'1': 0, '2': 0, '3': 0, '4': 0},
                 'distance_breakdown': {'short': 0, 'medium': 0, 'long': 0}
             }
         
@@ -3555,14 +3647,19 @@ def update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is
         if play_type not in stats['play_type_breakdown']:
             stats['play_type_breakdown'][play_type] = 0
         stats['play_type_breakdown'][play_type] += 1
-        
         # Update down breakdown
-        down = play_data.get('down', 1)
-        if down in stats['down_breakdown']:
-            stats['down_breakdown'][down] += 1
-        
+        try:
+            down = int(play_data.get('down', 1))
+        except Exception:
+            down = 1
+        down = str(down)
+        if str(down) in stats['down_breakdown']:
+            stats['down_breakdown'][str(down)] += 1
         # Update distance breakdown
-        distance = play_data.get('distance', 10)
+        try:
+            distance = int(play_data.get('distance', 10))
+        except Exception:
+            distance = 10
         if distance <= 3:
             stats['distance_breakdown']['short'] += 1
         elif distance <= 7:
@@ -3589,6 +3686,42 @@ def update_play_call_analytics(box_stats, play_call, play_data, yards_gained, is
     except Exception as e:
         print(f"Error updating play call analytics: {str(e)}")
 
+def parse_field_position(fp):
+    """Parse field position accepting signed ints or legacy 'OWN/OPP xx' strings.
+    Returns tuple: (side: 'OWN'|'OPP', yard: int 1..50)
+    """
+    try:
+        # Signed integer or numeric string
+        if isinstance(fp, (int, float)) or (isinstance(fp, str) and fp.strip().lstrip('+-').isdigit()):
+            val = int(fp)
+            side = 'OWN' if val < 0 else 'OPP'
+            yard = max(1, min(50, abs(val) if val != 0 else 25))
+            return side, yard
+        # Legacy string format
+        s = str(fp).strip().upper()
+        parts = s.split()
+        if len(parts) >= 2:
+            side = 'OWN' if parts[0] == 'OWN' else 'OPP'
+            try:
+                yard = int(parts[1])
+            except Exception:
+                yard = 25
+            yard = max(1, min(50, yard))
+            return side, yard
+        return 'OWN', 25
+    except Exception:
+        return 'OWN', 25
+
+def field_string_from_signed(val):
+    """Convert a signed field position integer to legacy 'OWN/OPP xx' string."""
+    try:
+        v = int(val)
+        side = 'OWN' if v < 0 else 'OPP'
+        yard = max(1, min(50, abs(v) if v != 0 else 25))
+        return f"{side} {yard}"
+    except Exception:
+        return 'OPP 25'
+
 def calculate_penalty_situation(current_play, all_plays):
     """Calculate next down, distance, and field position for penalty plays"""
     try:
@@ -3597,44 +3730,25 @@ def calculate_penalty_situation(current_play, all_plays):
         current_field_position = current_play.get('field_position', 'OWN 25')
         penalty_yards = int(current_play.get('penalty_yards', 0))
         penalty_side = current_play.get('penalty_side', 'offense')
-        
-        print(f"DEBUG PENALTY: Input - down: {current_down}, distance: {current_distance}, field_position: {current_field_position}, penalty_yards: {penalty_yards}, penalty_side: {penalty_side}")
-        
-        # Parse current field position
-        field_parts = current_field_position.strip().split()
-        if len(field_parts) >= 2:
-            side = field_parts[0]
-            try:
-                yard_line = int(field_parts[1])
-            except (ValueError, IndexError):
-                yard_line = 25
-        else:
-            side = "OWN"
-            yard_line = 25
-        
-        # Calculate field position change based on penalty
-        if penalty_side == 'offense':
-            # Offensive penalty - move ball back (negative yards for offense)
-            effective_yards = -penalty_yards
-        else:
-            # Defensive penalty - move ball forward (positive yards for offense)
-            effective_yards = penalty_yards
-        
-        print(f"DEBUG PENALTY: Effective yards for field position: {effective_yards}")
-        
-        # Calculate new field position using penalty yards
-        if side == "OWN":
+
+        # Parse current field position into side and yard line
+        side, yard_line = parse_field_position(current_field_position)
+
+        # Effective yards for offense perspective
+        effective_yards = -penalty_yards if penalty_side == 'offense' else penalty_yards
+
+        # Apply penalty movement
+        if side == 'OWN':
             new_yard_line = int(yard_line) + effective_yards
             if new_yard_line >= 50:
-                new_side = "OPP"
+                new_side = 'OPP'
                 new_yard_line = 100 - new_yard_line
                 new_yard_line = max(1, new_yard_line)
             elif new_yard_line <= 0:
-                # Safety or backed up to own endzone
-                new_side = "OWN"
+                new_side = 'OWN'
                 new_yard_line = max(1, new_yard_line)
             else:
-                new_side = "OWN"
+                new_side = 'OWN'
         else:  # OPP side
             new_yard_line = int(yard_line) - effective_yards
             if new_yard_line <= 0:
@@ -3647,30 +3761,26 @@ def calculate_penalty_situation(current_play, all_plays):
                     'reason': 'Penalty resulted in touchdown - Reset for next drive'
                 }
             elif new_yard_line > 50:
-                new_side = "OWN"
+                new_side = 'OWN'
                 new_yard_line = 100 - new_yard_line
             else:
-                new_side = "OPP"
+                new_side = 'OPP'
                 new_yard_line = max(1, new_yard_line)
-        
-        # Ensure final yard line is valid
+
+        # Finalize field position
         final_yard_line = max(1, abs(int(new_yard_line)))
         new_field_position = f"{new_side} {final_yard_line}"
-        
+
         # Penalty down/distance logic
         if penalty_side == 'defense':
-            # Defensive penalty - automatic first down
             new_down = 1
             new_distance = 10
             reason = f"Defensive penalty: Automatic first down at {new_field_position}"
         else:
-            # Offensive penalty - repeat down with increased distance
             new_down = current_down
             new_distance = current_distance + penalty_yards
             reason = f"Offensive penalty: Repeat {current_down} down with {penalty_yards} yard penalty"
-        
-        print(f"DEBUG PENALTY: Result - down: {new_down}, distance: {new_distance}, field_position: {new_field_position}")
-        
+
         return {
             'down': new_down,
             'distance': new_distance,
@@ -3678,9 +3788,8 @@ def calculate_penalty_situation(current_play, all_plays):
             'auto_calculated': True,
             'reason': reason
         }
-        
+
     except Exception as e:
-        print(f"ERROR in calculate_penalty_situation: {str(e)}")
         return {
             'down': 1,
             'distance': 10,
@@ -3697,37 +3806,22 @@ def calculate_next_situation(current_play, all_plays):
         current_field_position = current_play.get('field_position', 'OWN 25')
         yards_gained = int(current_play.get('yards_gained', 0))
         play_result = str(current_play.get('result', '')).lower()
-        
-        print(f"DEBUG: Input - down: {current_down}, distance: {current_distance}, field_position: {current_field_position}, yards_gained: {yards_gained}")
-        
-        # Parse current field position
-        field_parts = current_field_position.strip().split()
-        if len(field_parts) >= 2:
-            side = field_parts[0]
-            try:
-                yard_line = int(field_parts[1])
-            except (ValueError, IndexError):
-                yard_line = 25
-        else:
-            side = "OWN"
-            yard_line = 25
-        
-        # Calculate new field position
-        print(f"DEBUG: Starting calculation - side: {side}, yard_line: {yard_line}, yards_gained: {yards_gained}")
-        
-        if side == "OWN":
+
+        side, yard_line = parse_field_position(current_field_position)
+
+        # Compute new field position
+        if side == 'OWN':
             new_yard_line = int(yard_line) + int(yards_gained)
             if new_yard_line >= 50:
-                new_side = "OPP"
+                new_side = 'OPP'
                 new_yard_line = 100 - new_yard_line
                 new_yard_line = max(1, new_yard_line)
             else:
-                new_side = "OWN"
+                new_side = 'OWN'
         else:  # OPP side
             new_yard_line = int(yard_line) - int(yards_gained)
             if new_yard_line <= 0:
-                # Touchdown!
-                print("DEBUG: Touchdown detected")
+                # Touchdown
                 return {
                     'down': 1,
                     'distance': 10,
@@ -3736,41 +3830,35 @@ def calculate_next_situation(current_play, all_plays):
                     'reason': 'Touchdown - Reset for next drive'
                 }
             elif new_yard_line > 50:
-                new_side = "OWN"
+                new_side = 'OWN'
                 new_yard_line = 100 - new_yard_line
             else:
-                new_side = "OPP"
+                new_side = 'OPP'
                 new_yard_line = max(1, new_yard_line)
-        
-        print(f"DEBUG: After calculation - new_side: {new_side}, new_yard_line: {new_yard_line}")
-        
-        # Ensure final yard line is never 0
+
         final_yard_line = max(1, abs(int(new_yard_line)))
         new_field_position = f"{new_side} {final_yard_line}"
-        
-        # Determine next down and distance
+
+        # Next down and distance
         remaining_distance = int(current_distance) - int(yards_gained)
-        print(f"DEBUG: Down calculation - current_down: {current_down}, remaining_distance: {remaining_distance}")
-        
-        # Check for first down
         if remaining_distance <= 0:
             next_down = 1
             next_distance = 10
-            reason = "First down achieved"
+            reason = 'First down achieved'
         elif int(current_down) >= 4:
             next_down = 1
             next_distance = 10
-            if new_side == "OWN":
+            if new_side == 'OWN':
                 new_field_position = f"OPP {100 - abs(int(new_yard_line))}"
             else:
                 new_field_position = f"OWN {100 - abs(int(new_yard_line))}"
-            reason = "Turnover on downs"
+            reason = 'Turnover on downs'
         else:
             next_down = int(current_down) + 1
             next_distance = max(1, remaining_distance)
             reason = f"Next down: {next_down} & {next_distance}"
-        
-        # Handle special cases
+
+        # Special cases from result
         if any(keyword in play_result for keyword in ['touchdown', 'td', 'score']):
             return {
                 'down': 1,
@@ -3780,7 +3868,7 @@ def calculate_next_situation(current_play, all_plays):
                 'reason': 'Touchdown scored - Reset for next drive'
             }
         elif any(keyword in play_result for keyword in ['interception', 'int', 'fumble', 'turnover']):
-            if new_side == "OWN":
+            if new_side == 'OWN':
                 new_field_position = f"OPP {100 - abs(int(new_yard_line))}"
             else:
                 new_field_position = f"OWN {100 - abs(int(new_yard_line))}"
@@ -3791,7 +3879,7 @@ def calculate_next_situation(current_play, all_plays):
                 'auto_calculated': True,
                 'reason': 'Turnover - Opponent takes possession'
             }
-        
+
         return {
             'down': next_down,
             'distance': next_distance,
@@ -3799,9 +3887,8 @@ def calculate_next_situation(current_play, all_plays):
             'auto_calculated': True,
             'reason': reason
         }
-        
+
     except Exception as e:
-        # Fallback to safe defaults
         return {
             'down': 1,
             'distance': 10,
@@ -3809,6 +3896,73 @@ def calculate_next_situation(current_play, all_plays):
             'auto_calculated': False,
             'reason': f'Error calculating: {str(e)}'
         }
+
+
+        side, yard_line = parse_field_position(current_field_position)
+
+        # Effective yards for offense perspective
+        effective_yards = -penalty_yards if penalty_side == 'offense' else penalty_yards
+
+        # Move ball according to side
+        if side == 'OWN':
+            new_yard_line = int(yard_line) + effective_yards
+            if new_yard_line >= 50:
+                new_side = 'OPP'
+                new_yard_line = 100 - new_yard_line
+                new_yard_line = max(1, new_yard_line)
+            elif new_yard_line <= 0:
+                new_side = 'OWN'
+                new_yard_line = max(1, new_yard_line)
+            else:
+                new_side = 'OWN'
+        else:  # OPP side
+            new_yard_line = int(yard_line) - effective_yards
+            if new_yard_line <= 0:
+                # Touchdown due to penalty
+                return {
+                    'down': 1,
+                    'distance': 10,
+                    'field_position': 'OWN 25',
+                    'auto_calculated': True,
+                    'reason': 'Penalty resulted in touchdown - Reset for next drive'
+                }
+            elif new_yard_line > 50:
+                new_side = 'OWN'
+                new_yard_line = 100 - new_yard_line
+            else:
+                new_side = 'OPP'
+                new_yard_line = max(1, new_yard_line)
+
+        final_yard_line = max(1, abs(int(new_yard_line)))
+        new_field_position = f"{new_side} {final_yard_line}"
+
+        # Penalty down/distance logic
+        if penalty_side == 'defense':
+            new_down = 1
+            new_distance = 10
+            reason = f"Defensive penalty: Automatic first down at {new_field_position}"
+        else:
+            new_down = current_down
+            new_distance = current_distance + penalty_yards
+            reason = f"Offensive penalty: Repeat {current_down} down with {penalty_yards} yard penalty"
+
+        return {
+            'down': new_down,
+            'distance': new_distance,
+            'field_position': new_field_position,
+            'auto_calculated': True,
+            'reason': reason
+        }
+
+    except Exception as e:
+        return {
+            'down': 1,
+            'distance': 10,
+            'field_position': 'OWN 25',
+            'auto_calculated': False,
+            'reason': f'Error calculating penalty situation: {str(e)}'
+        }
+
 
 @app.route('/box_stats/get_stats', methods=['GET'])
 @login_required
@@ -3867,6 +4021,14 @@ def get_box_stats():
         
         # Use the stored team stats from session (which include phase-separated analytics)
         # Frontend expects phase-separated stats: offense, defense, special_teams
+        # Normalize player keys to strings to avoid jsonify sort TypeErrors
+        players = box_stats.get('players', {})
+        if isinstance(players, dict):
+            normalized = {}
+            for k, v in players.items():
+                sk = 'unknown' if k is None else str(k)
+                normalized[sk] = v
+            box_stats['players'] = normalized
         team_stats = box_stats.get('team_stats', {})
         
         # Ensure phase-separated structure exists - but preserve existing calculated values
@@ -3913,7 +4075,18 @@ def get_box_stats():
         print(f"DEBUG GET_STATS: Defense explosive rate: {team_stats.get('defense', {}).get('explosive_rate', 'NOT_FOUND')}")
         print(f"DEBUG GET_STATS: Defense efficiency rate: {team_stats.get('defense', {}).get('efficiency_rate', 'NOT_FOUND')}")
         print(f"DEBUG GET_STATS: Defense NEE score: {team_stats.get('defense', {}).get('nee_score', 'NOT_FOUND')}")
-        
+
+        # Sanitize play_call_stats for JSON (convert int keys to strings)
+        try:
+            pcs = box_stats.get('play_call_stats', {})
+            for _phase in list(pcs.keys()):
+                for _pc, _stats in list(pcs.get(_phase, {}).items()):
+                    _db = _stats.get('down_breakdown')
+                    if isinstance(_db, dict):
+                        _stats['down_breakdown'] = {str(k): v for k, v in _db.items()}
+        except Exception as _e:
+            print(f'SANITIZE play_call_stats failed: {_e}')
+
         return jsonify({
             'success': True,
             'box_stats': box_stats,
@@ -3928,6 +4101,12 @@ def get_box_stats():
         })
         
     except Exception as e:
+        try:
+            print('GET_STATS ERROR:', e)
+            import traceback as _tb
+            print(_tb.format_exc())
+        except Exception:
+            pass
         return jsonify({'error': f'Error getting stats: {str(e)}'}), 500
 
 @app.route('/box_stats/get_down_analytics', methods=['GET'])
@@ -3948,15 +4127,15 @@ def get_down_analytics():
         down_analytics = {
             'offense': {
                 '1st': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
-                '2nd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
-                '3rd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
-                '4th': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0}
+                '2nd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0, 'distance_buckets': {'short': 0, 'medium': 0, 'long': 0}},
+                '3rd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0, 'distance_buckets': {'short': 0, 'medium': 0, 'long': 0}},
+                '4th': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0, 'distance_buckets': {'short': 0, 'medium': 0, 'long': 0}}
             },
             'defense': {
                 '1st': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
-                '2nd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
-                '3rd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0},
-                '4th': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0}
+                '2nd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0, 'distance_buckets': {'short': 0, 'medium': 0, 'long': 0}},
+                '3rd': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0, 'distance_buckets': {'short': 0, 'medium': 0, 'long': 0}},
+                '4th': {'total_plays': 0, 'efficient_plays': 0, 'explosive_plays': 0, 'negative_plays': 0, 'total_yards': 0, 'passing_plays': 0, 'rushing_plays': 0, 'passing_yards': 0, 'rushing_yards': 0, 'passing_efficient': 0, 'rushing_efficient': 0, 'passing_explosive': 0, 'rushing_explosive': 0, 'passing_negative': 0, 'rushing_negative': 0, 'distance_buckets': {'short': 0, 'medium': 0, 'long': 0}}
             }
         }
         
@@ -3972,6 +4151,10 @@ def get_down_analytics():
             
             down_key = f"{down}{'st' if down == '1' else 'nd' if down == '2' else 'rd' if down == '3' else 'th'}"
             yards_gained = int(play.get('yards_gained', 0))
+            try:
+                distance_to_go = int(play.get('distance', 0))
+            except Exception:
+                distance_to_go = 0
             play_type = play.get('play_type', '').lower()
             
             # Debug logging to verify phase assignment
@@ -4350,17 +4533,6 @@ def load_player_roster():
             response_data['performance_hint'] = 'large_roster'
         
         return jsonify(response_data)
-        
-    except Exception as e:
-        print(f"ERROR loading roster: {str(e)}")
-        return jsonify({'error': f'Error loading roster: {str(e)}'}), 500
-
-@app.route('/box_stats/get_rosters', methods=['GET'])
-@login_required
-def get_saved_rosters():
-    """Get all saved rosters for the current user"""
-    try:
-        # Get username from session
         username = session.get('username', 'anonymous')
         
         # Get user_id from Supabase
@@ -5773,12 +5945,10 @@ def get_player_nee_progression(player_number):
         box_stats_data = server_session.load_session_data(session_id)
         box_stats = box_stats_data.get('box_stats', {})
         players = box_stats.get('players', {})
-        
-        player_key = str(player_number)
-        if player_key not in players:
-            return jsonify({'error': f'Player #{player_number} not found'}), 404
-        
-        player_data = players[player_key]
+        # Resolve by key, number, or name
+        key, player_data = _resolve_player(players, str(player_number))
+        if not player_data:
+            return jsonify({'error': 'Player not found', 'requested': str(player_number), 'available_keys': list(players.keys())}), 404
         nee_progression = player_data.get('nee_progression', [])
         
         return jsonify({
@@ -5840,12 +6010,10 @@ def get_player_efficiency_progression(player_number):
         box_stats_data = server_session.load_session_data(session_id)
         box_stats = box_stats_data.get('box_stats', {})
         players = box_stats.get('players', {})
-        
-        player_key = str(player_number)
-        if player_key not in players:
-            return jsonify({'error': f'Player #{player_number} not found'}), 404
-        
-        player_data = players[player_key]
+        # Resolve by key, number, or name
+        key, player_data = _resolve_player(players, str(player_number))
+        if not player_data:
+            return jsonify({'error': 'Player not found', 'requested': str(player_number), 'available_keys': list(players.keys())}), 404
         efficiency_progression = player_data.get('efficiency_progression', [])
         
         return jsonify({
@@ -6019,12 +6187,10 @@ def get_player_explosive_progression(player_number):
         box_stats_data = server_session.load_session_data(session_id)
         box_stats = box_stats_data.get('box_stats', {})
         players = box_stats.get('players', {})
-        
-        player_key = str(player_number)
-        if player_key not in players:
-            return jsonify({'error': f'Player #{player_number} not found'}), 404
-        
-        player_data = players[player_key]
+        # Resolve by key, number, or name
+        key, player_data = _resolve_player(players, str(player_number))
+        if not player_data:
+            return jsonify({'error': 'Player not found', 'requested': str(player_number), 'available_keys': list(players.keys())}), 404
         explosive_progression = player_data.get('explosive_progression', [])
         
         return jsonify({
@@ -7118,12 +7284,11 @@ def export_player_pdf(player_key):
         box_stats_data = server_session.load_session_data(session_id)
         box_stats = box_stats_data.get('box_stats', {})
         players = box_stats.get('players', {})
-        
-        if player_key not in players:
+        # Resolve by key, number, or name
+        key, player_data = _resolve_player(players, str(player_key))
+        if not player_data:
             print(f"DEBUG: Player {player_key} not found")
-            return jsonify({'error': 'Player not found'}), 404
-        
-        player_data = players[player_key]
+            return jsonify({'error': 'Player not found', 'requested': str(player_key), 'available_keys': list(players.keys())}), 404
         chart_type = "Performance Analytics"
         
         print(f"DEBUG: Generating player PDF for {player_data.get('name', 'Unknown')}")
@@ -7162,7 +7327,7 @@ def export_player_chart(player_key, chart_type):
         if chart_type not in ['nee', 'efficiency', 'explosive']:
             return jsonify({'error': 'Invalid chart type'}), 400
         
-        # Generate chart
+        # Generate chart (player_key can be key, number, or name; the generator will scan players)
         chart_buffer = pdf_exporter.generate_player_chart(player_key, chart_type, session_id)
         
         if not chart_buffer:
@@ -7173,11 +7338,12 @@ def export_player_chart(player_key, chart_type):
         box_stats = box_stats_data.get('box_stats', {})
         players = box_stats.get('players', {})
         
-        player_name = "unknown"
-        for pid, pdata in players.items():
-            if str(pid) == str(player_key) or str(pdata.get('number')) == str(player_key):
-                player_name = pdata.get('name', f"player_{player_key}").replace(' ', '_')
-                break
+        # Resolve for filename
+        resolved_key, pdata = _resolve_player(players, str(player_key))
+        if pdata:
+            player_name = pdata.get('name', f"player_{player_key}").replace(' ', '_')
+        else:
+            player_name = str(player_key).replace(' ', '_') or "unknown"
         
         filename = f"{player_name}_{chart_type}_chart_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         
@@ -7274,7 +7440,7 @@ def database_status():
 
 if __name__ == '__main__':
     import os
-    port = int(os.environ.get('PORT', 5008))
+    port = int(os.environ.get('PORT', 5004))
     debug = os.environ.get('FLASK_ENV') != 'production'
     
     if debug:
